@@ -167,7 +167,13 @@ public class ArrayOpt
 				chip = new SimpleChip (rows, cols, probes, probe_len, embed_len);
 
 			else if (chip_type.equalsIgnoreCase("affy"))
-				chip = new AffymetrixChip (rows, cols, probes, probe_len, embed_len);
+			{
+				if (probe_len != AffymetrixChip.AFFY_PROBE_LENGTH)
+					throw new IllegalArgumentException
+						("Illegal probe length for an Affymetrix chip.");
+
+				chip = new AffymetrixChip (rows, cols, probes, embed_len);
+			}
 
 			else
 				throw new IllegalArgumentException
@@ -187,7 +193,7 @@ public class ArrayOpt
 			FileReader file = new FileReader(filename);
 
 			// read input
-			chip.readSpecification (file);
+			chip.readLayout (file);
 
 			// close reader
 			file.close();
@@ -209,7 +215,7 @@ public class ArrayOpt
 		try
 		{
 			// print chip layout
-			chip.printLayout(new PrintWriter(System.out));
+			chip.writeLayout(new PrintWriter(System.out));
 		}
 		catch (IOException e)
 		{

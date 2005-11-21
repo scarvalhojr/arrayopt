@@ -50,7 +50,7 @@ import java.util.regex.*;
 public class SimpleChip extends Chip
 {
 	/**
-	 * Creates a new chip instance.
+	 * Creates a new SimpleChip instance.
 	 *
 	 * @param num_rows number of rows of sites
 	 * @param num_cols number of columns of sites
@@ -58,7 +58,8 @@ public class SimpleChip extends Chip
 	 * @param probe_len length of probe sequences
 	 * @param embed_len length of embeddings (deposition sequence)
 	 */
-	public SimpleChip (int num_rows, int num_cols, int num_probes, int probe_len, int embed_len)
+	public SimpleChip (int num_rows, int num_cols, int num_probes,
+		int probe_len, int embed_len)
 	{
 		super (num_rows, num_cols, num_probes, probe_len, embed_len);
 
@@ -67,9 +68,28 @@ public class SimpleChip extends Chip
 	}
 
 	/**
-	 * Read a chip specification from a character input stream. The input must
-	 * consist of lines of text with the following TAB-delimited fields
-	 * describing a single spot of the chip:<BR>
+	 * Creates a new SimpleChip instance with a pre-defined deposition
+	 * sequence.
+	 *
+	 * @param num_rows number of rows of sites
+	 * @param num_cols number of columns of sites
+	 * @param num_probes total number of probes (not probe pairs or tuples)
+	 * @param probe_len length of the probes
+	 * @param dep_seq deposition sequence as a String
+	 */
+	public SimpleChip (int num_rows, int num_cols, int num_probes,
+		int probe_len, String dep_seq)
+	{
+		super (num_rows, num_cols, num_probes, probe_len, dep_seq);
+
+		// allocate space for a list of "moveable"-probe IDs
+		this.probe_list = new int [num_probes];
+	}
+
+	/**
+	 * Read a chip layout specification from a character input stream. The
+	 * input must consist of lines of text with the following TAB-delimited
+	 * fields describing a single spot of the chip:<BR>
 	 * <BR>
 	 * 1. Row number<BR>
 	 * 2. Column number<BR>
@@ -106,7 +126,7 @@ public class SimpleChip extends Chip
 	 * @param input an character input stream
 	 * @throws IOException if an I/O error occurrs or input is not compliantan
 	 */
-	public void readSpecification (Reader input) throws IOException
+	public void readLayout (Reader input) throws IOException
 	{
 		BufferedReader	in;
 		Pattern			parser;
@@ -116,7 +136,7 @@ public class SimpleChip extends Chip
 
 		// check if chip spec has already been input
 		if (input_done)
-			throw new IllegalStateException ("Chip specification has already been input.");
+			throw new IllegalStateException ("Chip layout specification has already been input.");
 
 		// mark all spots as uninitialized and not fixed
 		for (r = 0; r < num_rows; r++)
@@ -243,7 +263,7 @@ public class SimpleChip extends Chip
 	}
 
 	// x-pos (column), y-pos (row), group, fixed?, PM/MM, embedding
-	public void printLayout (PrintWriter out) throws IOException
+	public void writeLayout (PrintWriter out) throws IOException
 	{
 		int mask = 0, w, pos;
 

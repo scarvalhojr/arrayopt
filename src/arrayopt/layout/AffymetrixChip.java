@@ -57,9 +57,16 @@ import java.util.regex.*;
 public class AffymetrixChip extends Chip
 {
 	/**
-	 * This constant holds the default value for the length of Affymetrix probes.
+	 * This constant holds the length of Affymetrix probes (this cannot be
+	 * changed.
 	 */
 	public static final int AFFY_PROBE_LENGTH = 25;
+
+	/**
+	 * This constant holds the middle base position of a probe, where the PM
+	 * probes differ from the MM probes.
+	 */
+	public static final int AFFY_MIDDLE_BASE = 12;
 
 	/**
 	 * This constant holds the default deposition sequence of Affymetrix chips,
@@ -81,9 +88,8 @@ public class AffymetrixChip extends Chip
 	public char probe_type [];
 
 	/**
-	 * Creates a new chip instance with the default probe length (see
-	 * {@link #AFFY_PROBE_LENGTH}) and deposition sequence (see
-	 * {@link #AFFY_DEP_SEQ}).
+	 * Creates a new AffymetrixChip instance with the default deposition
+	 * sequence (see {@link #AFFY_DEP_SEQ}).
 	 *
 	 * @param num_rows number of rows of sites
 	 * @param num_cols number of columns of sites
@@ -91,25 +97,26 @@ public class AffymetrixChip extends Chip
 	 */
 	public AffymetrixChip (int num_rows, int num_cols, int num_probes)
 	{
-		this (num_rows, num_cols, num_probes, AFFY_PROBE_LENGTH, AFFY_DEP_SEQ.length);
+		this (num_rows, num_cols, num_probes, AFFY_DEP_SEQ.length);
 
 		// use Affymetrix deposition sequence
-		this.dep_seq = AFFY_DEP_SEQ;
+		for (int i = 0; i < AFFY_DEP_SEQ.length; i++)
+			this.dep_seq[i] = AFFY_DEP_SEQ[i];
 	}
 
 	/**
-	 * Creates a new chip instance with the specified probe length and
-	 * deposition sequence.
+	 * Creates a new AffymetrixChip instance with the specified embedding
+	 * length.
 	 *
 	 * @param num_rows number of rows of sites
 	 * @param num_cols number of columns of sites
 	 * @param num_probes total number of probes (not probe pairs)
-	 * @param probe_len length of probe sequences
 	 * @param embed_len length of embeddings (deposition sequence)
 	 */
-	public AffymetrixChip (int num_rows, int num_cols, int num_probes, int probe_len, int embed_len)
+	public AffymetrixChip (int num_rows, int num_cols, int num_probes,
+		int embed_len)
 	{
-		super (num_rows, num_cols, num_probes, probe_len, embed_len);
+		super (num_rows, num_cols, num_probes, AFFY_PROBE_LENGTH, embed_len);
 
 		// allocate space for a list of "moveable"-probe IDs
 		// (only IDs of PM probes are stored)
@@ -120,9 +127,32 @@ public class AffymetrixChip extends Chip
 	}
 
 	/**
-	 * Read a chip specification from a character input stream. The input must
-	 * consist of lines of text with the following TAB-delimited fields
-	 * describing a single spot of the chip:<BR>
+	 * Creates a new AffymetrixChip instance with the specified deposition
+	 * sequence.
+	 *
+	 * @param num_rows number of rows of sites
+	 * @param num_cols number of columns of sites
+	 * @param num_probes total number of probes (not probe pairs)
+	 * @param dep_seq deposition sequence as a String
+	 */
+	public AffymetrixChip (int num_rows, int num_cols, int num_probes,
+		String dep_seq)
+	{
+		super (num_rows, num_cols, num_probes, AFFY_PROBE_LENGTH,
+			dep_seq.length());
+
+		// allocate space for a list of "moveable"-probe IDs
+		// (only IDs of PM probes are stored)
+		this.probe_list = new int [num_probes / 2];
+
+		// allocate space for probe type info
+		this.probe_type = new char[num_probes];
+	}
+
+	/**
+	 * Read a chip layout specification from a character input stream. The
+	 * input must consist of lines of text with the following TAB-delimited
+	 * fields describing a single spot of the chip:<BR>
 	 * <BR>
 	 * 1. Row number<BR>
 	 * 2. Column number<BR>
@@ -163,7 +193,7 @@ public class AffymetrixChip extends Chip
 	 * @param input a character input stream
 	 * @throws IOException if an I/O error occurrs or input is not compliantan
 	 */
-	public void readSpecification (Reader input) throws IOException
+	public void readLayout (Reader input) throws IOException
 	{
 		BufferedReader	in;
 		Pattern			parser;
@@ -174,7 +204,7 @@ public class AffymetrixChip extends Chip
 
 		// check if chip spec has already been input
 		if (input_done)
-			throw new IllegalStateException ("Chip specification has already been input.");
+			throw new IllegalStateException ("Chip layout specification has already been input.");
 
 		// mark all spots as uninitialized and not fixed
 		for (r = 0; r < num_rows; r++)
@@ -310,7 +340,7 @@ public class AffymetrixChip extends Chip
 	}
 
 	// x-pos (column), y-pos (row), group, fixed?, PM/MM, embedding
-	public void printLayout (PrintWriter out) throws IOException
+	public void writeLayout (PrintWriter out) throws IOException
 	{
 		int mask = 0, w, pos;
 

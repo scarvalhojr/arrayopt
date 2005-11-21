@@ -195,10 +195,9 @@ public abstract class Chip
 	 * @param num_probes total number of probes (not probe pairs or tuples)
 	 * @param probe_len length of the probes
 	 * @param embed_len length of the embeddings (deposition sequence)
-	 * @throws IllegalArgumentException if probe scheme is unknown or
-	 * unsupported
 	 */
-	public Chip (int num_rows, int num_cols, int num_probes, int probe_len, int embed_len)
+	public Chip (int num_rows, int num_cols, int num_probes, int probe_len,
+		int embed_len)
 	{
 		// store chip parameters
 		this.num_rows = num_rows;
@@ -229,6 +228,25 @@ public abstract class Chip
 
 		// ...and that their placement is also pending
 		placement_done = false;
+	}
+
+	/**
+	 * Creates a new instance of a chip with a pre-defined deposition sequence.
+	 *
+	 * @param num_rows number of rows of sites
+	 * @param num_cols number of columns of sites
+	 * @param num_probes total number of probes (not probe pairs or tuples)
+	 * @param probe_len length of the probes
+	 * @param dep_seq deposition sequence as a String
+	 */
+	public Chip (int num_rows, int num_cols, int num_probes, int probe_len,
+		String dep_seq)
+	{
+		this (num_rows, num_cols, num_probes, probe_len, dep_seq.length());
+
+		// set deposition sequence
+		for (int i = 0; i < dep_seq.length(); i++)
+			this.dep_seq[i] = dep_seq.charAt(i);
 	}
 
 	/**
@@ -285,14 +303,15 @@ public abstract class Chip
 	}
 
 	/**
-	 * Read a chip specification from a character input stream. This method
-	 * must be provided by sub-classes who should specify the input's format.
+	 * Read a chip layout specification from a character input stream. This
+	 * method must be provided by sub-classes who should specify the input's
+	 * format.
 	 *
 	 * @param input an character input stream
 	 * @throws IOException if an I/O error occurrs or input does not comply
 	 * with the format rules
 	 */
-	public abstract void readSpecification (Reader input) throws IOException;
+	public abstract void readLayout (Reader input) throws IOException;
 
 	/**
 	 * This method stores a probe sequence as a binary string encoded in
@@ -420,7 +439,7 @@ public abstract class Chip
 	 * @param out a PrintWriter stream
 	 * @throws IOException if an error occurs while writing on the stream
 	 */
-	public abstract void printLayout (PrintWriter out) throws IOException;
+	public abstract void writeLayout (PrintWriter out) throws IOException;
 
 	/**
 	 * Prints the stored embedding of a probe on the standard output. This
