@@ -81,8 +81,8 @@ public class RandomFiller extends FillingAlgorithm
 				if (chip.spot[r][c] != chip.EMPTY_SPOT || chip.spot[r+1][c] != chip.EMPTY_SPOT)
 					continue;
 
-				// skip spot pair if fixed
-				if (chip.fixed[r][c] || chip.fixed[r+1][c])
+				// skip fixed spot pair
+				if (chip.isFixedSpot(r, c) || chip.isFixedSpot(r+1, c))
 					continue;
 
 				// select probe pair randomly

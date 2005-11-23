@@ -125,10 +125,9 @@ public class GreedyFiller extends FillingAlgorithm
 				if (chip.spot[r][c] != chip.EMPTY_SPOT || chip.spot[r+1][c] != chip.EMPTY_SPOT)
 					continue;
 
-				// UNCOMMENT THIS!!!    <===========
-				// skip spot pair if fixed
-				// if (chip.fixed[r][c] || chip.fixed[r+1][c])
-					// continue;
+				// skip fixed spot pair
+				if (chip.isFixedSpot(r, c) || chip.isFixedSpot(r+1, c))
+					continue;
 
 				// select probe pair which minimizes conflict
 				// (and move it to position 'first_probe' in the list)

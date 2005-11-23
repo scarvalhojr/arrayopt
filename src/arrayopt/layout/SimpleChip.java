@@ -91,8 +91,8 @@ public class SimpleChip extends Chip
 	 * input must consist of lines of text with the following TAB-delimited
 	 * fields describing a single spot of the chip:<BR>
 	 * <BR>
-	 * 1. Row number<BR>
-	 * 2. Column number<BR>
+	 * 1. Column number (X coordinate)<BR>
+	 * 2. Row number (Y coordinate)<BR>
 	 * 3. Group<BR>
 	 * 4. Fixed: <CODE>Y</CODE> or <CODE>N</CODE><BR>
 	 * 5. PM/MM: not used
@@ -143,7 +143,7 @@ public class SimpleChip extends Chip
 			for (c = 0; c < num_cols; c++)
 			{
 				this.spot[r][c] = UNINITIALIZED_SPOT;
-				this.fixed[r][c] = false;
+				setFixedSpot (r, c, false);
 			}
 
 		// crete a buffered reader to read lines
@@ -200,11 +200,8 @@ public class SimpleChip extends Chip
 			if (probe_id >= num_probes)
 				throw new IOException ("Found more probes than expected.");
 
-			if (fixed)
-			{
-				// mark spot as fixed
-				this.fixed[r][c] = true;
-			}
+			// mark spot as fixed or non-fixed
+			setFixedSpot(r, c, fixed);
 
 			if (empty)
 			{
@@ -251,9 +248,9 @@ public class SimpleChip extends Chip
 			for (int c = 0; c < num_cols; c++)
 				if (spot[r][c] != EMPTY_SPOT && spot[r][c] != UNINITIALIZED_SPOT)
 				{
-					if (!fixed[r][c])
+					// ignore fixed spots
+					if (!isFixedSpot(r, c))
 					{
-						// all IDs are added to the list
 						probe_list[i++] = spot[r][c];
 					}
 				}
@@ -272,12 +269,12 @@ public class SimpleChip extends Chip
 				if (spot[r][c] == EMPTY_SPOT)
 				{
 					// print empty spot
-					out.println(c + "\t" + r + "\tEMPTY\t" + (fixed[r][c] ? 'Y' : 'N') + "\t-\t-\t-");
+					out.println(c + "\t" + r + "\tEMPTY\t" + (isFixedSpot(r, c) ? 'Y' : 'N') + "\t-\t-\t-");
 				}
 				else
 				{
 					// print spot coordinates
-					out.print(c + "\t" + r + "\t-\t" + (fixed[r][c] ? 'Y' : 'N') + "\t-\t");
+					out.print(c + "\t" + r + "\t-\t" + (isFixedSpot(r, c) ? 'Y' : 'N') + "\t-\t");
 
 					// print probe
 					for (w = -1, pos = 0; pos < embed_len; pos++)

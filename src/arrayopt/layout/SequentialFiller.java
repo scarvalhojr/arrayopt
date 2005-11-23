@@ -81,10 +81,8 @@ public class SequentialFiller extends FillingAlgorithm
 				if (chip.spot[r][c] != chip.EMPTY_SPOT)
 					continue;
 
-				// UNCOMMENT THIS!!!    <===========
-				// skip spot if fixed
-				// if (chip.fixed[r][c])
-					// continue;
+				// skip fixed spots
+				if (chip.isFixedSpot(r, c)) continue;
 
 				chip.spot[r][c] = chip.probe_list[first_probe];
 
@@ -110,10 +108,9 @@ public class SequentialFiller extends FillingAlgorithm
 				if (chip.spot[r][c] != chip.EMPTY_SPOT || chip.spot[r+1][c] != chip.EMPTY_SPOT)
 					continue;
 
-				// UNCOMMENT THIS!!!    <===========
-				// skip spot if fixed
-				// if (chip.fixed[r][c])
-					// continue;
+				// skip fixed spot pairss
+				if (chip.isFixedSpot(r, c) || chip.isFixedSpot(r+1, c))
+					continue;
 
 				chip.spot[r][c] = chip.probe_list[first_probe];
 				chip.spot[r+1][c] = chip.probe_list[first_probe] + 1;
@@ -127,6 +124,6 @@ public class SequentialFiller extends FillingAlgorithm
 		}
 
 		// some probes could not be placed
-		return last_probe - first_probe + 1;
+		return 2 * (last_probe - first_probe + 1);
 	}
 }

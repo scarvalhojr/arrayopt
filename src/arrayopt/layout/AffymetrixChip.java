@@ -37,8 +37,9 @@
 
 package arrayopt.layout;
 
-import java.io.*;
 import java.util.regex.*;
+import java.util.*;
+import java.io.*;
 
 /**
  * This class represents Affymetrix chips. The main particularity of this type
@@ -79,13 +80,23 @@ public class AffymetrixChip extends Chip
 		'A','T','G','C','A','T','G','C','A','T','G','C','A','T','G'};
 
 	/**
-	 * An array signalling each probe's type. The accepted values are
-	 * <CODE>P</CODE> (for PM probes) and <CODE>M</CODE> (for MM probes).
-	 *
-	 * <B>Implementaion note:</B> this should be changed to an array of
-	 * <EM>bytes</EM>.
+	 * This constant holds the character used to indicate if a probe is a PM
+	 * (perfect match) probe.
 	 */
-	public char probe_type [];
+	public static final char AFFY_PM_PROBE = 'P';
+
+	/**
+	 * This constant holds the character used to indicate if a probe is a PM
+	 * (perfect match) probe.
+	 */
+	public static final char AFFY_MM_PROBE = 'M';
+
+	/**
+	 * Flags PM (perfect match) probes. If a probe is not a PM probe, it must
+	 * be a MM (mismatch) probe. <B>Implementation note:</B> this is
+	 * implemented as a BitSet to reduce memory usage.
+	 */
+	protected BitSet pm_probe;
 
 	/**
 	 * Creates a new AffymetrixChip instance with the default deposition
@@ -118,12 +129,12 @@ public class AffymetrixChip extends Chip
 	{
 		super (num_rows, num_cols, num_probes, AFFY_PROBE_LENGTH, embed_len);
 
+		// create BitSet of flags for PM probes
+		this.pm_probe = new BitSet (num_probes);
+
 		// allocate space for a list of "moveable"-probe IDs
 		// (only IDs of PM probes are stored)
 		this.probe_list = new int [num_probes / 2];
-
-		// allocate space for probe type info
-		this.probe_type = new char[num_probes];
 	}
 
 	/**
@@ -139,14 +150,38 @@ public class AffymetrixChip extends Chip
 		String dep_seq)
 	{
 		super (num_rows, num_cols, num_probes, AFFY_PROBE_LENGTH,
-			dep_seq.length());
+			dep_seq);
+
+		// create BitSet of flags for PM probes
+		this.pm_probe = new BitSet (num_probes);
 
 		// allocate space for a list of "moveable"-probe IDs
 		// (only IDs of PM probes are stored)
 		this.probe_list = new int [num_probes / 2];
+	}
 
-		// allocate space for probe type info
-		this.probe_type = new char[num_probes];
+	/**
+	 * Returns true if a the probe with the given ID is a PM (perfect match)
+	 * probe, or false if the probe is a MM (mismatch) probe.
+	 *
+	 * @param probe_id probe ID
+	 * @return boolean indicating whether the probe is a PM probe
+	 */
+	public boolean isPMProbe (int probe_id)
+	{
+		return this.pm_probe.get (probe_id);
+	}
+
+	/**
+	 * Marks the probe with a given ID as a PM (perfect match) probe or as a MM
+	 * (mismatch) probe.
+	 *
+	 * @param probe_id probe ID
+	 * @param flag true if the probe is a PM probe, false otherwise
+	 */
+	protected void setPMProbe (int probe_id, boolean flag)
+	{
+		this.pm_probe.set (probe_id, flag);
 	}
 
 	/**
@@ -154,8 +189,8 @@ public class AffymetrixChip extends Chip
 	 * input must consist of lines of text with the following TAB-delimited
 	 * fields describing a single spot of the chip:<BR>
 	 * <BR>
-	 * 1. Row number<BR>
-	 * 2. Column number<BR>
+	 * 1. Column number (X coordinate)<BR>
+	 * 2. Row number (Y coordinate)<BR>
 	 * 3. Group<BR>
 	 * 4. Fixed: <CODE>Y</CODE> or <CODE>N</CODE><BR>
 	 * 5. PM/MM: <CODE>P</CODE> or <CODE>M</CODE><BR>
@@ -206,12 +241,12 @@ public class AffymetrixChip extends Chip
 		if (input_done)
 			throw new IllegalStateException ("Chip layout specification has already been input.");
 
-		// mark all spots as uninitialized and not fixed
+		// mark all spots as unitialized and not fixed
 		for (r = 0; r < num_rows; r++)
 			for (c = 0; c < num_cols; c++)
 			{
 				this.spot[r][c] = UNINITIALIZED_SPOT;
-				this.fixed[r][c] = false;
+				setFixedSpot(r, c, false);
 			}
 
 		// crete a buffered reader to read lines
@@ -245,7 +280,7 @@ public class AffymetrixChip extends Chip
 				// is spot empty?
 				empty = (field[6].equals("-")) ? true : false;
 
-				// probe type (only first character is stored)
+				// probe type (only first character is significant)
 				type = field[4].charAt(0);
 			}
 			catch (ArrayIndexOutOfBoundsException e)
@@ -271,11 +306,8 @@ public class AffymetrixChip extends Chip
 			if (probe_id >= num_probes)
 				throw new IOException ("Found more probes than expected.");
 
-			if (fixed)
-			{
-				// mark spot as fixed
-				this.fixed[r][c] = true;
-			}
+			// mark spot as fixed or non-fixed
+			setFixedSpot(r, c, fixed);
 
 			if (empty)
 			{
@@ -291,7 +323,13 @@ public class AffymetrixChip extends Chip
 			this.spot[r][c] = probe_id;
 
 			// save probe type
-			this.probe_type[probe_id] = type;
+			if (type == AFFY_PM_PROBE)
+				setPMProbe (probe_id, true);
+			else if (type == AFFY_MM_PROBE)
+				setPMProbe (probe_id, false);
+			else
+				throw new IOException ("Invalid probe type '" + type +
+					"' at row " + r + ", column " + c + ".");
 
 			try
 			{
@@ -325,13 +363,10 @@ public class AffymetrixChip extends Chip
 			for (int c = 0; c < num_cols; c++)
 				if (spot[r][c] != EMPTY_SPOT && spot[r][c] != UNINITIALIZED_SPOT)
 				{
-					// at the moment we just ignore fixed spots
-					// UNCOMMENT THIS!!!      <====
-					// if (!fixed[r][c])
+					// ignore fixed spots and add only PM probes
+					if (!isFixedSpot(r, c) && isPMProbe(spot[r][c]))
 					{
-						// only PM probe IDs are stored
-						if (probe_type[spot[r][c]] == 'P')
-							probe_list[i++] = spot[r][c];
+						probe_list[i++] = spot[r][c];
 					}
 				}
 
@@ -351,13 +386,13 @@ public class AffymetrixChip extends Chip
 				if (spot[r][c] == EMPTY_SPOT)
 				{
 					// print empty spot
-					out.println(c + "\t" + r + "\tEMPTY\t" + (fixed[r][c] ? 'Y' : 'N') + "\t-\t-\t-");
+					out.println(c + "\t" + r + "\tEMPTY\t" + (isFixedSpot(r, c) ? 'Y' : 'N') + "\t-\t-\t-");
 				}
 				else
 				{
 					// print spot coordinates
-					out.print(c + "\t" + r + "\t-\t" + (fixed[r][c] ? 'Y' : 'N') + "\t");
-					out.print(probe_type[spot[r][c]] + "\t");
+					out.print(c + "\t" + r + "\t-\t" + (isFixedSpot(r, c) ? 'Y' : 'N') + "\t");
+					out.print((isPMProbe(spot[r][c]) ? AFFY_PM_PROBE : AFFY_MM_PROBE) + "\t");
 
 					// print probe
 					for (w = -1, pos = 0; pos < embed_len; pos++)

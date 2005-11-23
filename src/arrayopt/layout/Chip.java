@@ -37,6 +37,7 @@
 
 package arrayopt.layout;
 
+import java.util.*;
 import java.io.*;
 
 /**
@@ -145,18 +146,19 @@ public abstract class Chip
 	 * spot is masked). For example, if the deposition sequence is
 	 * <CODE>'TGCATGCATGCA...'</CODE>, the embedding
 	 * <CODE>'0010111001001'</CODE> corresponds to the probe
-	 * <CODE>'CTGTA...'</CODE>. For ease of access, this array is a public
-	 * variable.
+	 * <CODE>'CTGTA...'</CODE>. <B>Implementation notes:</B> 1) for ease of
+	 * access, this array is a public variable; 2) its type should be changed
+	 * to byte to reduce memory requirements.
 	 */
 	public int embed[][];
 
 	/**
-	 * Flags that a spot cannot be changed, i.e. if it is empty is must remain
-	 * empty, if it contains a probe, this probe must remain there (it cannot
-	 * be moved to another spot). For ease of access, this matrix is a public
-	 * variable.
+	 * Flags which spots are fixed. Fixed spots cannot be changed, i.e. if they
+	 * are empty, they must remain empty; if they have a probe, this probe
+	 * cannot be moved anywhere else. <B>Implementation note:</B> this is
+	 * implemented as a BitSet to reduce memory usage.
 	 */
-	public boolean fixed [][];
+	protected BitSet fixed_spots;
 
 	/**
 	 * Indicates that the chip specification (list of probes, fixed spots,
@@ -221,7 +223,9 @@ public abstract class Chip
 
 		// allocate space for spots
 		this.spot = new int [num_rows][num_cols];
-		this.fixed = new boolean [num_rows][num_cols];
+
+		// create BitSet of flags for fixed spots
+		this.fixed_spots = new BitSet (num_rows * num_cols);
 
 		// flag that the probes must still be input...
 		input_done = false;
@@ -300,6 +304,48 @@ public abstract class Chip
 	public RectangularRegion getChipRegion ()
 	{
 		return new RectangularRegion (0, getNumberOfRows() - 1, 0, getNumberOfColumns() - 1);
+	}
+
+	/**
+	 * Returns true if the spot at position (row, col) is fixed (cannot be
+	 * changed), or false otherwise.
+	 *
+	 * @param row spot's row number
+	 * @param col spot's column number
+	 * @return boolean indicating whether the given spot is fixed or not
+	 */
+	public boolean isFixedSpot (int row, int col)
+	{
+		return this.fixed_spots.get (row * this.num_cols + col);
+	}
+
+	/**
+	 * Marks the spot at position (row, col) as fixed or non-fixed.
+	 *
+	 * @param row spot's row number
+	 * @param col spot's column number
+	 * @param fixed true is the spot must be fixed, false otherwise
+	 */
+	protected void setFixedSpot (int row, int col, boolean fixed)
+	{
+		this.fixed_spots.set (row * this.num_cols + col, fixed);
+	}
+
+	/**
+	 * Returns a BitSet containing a set of flags indicating which spots are
+	 * fixed and which spots are not. Fixed spots cannot be changed. This might
+	 * be useful in several cases, e.g. for a {@linkplain PlacementAlgorithm}
+	 * to know how many spots are fixed. Spot at position (row, col) has index
+	 * (row * num_cols + col) of the BitSet, where num_cols is the number of
+	 * columns this chip has. This method returns a clone of the current
+	 * BitSet, so changes will not affect the chip's layout.
+	 *
+	 * @return BitSet a set of bits as a BitSet instance indicating which spots
+	 * are fixed
+	 */
+	public BitSet getFixedSpots ()
+	{
+		return (BitSet) fixed_spots.clone();
 	}
 
 	/**
@@ -408,9 +454,7 @@ public abstract class Chip
 		// reset (non-fixed) spots
 		for (int r = 0; r < num_rows; r++)
 			for (int c = 0; c < num_cols; c++)
-				// at the moment we just ignore fixed spots
-				// UNCOMMENT THIS     <==============
-				// if (!this.fixed[r][c])
+				if (!isFixedSpot(r, c))
 					spot[r][c] = EMPTY_SPOT;
 
 		// execute placement algorithm
