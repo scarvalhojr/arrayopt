@@ -76,6 +76,21 @@ public class LeftMostEmbedding extends ProbeEmbeddingAlgorithm
 	 */
 	void reembedProbe (SimpleChip chip, int probe_id, int shift)
 	{
+	/*int mask = 0,intpos, oldembed, newembed, deppos = shift,
+	
+	
+	for (intpos = -1, oldembed =0; intpos < chip.embed[prob_id].length; oldembed++, intpos++)
+	{	
+		if (oldembed % Integer.Size == 0)
+		{	
+			intpos ++;
+			mask=0x01 << (Integer.Size-1);
+		}
+
+		if (chip.embed[probe_id][intpos] & mask)
+		{
+			while (chip.dep_seq[oldembed] != chip.dep_seq[deppos])	
+	}*/
 		// to do:
 
 		// reset bits up to position (shift - 1)
