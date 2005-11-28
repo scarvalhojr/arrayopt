@@ -38,14 +38,14 @@
 package arrayopt.layout;
 
 /**
- * please document this
+ * This class contains centered algorithm for several microarray chips
  *
- * @author WRITE YOUR NAME HERE
+ * @author Anna Domanski & Ronny Gärtner
  */
 public class CenteredEmbedding extends ProbeEmbeddingAlgorithm
 {
 	/**
-	 * please document this
+	 * embeds a single probe of a chip
 	 */
 	public void reembedProbe (Chip chip, int probe_id)
 	{
@@ -60,12 +60,37 @@ public class CenteredEmbedding extends ProbeEmbeddingAlgorithm
 	}
 
 	/**
-	 * please document this
+	 * embeds a probe of a simple chip so that the bases of the probe will be 
 	 */
 	public void reembedProbe (SimpleChip chip, int probe_id)
 	{
 		// to do:
-
+		LeftMostEmbedding embedder = new LeftMostEmbedding();
+		boolean isshift = false;
+		int shift = 0, spaces = 0, mask = 1; 
+		int int_index = chip.embed[probe_id].length;
+		int pos = chip.embed_len;	
+	
+		embedder.reembedProbe(chip,probe_id);
+		while(!isshift)
+		{
+			if ((chip.embed[probe_id][int_index] & mask) !=0)
+				isshift = true;
+			else 
+			{
+				spaces++;
+				pos--;
+				mask <<= 1;
+				if (pos % Integer.SIZE == 0)
+				{
+					int_index --;
+					mask = 1;
+				}
+			}
+		}
+		//shift a whole cycle
+		shift = (int) Math.floor((double)((spaces-2)/4));	
+		embedder.reembedProbe(chip, probe_id, shift);
 		// do a left-most embedding and check how many masked steps
 		// are left after the last synthesized probe, call it spaces
 
@@ -73,12 +98,39 @@ public class CenteredEmbedding extends ProbeEmbeddingAlgorithm
 	}
 
 	/**
-	 * please document this
+	 * reembeds a probe of a Affymetrix Chip in such a way that the bases of the probe will be aligned 
+	 * in more to the center of the deposition sequence
+	 * 'pair-awareness' is included
 	 */
 	public void reembedProbe (AffymetrixChip chip, int probe_id)
 	{
 		// to do:
-
+		LeftMostEmbedding embedder = new LeftMostEmbedding();
+		boolean isshift = false;
+		int shift = 0, spaces = 0, mask = 1; 
+		int int_index = chip.embed[probe_id].length;
+		int pos = chip.embed_len;	
+	
+		embedder.reembedProbe(chip,probe_id);
+		while(!isshift)
+		{
+			if ((chip.embed[probe_id][int_index] & mask) !=0)
+				isshift = true;
+			else 
+			{
+				spaces++;
+				pos--;
+				mask <<= 1;
+				if (pos % Integer.SIZE == 0)
+				{
+					int_index --;
+					mask = 1;
+				}
+			}
+		}
+		//shift a whole cycle
+		shift = (int) Math.floor((double)((spaces-2)/4));	
+		embedder.reembedProbe(chip, probe_id, shift);
 		// do a left-most embedding and check how many masked steps
 		// are left after the last synthesized probe, call it spaces
 
