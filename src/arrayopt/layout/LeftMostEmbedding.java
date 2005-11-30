@@ -1,4 +1,4 @@
-/*
+  /*
  * LeftMostEmbedding.java
  *
  * $Revision$
@@ -44,9 +44,7 @@ package arrayopt.layout;
  */
 public class LeftMostEmbedding extends ProbeEmbeddingAlgorithm
 {
-	private int oldmask, newmask, oldint, oldpos, newint, newpos;
-	private int[] newembedding;
-		
+	
 	/**
 	 * reembeds a probe with leftmost embedding and no shift
 	 */
@@ -81,10 +79,8 @@ public class LeftMostEmbedding extends ProbeEmbeddingAlgorithm
 	 */
 	void reembedProbe (SimpleChip chip, int probe_id, int shift)
 	{
-	oldmask = 0; 
-	newmask=0;
-	newpos = shift;
-	newembedding = new int[chip.embed_len];
+	int oldmask = 0, newmask = 0, oldint, oldpos, newint, newpos = shift;
+	int[] newembedding = new int[chip.embed[probe_id].length];
 		
 
 	for (newint = 0; newint < chip.embed[probe_id].length; newint++)
@@ -100,18 +96,19 @@ public class LeftMostEmbedding extends ProbeEmbeddingAlgorithm
 			oldmask=0x01 << (Integer.SIZE-1);
 		}
 
-		if (newpos % Integer.SIZE == 0)
+		/*if (newpos % Integer.SIZE == 0)
 		{
 			newint++;
 			newmask = 0x01 << (Integer.SIZE-1);
-		}
+		}*/
 
 		if (((chip.embed[probe_id][oldint]) &  oldmask) != 0)
 		{
 			
-			while (chip.dep_seq[oldpos] != chip.dep_seq[newpos])	
+			//while (chip.dep_seq[oldpos] != chip.dep_seq[newpos])	
+			while (++newpos < chip.dep_seq.length)
 			{
-				newpos++;
+				//newpos++;
 				if (newpos % Integer.SIZE == 0)
 				{
 					newint++;
@@ -119,6 +116,9 @@ public class LeftMostEmbedding extends ProbeEmbeddingAlgorithm
 				}
 				else
 					newmask >>>=1;
+			
+				if (chip.dep_seq[oldpos] == chip.dep_seq[newpos])
+					break;
 			}
 			
 
@@ -128,21 +128,22 @@ public class LeftMostEmbedding extends ProbeEmbeddingAlgorithm
 			}
 			
 			newembedding[newint] |= newmask;
-			newpos++;
+			/*newpos++;
 			if (newpos % Integer.SIZE == 0)
 			{	
 				newint++;
 				newmask = 0x01 << (Integer.SIZE-1);
 			}
 			else
-				newmask >>>=1;
+				newmask >>>=1;*/
 		}
 
 		oldmask >>>=1;
 	}
-	// overwrite old with new values
-	for (newint = 0; newint < chip.embed[probe_id].length; newint++)
-		chip.embed[probe_id][newint] = newembedding[newint];
+	// overwrite old with new values - newembedding.length == embed.[probe_id].length
+	System.arraycopy(newembedding,0,chip.embed[probe_id],0,chip.embed[probe_id].length);
+	/* for (newint = 0; newint < chip.embed[probe_id].length; newint++)
+		chip.embed[probe_id][newint] = newembedding[newint]; */
 
 	
 		// to do:
@@ -167,16 +168,17 @@ public class LeftMostEmbedding extends ProbeEmbeddingAlgorithm
 	 */
 	void reembedProbe (AffymetrixChip chip, int probe_id, int shift)
 	{
-	
-	
-	oldmask = 0;
-	newmask=0x01 << (Integer.SIZE-1-shift);
-	newpos = shift;
-	oldpos = 0;
-	oldint = -1;
-	newembedding = new int[chip.embed_len];
+	int oldmask = 0, newmask = 0x01 << (Integer.SIZE-1-shift), oldint = -1, oldpos = 0, newint, newpos = shift;
 	int basenumber=0, leftborder=0, mpos = 0;
-	boolean middle_synthesized = false;
+	int[] newembedding = new int[chip.embed[probe_id].length];
+	boolean middle_synthesized = false, compl_synthesized = false;
+	char compl ='A'; 			//will
+					//be 
+					//replaced
+					//by 
+					//an
+					//AffymetrixChip.complement(char) method
+	
 
 	//turn all bits off
 	for (newint = 0; newint < chip.embed[probe_id].length; newint++)
@@ -194,27 +196,27 @@ public class LeftMostEmbedding extends ProbeEmbeddingAlgorithm
 			oldmask=0x01 << (Integer.SIZE-1);
 		}
 		
-			if ((chip.embed[probe_id][oldint] &  oldmask) != 0 )
+		if ((chip.embed[probe_id][oldint] &  oldmask) != 0 )
+		{
+			// set the right base character		
+			// while (chip.dep_seq[oldpos] != chip.dep_seq[newpos])	
+			while (++newpos < chip.dep_seq.length)
 			{
-				// set the right base character		
-				while (chip.dep_seq[oldpos] != chip.dep_seq[newpos])	
+				//newpos++;
+				if (newpos % Integer.SIZE == 0)
 				{
-					newpos++;
-					if (newpos >= chip.dep_seq.length)
-					{
-						throw new IllegalArgumentException ("Unable to reembed probe.");
-					}
-					if (newpos % Integer.SIZE == 0)
-					{
-						newint++;
-						newmask = 0x01 << (Integer.SIZE-1);
-					}
-					else
-						newmask >>>=1;
+					newint++;
+					newmask = 0x01 << (Integer.SIZE-1);
 				}
+				else
+					newmask >>>=1;
+				if (chip.dep_seq[oldpos] == chip.dep_seq[newpos])
+					break;
+			}
 			//write base to new embedding
 			newembedding[newint] |= newmask;
-			newpos++;
+			basenumber++;
+			/*newpos++;
 			if (newpos % Integer.SIZE == 0)
 			{
 				newint++;
@@ -225,14 +227,96 @@ public class LeftMostEmbedding extends ProbeEmbeddingAlgorithm
 			basenumber++;	
 			if (basenumber == chip.AFFY_MIDDLE_BASE)
 				leftborder = (newpos-1);
-			}
+			}*/
 		oldpos++;
 		oldmask >>>= 1;
+		}
 	}
-	if (basenumber == chip.AFFY_MIDDLE_BASE)
-	{	
-		while (!middle_synthesized)
+	while (!middle_synthesized)
+	{
+		if (oldpos % Integer.SIZE == 0)
+		{	
+			oldint ++;
+			oldmask=0x01 << (Integer.SIZE-1);
+		}
+
+		if (chip.embed[probe_id][oldint] == chip.dep_seq[compl])
+		{	compl_synthesized = true;
+			newpos++;
+			if (newpos % Integer.SIZE == 0)
+				{
+					newint++;
+					newmask = 0x01 << (Integer.SIZE-1);
+				}
+				else
+					newmask >>>=1;
+		}
+
+
+		if ((chip.embed[probe_id][oldint] &  oldmask) != 0 )
 		{
+			// set the right base character		
+			// while (chip.dep_seq[oldpos] != chip.dep_seq[newpos])	
+			while (++newpos < chip.dep_seq.length)
+			{
+				//newpos++;
+				if (newpos % Integer.SIZE == 0)
+				{
+					newint++;
+					newmask = 0x01 << (Integer.SIZE-1);
+				}
+				else
+					newmask >>>=1;
+				if (chip.dep_seq[oldpos] == chip.dep_seq[newpos])
+					break;
+			}
+			//write base to new embedding
+				newembedding[newint] |= newmask;
+				basenumber++;
+				middle_synthesized = true;
+			/*newpos++;
+			if (newpos % Integer.SIZE == 0)
+			{
+				newint++;
+				newmask = 0x01 << (Integer.SIZE-1);
+			}
+			else
+					newmask >>>=1;	
+			basenumber++;	
+			if (basenumber == chip.AFFY_MIDDLE_BASE)
+				leftborder = (newpos-1);
+			}*/
+		oldpos++;
+		oldmask >>>= 1;
+		}
+	}
+	while (!compl_synthesized)
+	{
+		if (oldpos % Integer.SIZE == 0)
+		{	
+			oldint ++;
+			oldmask=0x01 << (Integer.SIZE-1);
+		}
+
+		if (chip.embed[probe_id][oldint] == chip.dep_seq[compl])
+		{	compl_synthesized = true;
+			newpos++;
+			if (newpos % Integer.SIZE == 0)
+				{
+					newint++;
+					newmask = 0x01 << (Integer.SIZE-1);
+				}
+				else
+					newmask >>>=1;
+		}
+		oldpos++;
+		oldmask >>>=1;
+	}
+		
+	/*if (basenumber == chip.AFFY_MIDDLE_BASE)
+	//{	
+		// while (!middle_synthesized)
+		//{
 		if (oldpos % Integer.SIZE == 0)
 		{	
 			oldint ++;
@@ -267,7 +351,7 @@ public class LeftMostEmbedding extends ProbeEmbeddingAlgorithm
 			}
 		oldpos++;
 		oldmask >>>= 1;
-		}
+		//}
 	if (middle_synthesized)
 		{
 			if (chip.dep_seq[mpos] == chip.dep_seq[0])
@@ -497,7 +581,7 @@ public class LeftMostEmbedding extends ProbeEmbeddingAlgorithm
 			}
 
 		
-	}
+	}*/
 	// synthesize rest
 	while (basenumber < chip.AFFY_PROBE_LENGTH)
 	{
@@ -551,9 +635,9 @@ public class LeftMostEmbedding extends ProbeEmbeddingAlgorithm
 	}
 	
 	// write new embedding to probe
-	for (newint = 0; newint < chip.embed[probe_id].length; newint++)
-		chip.embed[probe_id][newint] = newembedding[newint];
-
+	/*for (newint = 0; newint < chip.embed[probe_id].length; newint++)
+		chip.embed[probe_id][newint] = newembedding[newint];*/
+	System.arraycopy(newembedding,0,chip.embed[probe_id],0,chip.embed[probe_id].length);
 	
 	
 
@@ -568,6 +652,6 @@ public class LeftMostEmbedding extends ProbeEmbeddingAlgorithm
 		// note: from now on, the Affymetrix class can only have probes of length 25,
 		// and you should use the constant called AFFY_MIDDLE_BASE to control the limits
 		// of the three steps above
-		}
+		//}
 	}
 }
