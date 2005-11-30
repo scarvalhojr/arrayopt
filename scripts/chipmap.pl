@@ -51,11 +51,12 @@
 # Non-empty are either normal probes, control probes (those whose group name
 # start with AFFX) or QC (quality control) probes. Each type of probe receive a
 # distinct color. Furthermore, normal probes receive one of two color codes, one
-# for PM (perfect match) probes and one for MM (mismtach probes). QC probes
-# receive a color code according to their specific type. Finally, empty spots
-# also receive two distinct color codes, one for those that must remain empty
-# (blanks) and one for those which  are empty simply because there is not
-# enough probes to fill all spots.
+# for PM (perfect match) probes and one for MM (mismtach probes). If its type is
+# not specified, a probe gets the color of a PM probe. QC probes receive a color
+# code according to their specific type. Finally, empty spots also receive two
+# distinct color codes, one for those that must remain empty (blanks) and one for
+# those which  are empty simply because there is not enough probes to fill all
+# spots.
 #
 # Color table
 # --------------------------------------
@@ -223,13 +224,14 @@ while (<INFILE>)
 	}
 	else
 	{
-		# "normal" probes
-		if ($pm eq "P")
+		if ($pm eq "P" || $pm eq "-" )
 		{
+			# PM probes or unspecified
 			$pixel[$xpos][$ypos] = 0x3;
 		}
 		elsif ($pm eq "M")
 		{
+			# MM probes or unspecified
 			$pixel[$xpos][$ypos] = 0x2;
 		}
 		else
