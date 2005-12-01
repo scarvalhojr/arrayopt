@@ -40,11 +40,11 @@ package arrayopt.layout;
 /**
  *
  */
-public abstract class FillingAlgorithm extends PlacementAlgorithm
+public interface FillingAlgorithm
 {
 	/**
-	 * Note that this method has package access only. It should only be used
-	 * internally or by an instance of another {@linkplain PlacementAlgorithm}.
+	 *
 	 */
-	abstract int fillRegion (Chip chip, Region region, int first_probe, int last_probe);
+	public int fillRegion (Chip chip, Region region, int probe_id[], int start,
+		int end);
 }

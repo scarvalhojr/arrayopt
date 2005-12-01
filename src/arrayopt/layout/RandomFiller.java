@@ -40,36 +40,64 @@ package arrayopt.layout;
 /**
  *
  */
-public class RandomFiller extends FillingAlgorithm
+public class RandomFiller implements PlacementAlgorithm, FillingAlgorithm
 {
-	private boolean DEBUG = false;
-
 	/**
-	 * Note that this method has package access only. To use it, classes should
-	 * call the {@link Chip#placeProbes placeProbes} method on the
-	 * {@linkplain Chip} class passing an instance of this class.
+	 *
 	 */
-	int placeProbes (Chip chip, int first_probe, int last_probe)
+	public int makeLayout (Chip chip)
 	{
-		return fillRegion (chip, chip.getChipRegion(), first_probe, last_probe);
+		int		id[];
+
+		// reset current layout (if any)
+		chip.resetLayout();
+
+		// get list of movable probes
+		id = chip.getMovableProbes ();
+
+		return fillRegion (chip, chip.getChipRegion(), id, 0, id.length - 1);
 	}
 
 	/**
-	 * Note that this method has package access only. It should only be used
-	 * internally or by an instance of another {@linkplain PlacementAlgorithm}.
+	 *
 	 */
-	int fillRegion (Chip chip, Region region, int first_probe, int last_probe)
+	public int fillRegion (Chip chip, Region region, int probe_id[], int start,
+		int end)
 	{
-		if (!(chip instanceof AffymetrixChip))
-			throw new IllegalArgumentException ("Unsupported chip type.");
+		RectangularRegion r;
 
 		if (!(region instanceof RectangularRegion))
-			throw new IllegalArgumentException ("Only rectangular regions are supported.");
+			throw new IllegalArgumentException
+				("Only rectangular regions are supported.");
 
-		return fillRegion ((AffymetrixChip) chip, (RectangularRegion) region, first_probe, last_probe);
+		r = (RectangularRegion) region;
+
+		if (chip instanceof SimpleChip)
+			return fillRegion ((SimpleChip) chip, r, probe_id, start, end);
+
+		else if (chip instanceof AffymetrixChip)
+			return fillRegion ((AffymetrixChip) chip, r, probe_id, start, end);
+
+		else
+			throw new IllegalArgumentException ("Unsupported chip type.");
 	}
 
-	protected int fillRegion (AffymetrixChip chip, RectangularRegion region, int first_probe, int last_probe)
+	/**
+	 *
+	 */
+	protected int fillRegion (SimpleChip chip, RectangularRegion region,
+		int probe_id[], int start, int end)
+	{
+		// to do
+
+		return 0;
+	}
+
+	/**
+	 *
+	 */
+	protected int fillRegion (AffymetrixChip chip, RectangularRegion region,
+		int probe_id[], int start, int end)
 	{
 		int rand, tmp;
 
@@ -86,26 +114,26 @@ public class RandomFiller extends FillingAlgorithm
 					continue;
 
 				// select probe pair randomly
-				// (and move it to position 'first_probe' in the list)
-				rand = first_probe + (int) ((last_probe - first_probe + 1) * Math.random());
+				// (and move it to position 'start' in the list)
+				rand = start + (int) ((end - start + 1) * Math.random());
 
 				// move probe ID to the front of the list
-				tmp = chip.probe_list[first_probe];
-				chip.probe_list[first_probe] = chip.probe_list[rand];
-				chip.probe_list[rand] = tmp;
+				tmp = probe_id[start];
+				probe_id[start] = probe_id[rand];
+				probe_id[rand] = tmp;
 
-				chip.spot[r][c] = chip.probe_list[first_probe];
-				chip.spot[r+1][c] = chip.probe_list[first_probe] + 1;
+				chip.spot[r][c] = probe_id[start];
+				chip.spot[r+1][c] = probe_id[start] + 1;
 
-				first_probe ++;
+				start ++;
 
-				if (first_probe > last_probe)
+				if (start > end)
 					// all probes were placed
 					return 0;
 			}
 		}
 
 		// some probes could not be placed
-		return 2 * (last_probe - first_probe + 1);
+		return 2 * (end - start + 1);
 	}
 }

@@ -170,7 +170,8 @@ public class ArrayOpt
 			{
 				if (probe_len != AffymetrixChip.AFFY_PROBE_LENGTH)
 					throw new IllegalArgumentException
-						("Illegal probe length for an Affymetrix chip.");
+						("Invalid probe length (Affymetrix probes must be " +
+						 AffymetrixChip.AFFY_PROBE_LENGTH + " base-long).");
 
 				chip = new AffymetrixChip (rows, cols, probes, embed_len);
 			}
@@ -207,7 +208,7 @@ public class ArrayOpt
 		}
 
 		// place probes on the chip
-		unplaced = chip.placeProbes(placer);
+		unplaced = placer.makeLayout(chip);
 
 		if (unplaced > 0)
 			System.err.println(unplaced + " unplaced probe(s)");

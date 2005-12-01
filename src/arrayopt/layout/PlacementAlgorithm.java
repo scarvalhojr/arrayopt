@@ -40,13 +40,10 @@ package arrayopt.layout;
 /**
  *
  */
-public abstract class PlacementAlgorithm
+public interface PlacementAlgorithm
 {
 	/**
-	 * Note that this method has package access only. To use it, classes should
-	 * call the {@link Chip#placeProbes placeProbes} method on the
-	 * {@linkplain Chip} class passing an instance of a
-	 * {@linkplain PlacementAlgorithm}.
+	 *
 	 */
-	abstract int placeProbes (Chip chip, int first_probe, int last_probe);
+	public int makeLayout (Chip chip);
 }

@@ -37,8 +37,9 @@
 
 package arrayopt.layout;
 
-import java.io.*;
 import java.util.regex.*;
+import java.util.*;
+import java.io.*;
 
 /**
  * This class represents the simplest type of chips. Probes appear in single
@@ -62,9 +63,6 @@ public class SimpleChip extends Chip
 		int probe_len, int embed_len)
 	{
 		super (num_rows, num_cols, num_probes, probe_len, embed_len);
-
-		// allocate space for a list of "moveable"-probe IDs
-		this.probe_list = new int [num_probes];
 	}
 
 	/**
@@ -81,9 +79,6 @@ public class SimpleChip extends Chip
 		int probe_len, String dep_seq)
 	{
 		super (num_rows, num_cols, num_probes, probe_len, dep_seq);
-
-		// allocate space for a list of "moveable"-probe IDs
-		this.probe_list = new int [num_probes];
 	}
 
 	/**
@@ -116,44 +111,49 @@ public class SimpleChip extends Chip
 	 * <CODE>T</CODE>. The last field must contain a valid embedding of the
 	 * probe into the deposition sequence formed by inserting a number of
 	 * spaces into the probe sequence so that the resulting string is
-	 * "synchronozed" with the deposition sequence (see
+	 * "synchronized" with the deposition sequence (see
 	 * {@linkplain #encodeEmbedding}).</P>
 	 *
-	 * <P>Spots can be listed in any order. Any coordinate pair can appear only
-	 * once in the input (a spot listed twice is considered ambiguous and will
-	 * be rejected). Every probe in the input receives a unique probe ID.<P>
+	 * <P>Every probe in the input receives a unique probe ID. Any coordinate
+	 * pair can appear only once in the input (a spot listed twice will throw
+	 * an IOException) but spots can be listed in any order.<P>
 	 *
 	 * @param input an character input stream
 	 * @throws IOException if an I/O error occurrs or input is not compliantan
 	 */
 	public void readLayout (Reader input) throws IOException
 	{
-		BufferedReader	in;
-		Pattern			parser;
-		String			line, field[];
-		int				num_fields = 7, ln = 0, r, c, probe_id = -1, state = 0;
-		boolean			empty, fixed;
+		ArrayList<Integer>	fixed_list;
+		BufferedReader		in;
+		Pattern				parser;
+		String				line, field[];
+		int					ln = 0, r, c, probe_id = -1, i = 0;
+		boolean				empty, fixed;
 
 		// check if chip spec has already been input
 		if (input_done)
-			throw new IllegalStateException ("Chip layout specification has already been input.");
+			throw new IllegalStateException
+				("Layout specification has already been loaded.");
 
-		// mark all spots as uninitialized and not fixed
+		// mark all spots as unitialized and not fixed
 		for (r = 0; r < num_rows; r++)
 			for (c = 0; c < num_cols; c++)
 			{
 				this.spot[r][c] = UNINITIALIZED_SPOT;
-				setFixedSpot (r, c, false);
 			}
 
-		// crete a buffered reader to read lines
+		// create a list of IDs of fixed probes with an initial
+		// capacity of about 5% of the number of probes
+		fixed_list = new ArrayList<Integer> ((int) (.05 * num_probes));
+
+		// create a buffered reader to read lines
 		in = new BufferedReader (input);
 
 		// lines will be parsed into fields...
 		parser = Pattern.compile ("\t");
 
 		// ...and stored in this array of strings
-		field = new String [num_fields];
+		field = new String [7];
 
 		while ((line = in.readLine()) != null)
 		{
@@ -161,7 +161,7 @@ public class SimpleChip extends Chip
 			ln++;
 
 			// parse fields
-			field = parser.split(line, num_fields);
+			field = parser.split(line, field.length);
 
 			try
 			{
@@ -171,30 +171,39 @@ public class SimpleChip extends Chip
 				c = Integer.parseInt (field[0]);
 				r = Integer.parseInt (field[1]);
 
-				// is it fixed?
-				fixed = (field[3].equals("Y")) ? true : false;
-
-				// is spot empty?
+				// fixed spot?
+				if (field[3].equals("Y"))
+					fixed = true;
+				else if (field[3].equals("N"))
+					fixed = false;
+				else
+					throw new IOException ("Invalid fixed flag at line " +
+											ln + ".");
+				// empty spot?
 				empty = (field[6].equals("-")) ? true : false;
 			}
 			catch (ArrayIndexOutOfBoundsException e)
 			{
 				// invalid file format
-				throw new IOException ("Unable to parse input file at line " + ln + ".");
+				throw new IOException ("Unable to parse input file at line " +
+										ln + ".");
 			}
 			catch (NumberFormatException e)
 			{
 				// invalid file format
-				throw new IOException ("Invalid spot coordinates at line " + ln + ".");
+				throw new IOException ("Invalid spot coordinates at line " +
+										ln + ".");
 			}
 
 			// validate row and column numbers
 			if (r < 0 || r >= num_rows || c < 0 || c >= num_cols)
-				throw new IOException ("Invalid spot coordinates at line " + ln + ".");
+				throw new IOException ("Invalid spot coordinates at line " +
+										ln + ".");
 
 			// check for spot conflict
 			if (spot[r][c] != UNINITIALIZED_SPOT)
-				throw new IOException ("Spot conflict at row " + r + ", column " + c + ".");
+				throw new IOException ("Spot conflict at row " + r +
+										", column " + c + ".");
 
 			// check if number of probes has been exceeded
 			if (probe_id >= num_probes)
@@ -212,9 +221,15 @@ public class SimpleChip extends Chip
 				continue;
 			}
 
-			// new probe found: mark spot as used
+			// new probe found
 			probe_id++;
+
+			// place probe on the spot (mark spot as used)
 			this.spot[r][c] = probe_id;
+
+			if (fixed)
+				// add probe ID to the list of fixed probes
+				fixed_list.add(probe_id);
 
 			try
 			{
@@ -223,102 +238,139 @@ public class SimpleChip extends Chip
 			}
 			catch (IllegalArgumentException e)
 			{
-				throw new IOException ("Invalid embedding at line " + ln + " (" + e.getMessage() + ").");
+				throw new IOException ("Invalid embedding at line " + ln +
+										" (" + e.getMessage() + ").");
 			}
 		}
 
 		// check number of probes
 		if (probe_id + 1 != num_probes)
-			throw new IOException ("Only " + (probe_id + 1) + " of the " + num_probes + " probes were found.");
+			throw new IOException ("Only " + (probe_id + 1) + " of the " +
+									num_probes + " probes were found.");
+
+		// save list of fixed probes as a normal int array
+		this.fixed_probe = new int [fixed_list.size()];
+		for (Integer id : fixed_list)
+			this.fixed_probe[i++] = id;
 
 		// reading successful
 		input_done = true;
 	}
 
 	/**
-	 * Build a list of probe IDs whose location are not fixed. This list is
-	 * stored in {@link #probe_list} and can be later used by a
+	 * Returns a list of non-fixed probe IDs. These are the probes not located
+	 * on fixed spots and which, therefore, can be relocated by a
 	 * {@linkplain PlacementAlgorithm}.
+	 *
+	 * @return a list of movable (not fixed) probe IDs
 	 */
-	protected void buildProbeList ()
+	public int[] getMovableProbes ()
 	{
-		int i = 0;
+		int size, i, f, m, movable[];
 
-		for (int r = 0; r < num_rows; r++)
-			for (int c = 0; c < num_cols; c++)
-				if (spot[r][c] != EMPTY_SPOT && spot[r][c] != UNINITIALIZED_SPOT)
-				{
-					// ignore fixed spots
-					if (!isFixedSpot(r, c))
-					{
-						probe_list[i++] = spot[r][c];
-					}
-				}
+		// check if chip spec has already been input
+		if (!input_done)
+			throw new IllegalStateException
+				("Layout specification has not been loaded yet.");
 
-		// store the number of elements
-		this.probe_list_len = i;
+		movable = new int [num_probes - fixed_probe.length];
+
+		// copy probe IDs which are not
+		// in the list of fixed probes
+		for (i = f = m = 0; f < fixed_probe.length; i++)
+		{
+			if (i < fixed_probe[f])
+				// probe is not fixed: add ID to the list
+				movable[m++] = i;
+
+			else
+				// means that (i == fixed_probe[f])
+				// probe is fixed: ignore ID and move f pointer
+				f++;
+		}
+
+		// end of fixed list: from now on, all
+		// probes are guaranteed to be movable
+		for (; i < num_probes; i++)
+			movable[m++] = i;
+
+		return movable;
 	}
 
-	// x-pos (column), y-pos (row), group, fixed?, PM/MM, embedding
+	/**
+	 * Print the specification of the chip's current layout. The layout is
+	 * written in accordance with the format specified by the
+	 * {@link #readLayout} method.
+	 *
+	 * @param out a PrintWriter stream
+	 * @throws IOException if an error occurs while writing on the stream
+	 */
 	public void writeLayout (PrintWriter out) throws IOException
 	{
-		int mask = 0, w, pos;
+		int		mask = 0, w, pos;
+		char	fix;
 
 		for (int r = 0; r < num_rows; r++)
-			for (int c = 0; c < num_cols; c++)
-				if (spot[r][c] == EMPTY_SPOT)
-				{
-					// print empty spot
-					out.println(c + "\t" + r + "\tEMPTY\t" + (isFixedSpot(r, c) ? 'Y' : 'N') + "\t-\t-\t-");
-				}
-				else
-				{
-					// print spot coordinates
-					out.print(c + "\t" + r + "\t-\t" + (isFixedSpot(r, c) ? 'Y' : 'N') + "\t-\t");
+		for (int c = 0; c < num_cols; c++)
+		{
+			fix = isFixedSpot(r, c) ? 'Y' : 'N';
 
-					// print probe
-					for (w = -1, pos = 0; pos < embed_len; pos++)
+			if (spot[r][c] == EMPTY_SPOT)
+			{
+				// print empty spot
+				out.println (c + "\t" + r + "\tEMPTY\t" + fix + "\t-\t-\t-");
+			}
+			else
+			{
+				// print spot coordinates
+				out.print (c + "\t" + r + "\t-\t" + fix + "\t-\t");
+
+				// print probe
+				for (w = -1, pos = 0; pos < embed_len; pos++)
+				{
+					if (pos % Integer.SIZE == 0)
 					{
-						if (pos % Integer.SIZE == 0)
-						{
-							// use next 4-byte word
-							w++;
+						// use next 4-byte word
+						w++;
 
-							// turn on very first bit of mask only
-							mask = 0x01 << (Integer.SIZE - 1);
-						}
-
-						if ((mask & embed[spot[r][c]][w]) != 0)
-							out.print (dep_seq[pos]);
-
-						mask >>>= 1;
+						// turn on very first bit of mask only
+						mask = 0x01 << (Integer.SIZE - 1);
 					}
 
-					out.print ('\t');
+					if ((mask & embed[spot[r][c]][w]) != 0)
+						out.print (dep_seq[pos]);
 
-					// print embedding
-					for (w = -1, pos = 0; pos < embed_len; pos++)
-					{
-						if (pos % Integer.SIZE == 0)
-						{
-							// use next 4-byte word
-							w++;
-
-							// turn on very first bit of mask only
-							mask = 0x01 << (Integer.SIZE - 1);
-						}
-
-						if ((mask & embed[spot[r][c]][w]) != 0)
-							out.print (dep_seq[pos]);
-						else
-							out.print (' ');
-
-						mask >>>= 1;
-					}
-
-					out.println ();
+					mask >>>= 1;
 				}
 
+				out.print ('\t');
+
+				// print embedding
+				for (w = -1, pos = 0; pos < embed_len; pos++)
+				{
+					if (pos % Integer.SIZE == 0)
+					{
+						// use next 4-byte word
+						w++;
+
+						// turn on very first bit of mask only
+						mask = 0x01 << (Integer.SIZE - 1);
+					}
+
+					if ((mask & embed[spot[r][c]][w]) != 0)
+						out.print (dep_seq[pos]);
+					else
+						out.print (' ');
+
+					mask >>>= 1;
+				}
+
+				// end of line
+				out.println ();
+			}
+		}
+
+		// end of output
 		out.flush();
 	}
 }

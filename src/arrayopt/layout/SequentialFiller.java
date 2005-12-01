@@ -40,38 +40,53 @@ package arrayopt.layout;
 /**
  *
  */
-public class SequentialFiller extends FillingAlgorithm
+public class SequentialFiller implements PlacementAlgorithm, FillingAlgorithm
 {
 	/**
-	 * Note that this method has package access only. To use it, classes should
-	 * call the {@link Chip#placeProbes placeProbes} method on the
-	 * {@linkplain Chip} class passing an instance of this class.
+	 *
 	 */
-	int placeProbes (Chip chip, int first_probe, int last_probe)
+	public int makeLayout (Chip chip)
 	{
-		return fillRegion (chip, chip.getChipRegion(), first_probe, last_probe);
+		int		id[];
+
+		// reset current layout (if any)
+		chip.resetLayout();
+
+		// get list of movable probes
+		id = chip.getMovableProbes ();
+
+		return fillRegion (chip, chip.getChipRegion(), id, 0, id.length - 1);
 	}
 
 	/**
-	 * Note that this method has package access only. It should only be used
-	 * internally or by an instance of another {@linkplain PlacementAlgorithm}.
+	 *
 	 */
-	int fillRegion (Chip chip, Region region, int first_probe, int last_probe)
+	public int fillRegion (Chip chip, Region region, int probe_id[], int start,
+		int end)
 	{
+		RectangularRegion r;
+
 		if (!(region instanceof RectangularRegion))
-			throw new IllegalArgumentException ("Only rectangular regions are supported.");
+			throw new IllegalArgumentException
+				("Only rectangular regions are supported.");
+
+		r = (RectangularRegion) region;
 
 		if (chip instanceof SimpleChip)
-			return fillRegion ((SimpleChip) chip, (RectangularRegion) region, first_probe, last_probe);
+			return fillRegion ((SimpleChip) chip, r, probe_id, start, end);
 
 		else if (chip instanceof AffymetrixChip)
-			return fillRegion ((AffymetrixChip) chip, (RectangularRegion) region, first_probe, last_probe);
+			return fillRegion ((AffymetrixChip) chip, r, probe_id, start, end);
 
 		else
 			throw new IllegalArgumentException ("Unsupported chip type.");
 	}
 
-	protected int fillRegion (SimpleChip chip, RectangularRegion region, int first_probe, int last_probe)
+	/**
+	 *
+	 */
+	protected int fillRegion (SimpleChip chip, RectangularRegion region,
+		int probe_id[], int start, int end)
 	{
 		for (int r = region.first_row; r <= region.last_row; r ++)
 		{
@@ -84,21 +99,25 @@ public class SequentialFiller extends FillingAlgorithm
 				// skip fixed spots
 				if (chip.isFixedSpot(r, c)) continue;
 
-				chip.spot[r][c] = chip.probe_list[first_probe];
+				chip.spot[r][c] = probe_id[start];
 
-				first_probe ++;
+				start ++;
 
-				if (first_probe > last_probe)
+				if (start > end)
 					// all probes were placed
 					return 0;
 			}
 		}
 
 		// some probes could not be placed
-		return last_probe - first_probe + 1;
+		return end - start + 1;
 	}
 
-	protected int fillRegion (AffymetrixChip chip, RectangularRegion region, int first_probe, int last_probe)
+	/**
+	 *
+	 */
+	protected int fillRegion (AffymetrixChip chip, RectangularRegion region,
+		int probe_id[], int start, int end)
 	{
 		for (int r = region.first_row; r < region.last_row; r ++)
 		{
@@ -108,22 +127,22 @@ public class SequentialFiller extends FillingAlgorithm
 				if (chip.spot[r][c] != chip.EMPTY_SPOT || chip.spot[r+1][c] != chip.EMPTY_SPOT)
 					continue;
 
-				// skip fixed spot pairss
+				// skip fixed spot pairs
 				if (chip.isFixedSpot(r, c) || chip.isFixedSpot(r+1, c))
 					continue;
 
-				chip.spot[r][c] = chip.probe_list[first_probe];
-				chip.spot[r+1][c] = chip.probe_list[first_probe] + 1;
+				chip.spot[r][c] = probe_id[start];
+				chip.spot[r+1][c] = probe_id[start] + 1;
 
-				first_probe ++;
+				start ++;
 
-				if (first_probe > last_probe)
+				if (start > end)
 					// all probes were placed
 					return 0;
 			}
 		}
 
-		// some probes could not be placed
-		return 2 * (last_probe - first_probe + 1);
+		// some probe pairs could not be placed
+		return 2 * (end - start + 1);
 	}
 }

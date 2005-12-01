@@ -56,7 +56,7 @@ import java.io.*;
  * the help of a photolithographic mask that allows or obstructs the passage of
  * light accordingly. Thus, each masking step induces the addition of a
  * particular nucleotide to a group of probes. The particular sequence of steps
- * used to produce the chip is called the deposition sequence.</P>
+ * used to produce the chip is called the <EM>deposition sequence</EM>.</P>
  *
  * <P>Obviously, the deposition sequence must be a supersequence of all probe
  * sequences on the chip. In general, a probe can be embedded within the
@@ -108,7 +108,7 @@ public abstract class Chip
 	/**
 	 * The deposition sequence, i.e. the actual sequence of bases used to
 	 * synthesize the probes on the chip. <B>Implementation note:</B> for
-	 * ease of access, this array is a public variable.
+	 * ease of access, this is a public variable.
 	 */
 	public char dep_seq[];
 
@@ -116,19 +116,20 @@ public abstract class Chip
 	 * The matrix of sites (or spots) on the chip. Each spot can either be
 	 * uninitialized ({@link #UNINITIALIZED_SPOT}), empty ({@link #EMPTY_SPOT})
 	 * or associated with a unique probe ID (see {@link #embed}).
-	 * <B>Implementation note:</B> for ease of access, this matrix is a public
+	 * <B>Implementation note:</B> for ease of access, this is a public
 	 * variable.
 	 */
 	public int spot[][];
 
 	/**
-	 * Flags that a certain spot is empty (does not contain a probe).
+	 * Constant that flags that a certain spot is empty (does not contain a
+	 * probe).
 	 */
 	public static final int EMPTY_SPOT = -1;
 
 	/**
-	 * Flags that a certain spot has not been initialized (has been neither
-	 * associated with a probe, nor marked as empty).
+	 * Constant that flags that a certain spot has not been initialized (has
+	 * been neither associated with a probe, nor marked as empty).
 	 */
 	protected static final int UNINITIALIZED_SPOT = -2;
 
@@ -147,8 +148,8 @@ public abstract class Chip
 	 * <CODE>'TGCATGCATGCA...'</CODE>, the embedding
 	 * <CODE>'0010111001001'</CODE> corresponds to the probe
 	 * <CODE>'CTGTA...'</CODE>. <B>Implementation notes:</B> 1) for ease of
-	 * access, this array is a public variable; 2) its type should be changed
-	 * to byte to reduce memory requirements.
+	 * access, this is a public variable. <B>To do:</B> use an array of bites
+	 * instead of an array of integers to reduce wasted memory space.
 	 */
 	public int embed[][];
 
@@ -161,33 +162,23 @@ public abstract class Chip
 	protected BitSet fixed_spots;
 
 	/**
-	 * Indicates that the chip specification (list of probes, fixed spots,
-	 * etc.) has been loaded.
+	 * Indicates that the chip layout specification (list of probes, fixed
+	 * spots, etc.) has already been loaded.
 	 */
 	protected boolean input_done;
 
 	/**
-	 * Indicates that the chip layout is ready (all probes have already been
-	 * placed).
+	 * A list of fixed probe IDs. Fixed probes are those that belong to fixed
+	 * spots and thus cannot be relocated by a {@linkplain PlacementAlgorithm}.
+	 * This list is assembled by the {@link #readLayout} abstract method. Its
+	 * contents, therefore, depends on the specific implementations provided by
+	 * the subclasses, but it is generally encouraged that this list should
+	 * contain only the main probe ID in case of a multi-probe type of chip
+	 * (such as {@linkplain AffymetrixChip}). This list is mainly used by the
+	 * {link getMovableProbes} method to generate a list of movable probe IDs
+	 * (any probe ID not found on this list is considered <EM>movable</EM>.
 	 */
-	protected boolean placement_done;
-
-	/**
-	 * A list of movable probe IDs. Movable probes are those that can be
-	 * relocated by a placement algorithm - probes on fixed spots, for
-	 * instance, do not appear on this list. Only the main probe of a probe
-	 * instance is listed here as the other probes can be easily deduced.
-	 * Implementation note: for ease of access, this matrix is a public
-	 * variable.
-	 */
-	public int probe_list[];
-
-	/**
-	 * The actual number of probe IDs in the probe list ({@link #probe_list}).
-	 * This physical size of the list can be larger than the number of elements
-	 * since probes on fixed spots are not included.
-	 */
-	public int probe_list_len;
+	protected int fixed_probe[];
 
 	/**
 	 * Creates a new instance of a chip.
@@ -225,13 +216,11 @@ public abstract class Chip
 		this.spot = new int [num_rows][num_cols];
 
 		// create BitSet of flags for fixed spots
+		// (initially, all bits in the set are set to false)
 		this.fixed_spots = new BitSet (num_rows * num_cols);
 
-		// flag that the probes must still be input...
+		// flag that the layout spec must still be loaded
 		input_done = false;
-
-		// ...and that their placement is also pending
-		placement_done = false;
 	}
 
 	/**
@@ -275,8 +264,8 @@ public abstract class Chip
 	}
 
 	/**
-	 * Returns the length of the probes' embeddings which is the length of the
-	 * deposition sequence.
+	 * Returns the length of the probe embeddings (which equals the length of
+	 * the deposition sequence).
 	 *
 	 * @return length of the probes' embeddings
 	 */
@@ -304,6 +293,33 @@ public abstract class Chip
 	public RectangularRegion getChipRegion ()
 	{
 		return new RectangularRegion (0, getNumberOfRows() - 1, 0, getNumberOfColumns() - 1);
+	}
+
+	/**
+	 * Returns a list of non-fixed probe IDs. These are probes not located on
+	 * fixed spots and which, therefore, can be relocated by a
+	 * {@linkplain PlacementAlgorithm}. This is an abstract method. Thus, the
+	 * exact result depends on the specific implementations provided by the
+	 * subclasses, but it is generally encouraged that this list should contain
+	 * only the main probe ID in case of a multi-probe type of chip (such as
+	 * {@linkplain AffymetrixChip}). This list is assembled from the list of
+	 * fixed probes ({@link #fixed_probe}).
+	 *
+	 * @return a list of movable (not fixed) probe IDs
+	 */
+	public abstract int[] getMovableProbes ();
+
+	/**
+	 * Resets the layout of this microarray chip by marking all non-fixed spots
+	 * as empty. This allows a new layout to be produced by a
+	 * {@linkplain PlacementAlgorithm}.
+	 */
+	public void resetLayout ()
+	{
+		for (int r = 0; r < num_rows; r++)
+			for (int c = 0; c < num_cols; c++)
+				if (!isFixedSpot(r, c))
+					spot[r][c] = EMPTY_SPOT;
 	}
 
 	/**
@@ -338,7 +354,7 @@ public abstract class Chip
 	 * to know how many spots are fixed. Spot at position (row, col) has index
 	 * (row * num_cols + col) of the BitSet, where num_cols is the number of
 	 * columns this chip has. This method returns a clone of the current
-	 * BitSet, so changes will not affect the chip's layout.
+	 * BitSet, so changes will not affect the chip's specification.
 	 *
 	 * @return BitSet a set of bits as a BitSet instance indicating which spots
 	 * are fixed
@@ -421,64 +437,9 @@ public abstract class Chip
 	}
 
 	/**
-	 * Executes a particular placement algorithm passing this chip's
-	 * specification as argument so that a new layout can be generated. The new
-	 * layout must contain the same set of probes but the location of moveable
-	 * probes can be changed. The embedding of any probe can also be modified.
-	 * Sometimes, a placement algorithm fails to re-place all probes (resulting
-	 * in an invalid layout) and this is signed by the return value.
-	 *
-	 * <P>Implementations note: the chip can have its layout changed only once
-	 * since the list of movable probes is very likely to be irreversibly
-	 * damaged by the placement algorithm.</P>
-	 *
-	 * @param alg the desired placement algorithm
-	 * @return number of unplaced probes (if the algorithm fails to re-place
-	 * all probes)
-	 */
-	public int placeProbes (PlacementAlgorithm alg)
-	{
-		int unplaced;
-
-		// check if chip spec has been input
-		if (!input_done)
-			throw new IllegalStateException ("Chip specification has not been input.");
-
-		// check if placement has already been done
-		if (placement_done)
-			throw new IllegalStateException ("Probe placement has already been done.");
-
-		// build list of movable probes
-		buildProbeList();
-
-		// reset (non-fixed) spots
-		for (int r = 0; r < num_rows; r++)
-			for (int c = 0; c < num_cols; c++)
-				if (!isFixedSpot(r, c))
-					spot[r][c] = EMPTY_SPOT;
-
-		// execute placement algorithm
-		unplaced = alg.placeProbes(this, 0, probe_list_len - 1);
-
-		// placement finished
-		placement_done = true;
-
-		return unplaced;
-	}
-
-	/**
-	 * Build a list of probe movable probe IDs (probes whose location are not
-	 * fixed). This method should be provided by the sub-classes depending
-	 * on the specific probe scheme used (single probes, probe pairs or probe
-	 * tuples). Under a multi-probe scheme, only the main ID must be inserted
-	 * on this list as the other IDs are easily deduced from it.
-	 */
-	protected abstract void buildProbeList ();
-
-	/**
 	 * Print the specification of the chip's current layout. This method should
 	 * be provided by the sub-classes depending on the specific probe scheme
-	 * used (single probes, probe pairs or probe tuples).
+	 * used (single probes, probe pairs, etc.).
 	 *
 	 * @param out a PrintWriter stream
 	 * @throws IOException if an error occurs while writing on the stream

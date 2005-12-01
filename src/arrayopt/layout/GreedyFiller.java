@@ -40,15 +40,13 @@ package arrayopt.layout;
 /**
  *
  */
-public class GreedyFiller extends FillingAlgorithm
+public class GreedyFiller implements PlacementAlgorithm, FillingAlgorithm
 {
 	private int window_size;
 
 	private boolean randomize_first;
 
 	public static boolean DEFAULT_RANDOMIZE_FIRST = false;
-
-	private boolean DEBUG = false;
 
 	public GreedyFiller ()
 	{
@@ -67,53 +65,77 @@ public class GreedyFiller extends FillingAlgorithm
 	}
 
 	/**
-	 * Note that this method has package access only. To use it, classes should
-	 * call the {@link Chip#placeProbes placeProbes} method on the
-	 * {@linkplain Chip} class passing an instance of this class.
+	 *
 	 */
-	int placeProbes (Chip chip, int first_probe, int last_probe)
+	public int makeLayout (Chip chip)
 	{
-		return fillRegion (chip, chip.getChipRegion(), first_probe, last_probe);
+		int		id[];
+
+		// reset current layout (if any)
+		chip.resetLayout();
+
+		// get list of movable probes
+		id = chip.getMovableProbes ();
+
+		return fillRegion (chip, chip.getChipRegion(), id, 0, id.length - 1);
 	}
 
 	/**
-	 * Note that this method has package access only. It should only be used
-	 * internally or by an instance of another {@linkplain PlacementAlgorithm}.
+	 *
 	 */
-	int fillRegion (Chip chip, Region region, int first_probe, int last_probe)
+	public int fillRegion (Chip chip, Region region, int probe_id[], int start,
+		int end)
 	{
-		if (!(chip instanceof AffymetrixChip))
-			throw new IllegalArgumentException ("Unsupported chip type.");
+		RectangularRegion r;
 
 		if (!(region instanceof RectangularRegion))
-			throw new IllegalArgumentException ("Only rectangular regions are supported.");
+			throw new IllegalArgumentException
+				("Only rectangular regions are supported.");
 
-		return fillRegion ((AffymetrixChip) chip, (RectangularRegion) region, first_probe, last_probe);
+		r = (RectangularRegion) region;
+
+		if (chip instanceof SimpleChip)
+			return fillRegion ((SimpleChip) chip, r, probe_id, start, end);
+
+		else if (chip instanceof AffymetrixChip)
+			return fillRegion ((AffymetrixChip) chip, r, probe_id, start, end);
+
+		else
+			throw new IllegalArgumentException ("Unsupported chip type.");
 	}
 
-	protected int fillRegion (AffymetrixChip chip, RectangularRegion region, int first_probe, int last_probe)
+	/**
+	 *
+	 */
+	protected int fillRegion (SimpleChip chip, RectangularRegion region,
+		int probe_id[], int start, int end)
+	{
+		// to do
+
+		return 0;
+	}
+
+	/**
+	 *
+	 */
+	protected int fillRegion (AffymetrixChip chip, RectangularRegion region,
+		int probe_id[], int start, int end)
 	{
 		int rand, tmp;
-
-		if (DEBUG)
-		{
-			System.out.println ("Filling region " + region);
-			System.out.println ("\tProbe IDs: " + first_probe + " - " + last_probe);
-		}
 
 		if (randomize_first)
 		{
 			// randomize the list first
-			for (int i = first_probe; i < last_probe; i++)
+			for (int i = start; i < end; i++)
 			{
 				// select a random element of the list
-				rand = first_probe + (int) ((last_probe - first_probe + 1) * Math.random());
+				rand = start + (int) ((end - start + 1) * Math.random());
 
 				// swap the selected element with
 				// the one at the current position
-				tmp = chip.probe_list[rand];
-				chip.probe_list[i] = chip.probe_list[rand];
-				chip.probe_list[rand] = tmp;
+				tmp = probe_id[rand];
+				probe_id[i] = probe_id[rand];
+				probe_id[rand] = tmp;
 			}
 		}
 
@@ -122,7 +144,8 @@ public class GreedyFiller extends FillingAlgorithm
 			for (int c = region.first_col; c <= region.last_col; c++)
 			{
 				// skip spot pair if not empty
-				if (chip.spot[r][c] != chip.EMPTY_SPOT || chip.spot[r+1][c] != chip.EMPTY_SPOT)
+				if (chip.spot[r][c] != chip.EMPTY_SPOT ||
+					chip.spot[r+1][c] != chip.EMPTY_SPOT)
 					continue;
 
 				// skip fixed spot pair
@@ -130,25 +153,26 @@ public class GreedyFiller extends FillingAlgorithm
 					continue;
 
 				// select probe pair which minimizes conflict
-				// (and move it to position 'first_probe' in the list)
-				selectNextPair (chip, r, c, first_probe, last_probe);
+				// (and move it to position 'start' in the list)
+				selectNextPair (chip, r, c, probe_id, start, end);
 
-				chip.spot[r][c] = chip.probe_list[first_probe];
-				chip.spot[r+1][c] = chip.probe_list[first_probe] + 1;
+				chip.spot[r][c] = probe_id[start];
+				chip.spot[r+1][c] = probe_id[start] + 1;
 
-				first_probe ++;
+				start ++;
 
-				if (first_probe > last_probe)
+				if (start > end)
 					// all probes were placed
 					return 0;
 			}
 		}
 
-		// some probes could not be placed
-		return 2 * (last_probe - first_probe + 1);
+		// some probe pairs could not be placed
+		return 2 * (end - start + 1);
 	}
 
-	protected void selectNextPair (AffymetrixChip chip, int row, int col, int first_probe, int last_probe)
+	protected void selectNextPair (AffymetrixChip chip, int row, int col,
+		int probe_id[], int start, int end)
 	{
 		double	conflict, min_conflict;
 		int		best_probe, tmp;
@@ -157,17 +181,21 @@ public class GreedyFiller extends FillingAlgorithm
 		if (window_size > 0)
 		{
 			// check if probe list is larger than window
-			if (last_probe - first_probe + 1 > window_size)
+			if (end - start + 1 > window_size)
 				// yes: limit search space
-				last_probe = first_probe + window_size - 1;
+				end = start + window_size - 1;
 		}
 
-		min_conflict = LayoutEvaluation.spotConflict(chip, row, col, chip.probe_list[first_probe]);
-		best_probe = first_probe;
+		min_conflict = LayoutEvaluation.spotConflict(chip, row, col,
+						probe_id[start]);
 
-		for (int i = first_probe + 1; i <= last_probe; i++)
+		best_probe = start;
+
+		for (int i = start + 1; i <= end; i++)
 		{
-			conflict = LayoutEvaluation.spotConflict(chip, row, col, chip.probe_list[i]);
+			conflict = LayoutEvaluation.spotConflict(chip, row, col,
+						probe_id[i]);
+
 			if (conflict < min_conflict)
 			{
 				min_conflict = conflict;
@@ -176,8 +204,8 @@ public class GreedyFiller extends FillingAlgorithm
 		}
 
 		// move best probe ID to the front of the list
-		tmp = chip.probe_list[first_probe];
-		chip.probe_list[first_probe] = chip.probe_list[best_probe];
-		chip.probe_list[best_probe] = tmp;
+		tmp = probe_id[start];
+		probe_id[start] = probe_id[best_probe];
+		probe_id[best_probe] = tmp;
 	}
 }
