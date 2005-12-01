@@ -176,6 +176,37 @@ public class AffymetrixChip extends Chip
 	}
 
 	/**
+	 * Returns the base complement of a given base. This can be used to
+	 * identify the middle base of a MM probe based on the middle base of the
+	 * corresponding PM probe (or vice-versa). The complementarity rules are
+	 * as follows: <CODE>A <-> T</CODE> and <CODE>C <-> G</CODE>.
+	 *
+	 * @param base a base whose complement is wanted
+	 * @return the base complement
+	 */
+	public char getBaseComplement (char base)
+	{
+		switch (base)
+		{
+			case 'A':
+				return 'T';
+
+			case 'C':
+				return 'G';
+
+			case 'G':
+				return 'C';
+
+			case 'T':
+				return 'A';
+
+			default:
+				throw new IllegalArgumentException ("Invalid base '" + base +
+													"'.");
+		}
+	}
+
+	/**
 	 * Read a chip layout specification from a character input stream. The
 	 * input must consist of lines of text with the following TAB-delimited
 	 * fields describing a single spot of the chip:<BR>
