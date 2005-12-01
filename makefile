@@ -3,16 +3,15 @@
 # Solaris (CeBiTec network)
 GCC = /vol/gcc-3.4.3/bin/gcc
 JDK_PATH = /vol/java-1.5.0
+
+# Windows (Cygwin)
+#GCC = gcc
+#JDK_PATH = /usr
+
+# Java tools
 JAVAC = $(JDK_PATH)/bin/javac
 JAVADOC = $(JDK_PATH)/bin/javadoc
 JAVAH = $(JDK_PATH)/bin/javah
-
-# Windows
-#GCC = gcc
-#JDK_PATH = /usr
-#JAVAC = $(JDK_PATH)/bin/javac
-#JAVADOC = $(JDK_PATH)/bin/javadoc
-#JAVAH = $(JDK_PATH)/bin/javah
 
 # directories
 SRC_DIR = ./src
@@ -74,6 +73,10 @@ libsol: $(SOL_LIB) $(SOL_LIB)/libqap_graspd.so
 # external library (Solaris): GRASP for dense QAP
 $(SOL_LIB)/libqap_graspd.so: $(QAP_DIR)/graspd/qap_graspd.c $(QAP_DIR)/graspd/qap_graspd.f
 	$(GCC) -G -O3 -o $@ $(SOL_INC) $^
+
+# To do:
+# Use '-Xlinker -G' or '-shared' (or '-symbolic'?) instead of just '-G'
+# for building shared libraries
 
 # ==============================================================================
 
