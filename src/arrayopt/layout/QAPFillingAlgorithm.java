@@ -37,14 +37,25 @@
 
 package arrayopt.layout;
 
+import arrayopt.qap.*;
+
 /**
  *
  */
-public abstract class QAPFillingAlgorithm implements PlacementAlgorithm, FillingAlgorithm
+public class QAPFillingAlgorithm implements PlacementAlgorithm, FillingAlgorithm
 {
 	protected int[] spot_dist;
 
 	protected int[] probe_dist;
+
+	protected int[] perm;
+
+	protected QAPSolverAlgorithm solver;
+
+	public QAPFillingAlgorithm (QAPSolverAlgorithm solver)
+	{
+		this.solver = solver;
+	}
 
 	/**
 	 * TEMPORARY: FOR TESTING ONLY
@@ -72,7 +83,6 @@ public abstract class QAPFillingAlgorithm implements PlacementAlgorithm, Filling
 	{
 		RectangularRegion	rect;
 		int					dim, num_probes, unplaced;
-		int[]				perm;
 		long				curr_cost, sol_cost, comp_cost;
 
 		if (!(region instanceof RectangularRegion))
@@ -81,11 +91,19 @@ public abstract class QAPFillingAlgorithm implements PlacementAlgorithm, Filling
 
 		rect = (RectangularRegion) region;
 
-		// create and compute spot distance matrix
-		dim = computeSpotDistanceMatrix (chip, rect);
+		// create arrays
+		dim = createArrays (chip, rect);
 
-		// create probe distance matrix
-		createProbeDistanceMatrix (dim);
+		// compute spot distance matrix
+		if (chip instanceof SimpleChip)
+			QAPHelper.computeSpotDistance ((SimpleChip) chip, dim, rect,
+				spot_dist);
+		else if (chip instanceof AffymetrixChip)
+			QAPHelper.computeSpotDistance ((AffymetrixChip) chip, dim, rect,
+				spot_dist);
+		else
+			throw new IllegalArgumentException
+				("Unsupported chip type.");
 
 		// check if number of probes fit in the region
 		num_probes = end - start + 1;
@@ -102,52 +120,48 @@ public abstract class QAPFillingAlgorithm implements PlacementAlgorithm, Filling
 			unplaced = 0;
 		}
 
+		// compute probe distance matrix
 		if (chip instanceof SimpleChip)
-			computeProbeDistanceMatrix ((SimpleChip) chip, dim, probe_id,
-											start, end);
-
-		else if (chip instanceof AffymetrixChip)
-			computeProbeDistanceMatrix ((AffymetrixChip) chip, dim, probe_id,
-											start, end);
-
+			QAPHelper.computeProbeDistance ((SimpleChip) chip, dim, probe_id,
+											start, end, probe_dist);
 		else
-			throw new IllegalArgumentException ("Unsupported chip type.");
-
+			QAPHelper.computeProbeDistance ((AffymetrixChip) chip, dim, probe_id,
+											start, end, probe_dist);
+		// REMOVE THIS!
 		curr_cost = 0;
 		for (int i = 0; i < dim; i++)
 			for (int j = 0; j < dim; j++)
 				curr_cost += spot_dist[i * dim + j] * probe_dist[i * dim + j];
 
-		// run sub-classes' specific method
-		perm = new int[dim];
-		sol_cost = solveQAP (dim, spot_dist, probe_dist, perm);
+		// solve QAP
+		sol_cost = solver.solve (dim, spot_dist, probe_dist, perm);
 
 		// place probes according to the optimal permutation
 		if (chip instanceof SimpleChip)
-			applyPermutation ((SimpleChip) chip, rect, dim, probe_id, start,
-								end, perm);
+			QAPHelper.applyPermutation ((SimpleChip) chip, rect, dim, probe_id,
+										start, end, perm);
 		else
-			applyPermutation ((AffymetrixChip) chip, rect, dim, probe_id,
-								start, end, perm);
+			QAPHelper.applyPermutation ((AffymetrixChip) chip, rect, dim, probe_id,
+										start, end, perm);
 
 		return unplaced;
 	}
 
-	protected int computeSpotDistanceMatrix (Chip chip, RectangularRegion region)
+	protected int createArrays (Chip chip, RectangularRegion r)
 	{
 		int		dim, num_rows, num_cols, rows_per_probe;
-		int		s1, s1_row, s1_col, s2, s2_row, s2_col, v_dist, h_dist, weight;
+
+		num_rows = r.last_row - r.first_row + 1;
+		num_cols = r.last_col - r.first_col + 1;
 
 		if (chip instanceof AffymetrixChip)
 			rows_per_probe = 2;
 		else
 			rows_per_probe = 1;
 
-		num_rows = region.last_row - region.first_row + 1;
-		num_cols = region.last_col - region.first_col + 1;
-
 		dim = ((int) (num_rows / rows_per_probe)) * num_cols;
 
+		// create spot distance matrix (if necessary)
 		if (spot_dist == null)
 		{
 			spot_dist = new int [dim * dim];
@@ -160,58 +174,7 @@ public abstract class QAPFillingAlgorithm implements PlacementAlgorithm, Filling
 			}
 		}
 
-		s1 = 0;
-		s1_row = region.first_row;
-		s1_col = region.first_col;
-		while (true)
-		{
-			s2 = s1;
-			s2_row = s1_row;
-			s2_col = s1_col;
-
-			while (true)
-			{
-				v_dist = s2_row - s1_row;
-				h_dist = s2_col - s1_col;
-
-				weight = 0;
-
-				if (Math.abs(h_dist) <= 3 && Math.abs(v_dist) <= 3)
-				{
-					// we need integer values
-					weight = (int) (1000 * LayoutEvaluation.WEIGHT_DIST[3 + v_dist][3 + h_dist]);
-				}
-
-				spot_dist[s1 * dim + s2] = weight;
-				spot_dist[s2 * dim + s1] = weight;
-
-				// s2: next spot
-				if (++s2_col > region.last_col)
-				{
-					if (++s2_row * rows_per_probe > region.last_row)
-						break;
-
-					s2_col = region.first_col;
-				}
-				s2++;
-			}
-
-			// s1: next spot
-			if (++s1_col > region.last_col)
-			{
-				if (++s1_row * rows_per_probe > region.last_row)
-					break;
-
-				s1_col = region.first_col;
-			}
-			s1++;
-		}
-
-		return dim;
-	}
-
-	protected void createProbeDistanceMatrix (int dim)
-	{
+		// create probe distance matrix (if necessary)
 		if (probe_dist == null)
 		{
 			probe_dist = new int [dim * dim];
@@ -223,97 +186,20 @@ public abstract class QAPFillingAlgorithm implements PlacementAlgorithm, Filling
 				probe_dist = new int [dim * dim];
 			}
 		}
-	}
 
-	protected void computeProbeDistanceMatrix (SimpleChip chip, int dim,
-		int probe_id[], int start, int end)
-	{
-		// to do
-	}
-
-	protected void computeProbeDistanceMatrix (AffymetrixChip chip, int dim,
-		int probe_id[], int start, int end)
-	{
-		int i, j, dist, dist_empty, id_i;
-
-		dist_empty = chip.getProbeLength() + 1;
-
-		for (i = start; i <= end; i++)
+		// create permutation array (if necessary)
+		if (perm == null)
 		{
-			probe_dist[i * dim + i] = 0;
-
-			id_i = probe_id[i];
-
-			for (j = i + 1; j <= end; j++)
+			perm = new int [dim];
+		}
+		else
+		{
+			if (perm.length != dim)
 			{
-				// to do: DISTANCE MUST TAKE INTO ACCOUNT POSITION-DEPENDENT WEIGHTS
-				// dist = LayoutEvaluation.weightedDistance (chip, id_i, probe_id[j]);
-
-				dist = LayoutEvaluation.hammingDistance (chip, id_i, probe_id[j]);
-
-				probe_dist[i * dim + j] = dist;
-				probe_dist[j * dim + i] = dist;
-			}
-
-			for (j = end + 1; j < start + dim; j++)
-			{
-				probe_dist[i * dim + j] = dist_empty;
-				probe_dist[j * dim + i] = dist_empty;
+				perm = new int [dim];
 			}
 		}
 
-		for (i = end + 1; i < start + dim; i++)
-		{
-			probe_dist[i * dim + i] = 0;
-
-			for (j = i + 1; j < start + dim; j++)
-			{
-				probe_dist[i * dim + j] = 0;
-				probe_dist[j * dim + i] = 0;
-			}
-		}
-	}
-
-	public abstract long solveQAP (int dim, int dist[], int flow[], int sol[]);
-
-	protected void applyPermutation (SimpleChip chip, RectangularRegion region,
-		int dim, int probe_id[], int start, int end, int[] perm)
-	{
-		// to do
-	}
-
-	protected void applyPermutation (AffymetrixChip chip,
-		RectangularRegion region, int dim, int probe_id[], int start, int end,
-		int[] perm)
-	{
-		int	r, c, num_probes;
-
-		num_probes = end - start + 1;
-		r = region.first_row;
-		c = region.first_col;
-
-		for (int i = 0; i < dim; i++)
-		{
-			if (perm[i] > num_probes)
-			{
-				// empty probe
-				chip.spot[r][c] = chip.EMPTY_SPOT;
-				chip.spot[r + 1][c] = chip.EMPTY_SPOT;
-			}
-			else
-			{
-				chip.spot[r][c] = probe_id[start + perm[i] - 1];
-				chip.spot[r + 1][c] = probe_id[start + perm[i] - 1] + 1;
-			}
-
-			// should be row-by-row, left to right
-			r += 2;
-
-			if (r > region.last_row)
-			{
-				c ++;
-				r = region.first_row;
-			}
-		}
+		return dim;
 	}
 }

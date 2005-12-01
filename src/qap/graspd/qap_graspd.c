@@ -47,7 +47,7 @@
  */
 
 #include <cfortran.h>
-#include <arrayopt_layout_QAPGraspDense.h>
+#include <arrayopt_qap_GraspDense.h>
 
 #define ERROR_CODE		-1
 #define MIN_DIMENSION	2
@@ -72,7 +72,7 @@
 // ****************************************************************************
 // Java to C interface
 
-JNIEXPORT jlong JNICALL Java_arrayopt_layout_QAPGraspDense_qap_1graspd
+JNIEXPORT jlong JNICALL Java_arrayopt_qap_GraspDense_qap_1graspd
 	(JNIEnv *env, jclass obj, jint n, jint niter, jfloat alpha, jfloat beta,
 		jint look4, jintArray dist, jintArray flow, jintArray sol,
 		jintArray in_out)

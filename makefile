@@ -29,10 +29,10 @@ SOL_LIB = ./lib/solaris
 SOL_INC = -I$(INC_DIR) -I$(JDK_PATH)/include -I$(JDK_PATH)/include/solaris
 
 # source files and packages
-JAVA_SRC = $(SRC_DIR)/arrayopt/layout/*.java $(SRC_DIR)/arrayopt/textui/*.java
-JAVA_BIN = $(SRC_DIR)/arrayopt/layout/*.class $(SRC_DIR)/arrayopt/textui/*.class
-JAVA_PCK = arrayopt.layout arrayopt.textui
-JNI_CLS = arrayopt.layout.QAPGraspDense
+JAVA_SRC = $(SRC_DIR)/arrayopt/layout/*.java $(SRC_DIR)/arrayopt/qap/*.java $(SRC_DIR)/arrayopt/textui/*.java
+JAVA_BIN = $(BIN_DIR)/arrayopt/layout/*.class $(BIN_DIR)/arrayopt/qap/*.class $(BIN_DIR)/arrayopt/textui/*.class
+JAVA_PCK = arrayopt.layout arrayopt.qap arrayopt.textui
+JNI_CLS = arrayopt.qap.GraspDense
 
 # phony targets (always execute)
 .PHONY: classes apidoc jni cleanbin cleandoc cleanlib
@@ -48,7 +48,7 @@ apidoc: $(DOC_DIR)
 	$(JAVADOC) -d $(DOC_DIR) -sourcepath $(SRC_DIR) @apidoc_options $(JAVA_PCK)
 
 # generate JNI header files
-jni: arrayopt
+jni: classes
 	$(JAVAH) -jni -d $(INC_DIR) -classpath $(BIN_DIR) $(JNI_CLS)
 
 # build everything (libraries too?)

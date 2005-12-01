@@ -38,6 +38,7 @@
 package arrayopt.textui;
 
 import arrayopt.layout.*;
+import arrayopt.qap.*;
 import java.io.*;
 
 /**
@@ -152,10 +153,10 @@ public class ArrayOpt
 			//*/
 
 			else if (algorithm.equalsIgnoreCase("2D4-QAPBB"))
-				placer = new TwoDimensionalPartitioning(new QAPBranchAndBound(), 4);
+				placer = new TwoDimensionalPartitioning(new QAPFillingAlgorithm(new BranchAndBound()), 4);
 
 			else if (algorithm.equalsIgnoreCase("QAPGRASPD"))
-				placer = new QAPGraspDense();
+				placer = new QAPFillingAlgorithm(new GraspDense());
 
 			else
 				throw new IllegalArgumentException

@@ -1,5 +1,5 @@
 /*
- * QAPBranchAndBound.java
+ * QAPSolverAlgorithm.java
  *
  * $Revision$
  *
@@ -35,15 +35,29 @@
  *
  */
 
-package arrayopt.layout;
+package arrayopt.qap;
 
 /**
- *
+ * please document this
  */
-public class QAPBranchAndBound extends QAPFillingAlgorithm
+public abstract class QAPSolverAlgorithm
 {
-	public long solveQAP (int dim, int dist[], int flow[], int sol[])
+	/**
+	 * please document this
+	 */
+	public abstract long solve (int dim, int dist[], int flow[], int sol[]);
+
+	/**
+	 * please document this
+	 */
+	public long computeCost (int dim, int dist[], int flow[], int sol[])
 	{
-		return 0;
+		long cost = 0;
+
+		for (int i = 0; i < dim; i++)
+			for (int j = 0; j < dim; j++)
+				cost += dist[i * dim + j] * flow[sol[i] * dim + sol[j]];
+
+		return cost;
 	}
 }

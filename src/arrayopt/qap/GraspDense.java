@@ -1,5 +1,5 @@
 /*
- * QAPGraspDense.java
+ * GraspDense.java
  *
  * $Revision$
  *
@@ -35,12 +35,12 @@
  *
  */
 
-package arrayopt.layout;
+package arrayopt.qap;
 
 /**
  *
  */
-public class QAPGraspDense extends QAPFillingAlgorithm
+public class GraspDense extends QAPSolverAlgorithm
 {
 	static
 	{
@@ -80,17 +80,17 @@ public class QAPGraspDense extends QAPFillingAlgorithm
 
 	public static final int DEFAULT_SEED = 270001;
 
-	public QAPGraspDense ()
+	public GraspDense ()
 	{
 		this (DEFAULT_MAX_ITERACTIONS, DEFAULT_ALPHA, DEFAULT_BETA, DEFAULT_SEED);
 	}
 
-	public QAPGraspDense (int max_iteractions)
+	public GraspDense (int max_iteractions)
 	{
 		this (max_iteractions, DEFAULT_ALPHA, DEFAULT_BETA, DEFAULT_SEED);
 	}
 
-	public QAPGraspDense (int max_iter, float alpha, float beta, int seed)
+	public GraspDense (int max_iter, float alpha, float beta, int seed)
 	{
 		this.max_iter = max_iter;
 		this.alpha = alpha;
@@ -108,7 +108,7 @@ public class QAPGraspDense extends QAPFillingAlgorithm
 	/**
 	 *
 	 */
-	public long solveQAP (int dim, int dist[], int flow[], int sol[])
+	public long solve (int dim, int dist[], int flow[], int sol[])
 	{
 		long cost;
 		int look4 = -1;
