@@ -118,6 +118,9 @@ public class LayoutEvaluation
 			throw new IllegalArgumentException ("Unsupported chip type.");
 	}
 
+	/**
+	 * TO DO: use Integer.bitCount(int i) instead of this ugly bit shifting stuff
+	 */
 	protected static int hammingDistance (SimpleChip chip, int id_1, int id_2)
 	{
 		char ch;
@@ -147,6 +150,9 @@ public class LayoutEvaluation
 		return hd;
 	}
 
+	/**
+	 * TO DO: use Integer.bitCount(int i) instead of this ugly bit shifting stuff
+	 */
 	protected static int hammingDistance (AffymetrixChip chip, int id_1, int id_2)
 	{
 		char ch;
