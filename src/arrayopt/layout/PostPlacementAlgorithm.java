@@ -1,5 +1,5 @@
 /*
- * PartitioningAlgorithm.java
+ * PostPlacementAlgorithm.java
  *
  * $Revision$
  *
@@ -40,6 +40,10 @@ package arrayopt.layout;
 /**
  *
  */
-public abstract class PartitioningAlgorithm extends PlacementAlgorithm
+public interface PostPlacementAlgorithm
 {
+	/**
+	 *
+	 */
+	public void optimizeLayout (Chip chip);
 }
