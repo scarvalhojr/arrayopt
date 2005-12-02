@@ -38,17 +38,19 @@
 package arrayopt.layout;
 
 /**
- * This class contains different embedding algorithms for probes. Probes can appear in single instances,  
- * pairs 
- * or, in the general case, in tuples. So every algorithm is responsible for keeping pairs (tuples) 
- * synchronized if needed.
+ * This class contains different embedding algorithms for probes. 
+ * Each probe is a subset of the deposition sequence, i.e. this deposition sequence is a superstring of all
+ * probes. They can be embedded in several ways. Each embedding is an alignment with the deposition sequence 
+ * so that matches and gaps appear. Embedding algorithms generate such an alignment. 
+ * Probes normally appear in tuples but they may also appear in single instances or pairs. So every algorithm 
+ * is responsible for keeping pairs (tuples) synchronized if needed.
  *
  * @author Anna Domanski & Ronny Gärtner
  */
 public abstract class ProbeEmbeddingAlgorithm
 {
 	/**
-	 * 
+	 * embedd a complete set of probes of a given chip
 	 */
 	public void reembedProbeSet (Chip chip, int probe_id[])
 	{
@@ -56,7 +58,7 @@ public abstract class ProbeEmbeddingAlgorithm
 	}
 
 	/**
-	 * embedd a whole set of probes of a chip within a range: from first to last probe
+	 * embedd a set of probes of a chip within a range: from first to last probe
 	 */
 	public void reembedProbeSet (Chip chip, int probe_id[], int first, int last)
 	{
@@ -65,7 +67,7 @@ public abstract class ProbeEmbeddingAlgorithm
 	}
 
 	/**
-	 * embedd single probe of a chip
+	 * embedd a single probe of a chip
 	 */
 	public abstract void reembedProbe (Chip chip, int probe_id);
 }
