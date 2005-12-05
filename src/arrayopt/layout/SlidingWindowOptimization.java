@@ -1,5 +1,5 @@
 /*
- * QAPOptimizationAlgorithm.java
+ * SlidingWindowOptimization.java
  *
  * $Revision$
  *
@@ -37,27 +37,15 @@
 
 package arrayopt.layout;
 
-import arrayopt.qap.*;
-
 /**
  *
  */
-public class QAPOptimizationAlgorithm implements PostPlacementAlgorithm
+public class SlidingWindowOptimization implements PostPlacementAlgorithm
 {
 	/**
 	 * document this
 	 */
-	protected int[] spot_dist;
-
-	/**
-	 * document this
-	 */
-	protected int[] probe_dist;
-
-	/**
-	 * document this
-	 */
-	protected int[] probe_id;
+	protected IteractiveOptimizationAlgorithm alg;
 
 	/**
 	 * document this
@@ -66,30 +54,10 @@ public class QAPOptimizationAlgorithm implements PostPlacementAlgorithm
 
 	/**
 	 * document this
-	 */
-	protected QAPSolverAlgorithm solver;
-
-	/**
-	 * document this
-	 *
-	 * dimension of sliding window (required field, no default value because
-	 * of different QAP solvers' caracteristics)
-	 */
-	protected int window_dim;
-
-	/**
-	 * document this
 	 *
 	 * how many rows (or columns) the window is shifted
 	 */
 	protected int shift;
-
-	/**
-	 * document this
-	 *
-	 * dimension of QAP problem
-	 */
-	protected int qap_dim;
 
 	/**
 	 * document this
@@ -104,7 +72,7 @@ public class QAPOptimizationAlgorithm implements PostPlacementAlgorithm
 	 * default maximum number of iteractions (an iteraction is a full pass over
 	 * the chip surface)
 	 */
-	protected static final int DEFAULT_MAX_ITER = 20;
+	protected static final int DEFAULT_MAX_ITER = 10;
 
 	/**
 	 * document this
@@ -118,12 +86,16 @@ public class QAPOptimizationAlgorithm implements PostPlacementAlgorithm
 	 *
 	 * default threshold
 	 */
-	protected static final float DEFAULT_THRESHOLD = .1f;
+	protected static final float DEFAULT_THRESHOLD = .03f;
 
 	/**
 	 * document this
+	 *
+	 * dimension of sliding window and shift are required; no default values
+	 * because of different QAP solvers' caracteristics)
 	 */
-	public QAPOptimizationAlgorithm (QAPSolverAlgorithm solver, int window_dim)
+	public SlidingWindowOptimization (IteractiveOptimizationAlgorithm alg,
+		int window_dim, int shift)
 	{
 		// to do
 	}
@@ -131,8 +103,8 @@ public class QAPOptimizationAlgorithm implements PostPlacementAlgorithm
 	/**
 	 * document this
 	 */
-	public QAPOptimizationAlgorithm (QAPSolverAlgorithm solver, int window_dim,
-		int shift)
+	public SlidingWindowOptimization (IteractiveOptimizationAlgorithm alg,
+		int window_dim, int shift, int max_iter)
 	{
 		// to do
 	}
@@ -140,17 +112,8 @@ public class QAPOptimizationAlgorithm implements PostPlacementAlgorithm
 	/**
 	 * document this
 	 */
-	public QAPOptimizationAlgorithm (QAPSolverAlgorithm solver, int window_dim,
-		int shift, int max_iter)
-	{
-		// to do
-	}
-
-	/**
-	 * document this
-	 */
-	public QAPOptimizationAlgorithm (QAPSolverAlgorithm solver, int window_dim,
-		int shift, int max_iter, float threshold)
+	public SlidingWindowOptimization (IteractiveOptimizationAlgorithm alg,
+		 int window_dim, int shift, int max_iter, float threshold)
 	{
 		// to do
 
@@ -162,35 +125,24 @@ public class QAPOptimizationAlgorithm implements PostPlacementAlgorithm
 		// instantiate rectangular region object, initially pointing to
 		// coordinates (0,0) with the requested dimension (this object
 		// will be reused as the window slides over the chip surface)
-
-		// compute spot distance matrix, which won't change between calls to
-		// optimizeLayout since the window size is fixed (and values are
-		// independent of the region it points to)
 	}
 
 	/**
 	 * document this
-	 *
-	 * this method is synchronized since we need to guarantee exclusive access
-	 * to the instance variables (probe_dist and spot_dist arrays)
 	 */
 	public synchronized void optimizeLayout (Chip chip)
 	{
-		// loop while improvement doesn't fall below threshold
+		// loop for desired number of iteraction
 
-			// update window coordinates
+			// slide window from left to right, top to bottom
 
-			// compute current cost (according to current
-			// assignment of probes to spots)
+				// update window coordinates
 
-			// do a multiple alignment of the probes??
+				// run iteractive algorithm
 
-			// update probe distance matrix
+				// check improvement
 
-			// solve QAP
-
-			// check improvement in cost
-
-			// if better, use QAP solution to replace probes
+			// quit if maximum improvement of last iteraction
+			// (full pass over the chip) falls below threshold
 	}
 }

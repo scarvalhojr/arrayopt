@@ -153,10 +153,10 @@ public class ArrayOpt
 			//*/
 
 			else if (algorithm.equalsIgnoreCase("2D4-QAPBB"))
-				placer = new TwoDimensionalPartitioning(new QAPFillingAlgorithm(new BranchAndBound()), 4);
+				placer = new TwoDimensionalPartitioning(new QAPOptimization(new BranchAndBound()), 4);
 
 			else if (algorithm.equalsIgnoreCase("QAPGRASPD"))
-				placer = new QAPFillingAlgorithm(new GraspDense());
+				placer = new QAPOptimization(new GraspDense());
 
 			else
 				throw new IllegalArgumentException

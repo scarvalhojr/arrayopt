@@ -1,5 +1,5 @@
 /*
- * FillingAlgorithm.java
+ * PivotOptimization.java
  *
  * $Revision$
  *
@@ -38,18 +38,15 @@
 package arrayopt.layout;
 
 /**
- *
+ * document this
  */
-public interface FillingAlgorithm
+public class PivotOptimization implements PostPlacementAlgorithm
 {
 	/**
-	 *
+	 * document this
 	 */
-	public int fillRegion (Chip chip, Region region, int probe_id[]);
-
-	/**
-	 *
-	 */
-	public int fillRegion (Chip chip, Region region, int probe_id[], int start,
-		int end);
+	public void optimizeLayout (Chip chip)
+	{
+		// to do
+	}
 }

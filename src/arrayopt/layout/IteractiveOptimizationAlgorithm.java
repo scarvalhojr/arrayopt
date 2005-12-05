@@ -1,5 +1,5 @@
 /*
- * FillingAlgorithm.java
+ * IteractiveOptimizationAlgorithm.java
  *
  * $Revision$
  *
@@ -40,16 +40,10 @@ package arrayopt.layout;
 /**
  *
  */
-public interface FillingAlgorithm
+public interface IteractiveOptimizationAlgorithm
 {
 	/**
 	 *
 	 */
-	public int fillRegion (Chip chip, Region region, int probe_id[]);
-
-	/**
-	 *
-	 */
-	public int fillRegion (Chip chip, Region region, int probe_id[], int start,
-		int end);
+	public float optimizeLayout (Chip chip, Region region);
 }

@@ -83,6 +83,14 @@ public class GreedyFiller implements PlacementAlgorithm, FillingAlgorithm
 	/**
 	 *
 	 */
+	public int fillRegion (Chip chip, Region region, int probe_id[])
+	{
+		return fillRegion (chip, region, probe_id, 0, probe_id.length - 1);
+	}
+
+	/**
+	 *
+	 */
 	public int fillRegion (Chip chip, Region region, int probe_id[], int start,
 		int end)
 	{
