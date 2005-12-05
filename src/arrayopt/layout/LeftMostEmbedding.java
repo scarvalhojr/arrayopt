@@ -43,8 +43,27 @@ package arrayopt.layout;
  * with the deposition sequence.
  * @author Anna Domanski & Ronny Gärtner
  */
-public class LeftMostEmbedding extends ProbeEmbeddingAlgorithm
+public class LeftMostEmbedding implements SingleProbeEmbeddingAlgorithm,
+	ProbeSetEmbeddingAlgorithm
 {
+
+	/**
+	 * embedd a complete set of probes of a given chip
+	 */
+	public void reembedProbeSet (Chip chip, int probe_id[])
+	{
+		reembedProbeSet (chip, probe_id, 0, probe_id.length - 1);
+	}
+
+	/**
+	 * embedd a set of probes of a chip within a range: from first to last probe
+	 */
+	public void reembedProbeSet (Chip chip, int probe_id[], int first, int last)
+	{
+		for (int i = first; i <= last; i++)
+			reembedProbe (chip, probe_id[i]);
+	}
+
 	/**
 	 * reembeds a probe with leftmost embedding and no shift
 	 * @param chip either affymetrix or simple chip

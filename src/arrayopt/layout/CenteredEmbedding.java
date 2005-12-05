@@ -42,9 +42,27 @@ package arrayopt.layout;
  * The goal of centered algorithm is to align a probe more in the center of the depostion sequence.
  * @author Anna Domanski & Ronny Gärtner
  */
-public class CenteredEmbedding extends ProbeEmbeddingAlgorithm
+public class CenteredEmbedding implements SingleProbeEmbeddingAlgorithm,
+	ProbeSetEmbeddingAlgorithm
 {
 	private LeftMostEmbedding embedder = new LeftMostEmbedding();
+
+	/**
+	 * embedd a complete set of probes of a given chip
+	 */
+	public void reembedProbeSet (Chip chip, int probe_id[])
+	{
+		reembedProbeSet (chip, probe_id, 0, probe_id.length - 1);
+	}
+
+	/**
+	 * embedd a set of probes of a chip within a range: from first to last probe
+	 */
+	public void reembedProbeSet (Chip chip, int probe_id[], int first, int last)
+	{
+		for (int i = first; i <= last; i++)
+			reembedProbe (chip, probe_id[i]);
+	}
 	
 	/**
 	 * embeds a single probe of a chip

@@ -1,5 +1,5 @@
 /*
- * MultipleAlignmentEmbedding.java
+ * SingleProbeEmbeddingAlgorithm.java
  *
  * $Revision$
  *
@@ -38,23 +38,12 @@
 package arrayopt.layout;
 
 /**
- * please document this
+ * document this
  */
-public class MultipleAlignmentEmbedding implements ProbeSetEmbeddingAlgorithm
+public interface SingleProbeEmbeddingAlgorithm
 {
 	/**
-	 * please document this
+	 * document this
 	 */
-	public void reembedProbeSet (Chip chip, int probe_id[])
-	{
-		reembedProbeSet (chip, probe_id, 0, probe_id.length - 1);
-	}
-
-	/**
-	 * please document this
-	 */
-	public void reembedProbeSet (Chip chip, int probe_id[], int first, int last)
-	{
-		// to do
-	}
+	public void reembedProbe (Chip chip, int probe_id);
 }

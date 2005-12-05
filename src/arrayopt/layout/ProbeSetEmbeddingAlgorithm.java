@@ -1,5 +1,5 @@
 /*
- * ProbeEmbeddingAlgorithm.java
+ * ProbeSetEmbeddingAlgorithm.java
  *
  * $Revision$
  *
@@ -38,36 +38,17 @@
 package arrayopt.layout;
 
 /**
- * This class contains different embedding algorithms for probes. 
- * Each probe is a subset of the deposition sequence, i.e. this deposition sequence is a superstring of all
- * probes. They can be embedded in several ways. Each embedding is an alignment with the deposition sequence 
- * so that matches and gaps appear. Embedding algorithms generate such an alignment. 
- * Probes normally appear in tuples but they may also appear in single instances or pairs. So every algorithm 
- * is responsible for keeping pairs (tuples) synchronized if needed.
- *
- * @author Anna Domanski & Ronny Gärtner
+ * document this
  */
-public abstract class ProbeEmbeddingAlgorithm
+public interface ProbeSetEmbeddingAlgorithm
 {
 	/**
-	 * embedd a complete set of probes of a given chip
+	 * document this
 	 */
-	public void reembedProbeSet (Chip chip, int probe_id[])
-	{
-		reembedProbeSet (chip, probe_id, 0, probe_id.length - 1);
-	}
+	public void reembedProbeSet (Chip chip, int probe_id[]);
 
 	/**
 	 * embedd a set of probes of a chip within a range: from first to last probe
 	 */
-	public void reembedProbeSet (Chip chip, int probe_id[], int first, int last)
-	{
-		for (int i = first; i <= last; i++)
-			reembedProbe (chip, probe_id[i]);
-	}
-
-	/**
-	 * embedd a single probe of a chip
-	 */
-	public abstract void reembedProbe (Chip chip, int probe_id);
+	public void reembedProbeSet (Chip chip, int probe_id[], int first, int last);
 }

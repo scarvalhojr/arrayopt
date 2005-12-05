@@ -1,5 +1,5 @@
 /*
- * MultipleAlignmentEmbedding.java
+ * PivotEmbedding.java
  *
  * $Revision$
  *
@@ -40,7 +40,7 @@ package arrayopt.layout;
 /**
  * please document this
  */
-public class MultipleAlignmentEmbedding implements ProbeSetEmbeddingAlgorithm
+public class PivotEmbedding implements ProbeSetEmbeddingAlgorithm
 {
 	/**
 	 * please document this
@@ -55,6 +55,49 @@ public class MultipleAlignmentEmbedding implements ProbeSetEmbeddingAlgorithm
 	 */
 	public void reembedProbeSet (Chip chip, int probe_id[], int first, int last)
 	{
+		// find pivots (probes that have only one possible embedding) and
+		// move them to the beginning of the list
+
+		// for each of the remaining probes p, find pivot q which minimizes
+		// OptimumEmbedding.minHammingDistance(p, q)
+
+		// reembed p optimally in regards to q:
+		// OptimumEmbedding.reembedProbe(p, q)
+	}
+
+	/**
+	 * please document this
+	 */
+	public static int numberOfEmbeddings (Chip chip, int probe_id)
+	{
+		if (chip instanceof SimpleChip)
+			return numberOfEmbeddings ((SimpleChip) chip, probe_id);
+
+		else if (chip instanceof AffymetrixChip)
+			return numberOfEmbeddings ((AffymetrixChip) chip, probe_id);
+
+		else
+			throw new IllegalArgumentException
+				("Unsupported chip type.");
+	}
+
+	/**
+	 * please document this
+	 */
+	public static int numberOfEmbeddings (SimpleChip chip, int probe_id)
+	{
 		// to do
+
+		return 0;
+	}
+
+	/**
+	 * please document this
+	 */
+	public static int numberOfEmbeddings (AffymetrixChip chip, int probe_id)
+	{
+		// to do
+
+		return 0;
 	}
 }
