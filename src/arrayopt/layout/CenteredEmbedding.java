@@ -15,7 +15,7 @@
  * Software Foundation; either version 2 of the License, or (at your option)
  * any later version.
  *
- * ÂrrayOpt is distributed in the hope that it will be useful, but WITHOUT ANY
+ * ?rrayOpt is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
  * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
  * details.
@@ -40,7 +40,7 @@ package arrayopt.layout;
 /**
  * This class contains centered algorithm for several microarray chips.
  * The goal of centered algorithm is to align a probe more in the center of the depostion sequence.
- * @author Anna Domanski & Ronny Gärtner
+ * @author Anna Domanski & Ronny G?rtner
  */
 public class CenteredEmbedding implements SingleProbeEmbeddingAlgorithm,
 	ProbeSetEmbeddingAlgorithm
@@ -90,7 +90,7 @@ public class CenteredEmbedding implements SingleProbeEmbeddingAlgorithm,
 	public void reembedProbe (SimpleChip chip, int probe_id)
 	{
 		// to do:
-		int shift = 0, spaces = 0, mask, int_index, pos, count_appearance = 0;
+		int shift = 0, mask, int_index, pos, count_appearance = 0;
 		
 		pos = chip.dep_seq.length - 1;
 		mask = 0x01 << ((Integer.SIZE-1) - (pos % Integer.SIZE));
@@ -142,7 +142,7 @@ public class CenteredEmbedding implements SingleProbeEmbeddingAlgorithm,
 	 */
 	public void reembedProbe (AffymetrixChip chip, int probe_id)
 	{
-		int shift = 0, spaces = 0, mask, int_index, pos, count_appearance = 0;
+		int shift = 0, mask, int_index, pos, count_appearance = 0;
 		
 		pos = chip.dep_seq.length - 1;
 		mask = 0x01 << ((Integer.SIZE-1) - (pos % Integer.SIZE));
