@@ -15,7 +15,7 @@
  * Software Foundation; either version 2 of the License, or (at your option)
  * any later version.
  *
- * ÂrrayOpt is distributed in the hope that it will be useful, but WITHOUT ANY
+ * ?rrayOpt is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
  * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
  * details.
@@ -41,7 +41,7 @@ package arrayopt.layout;
  * This class contains leftmost embedding algorithm for probes of several types of chips. 
  * Leftmost embedding means that each base of a probe is aligned at the leftmost possible spot
  * with the deposition sequence.
- * @author Anna Domanski & Ronny Gärtner
+ * @author Anna Domanski & Ronny G?rtner
  */
 public class LeftMostEmbedding implements SingleProbeEmbeddingAlgorithm,
 	ProbeSetEmbeddingAlgorithm
@@ -196,7 +196,7 @@ public class LeftMostEmbedding implements SingleProbeEmbeddingAlgorithm,
 	newint = (int) Math.floor((double) newpos/Integer.SIZE);
 		
 	// synthesize up to 12th base
-	while (basenumber < chip.AFFY_MIDDLE_BASE)
+	while (basenumber < AffymetrixChip.AFFY_MIDDLE_BASE)
 	{
 		if (oldpos % Integer.SIZE == 0)
 		{	
@@ -307,7 +307,7 @@ public class LeftMostEmbedding implements SingleProbeEmbeddingAlgorithm,
 
 	// synthesize rest
 	
-	while (basenumber < chip.AFFY_PROBE_LENGTH)
+	while (basenumber < AffymetrixChip.AFFY_PROBE_LENGTH)
 	{
 		if (oldpos % Integer.SIZE == 0)
 		{	
