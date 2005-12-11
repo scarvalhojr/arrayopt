@@ -15,7 +15,7 @@
  * Software Foundation; either version 2 of the License, or (at your option)
  * any later version.
  *
- * ÂrrayOpt is distributed in the hope that it will be useful, but WITHOUT ANY
+ * ?rrayOpt is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
  * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
  * details.
@@ -40,7 +40,7 @@ package arrayopt.layout;
 /**
  * This class contains rightmost embedding algorithm for several Chip types such as Affymetrix Chips.
  *
- * @author Anna Domanski & Ronny Gärtner
+ * @author Anna Domanski & Ronny G?rtner
  */
 public class RightMostEmbedding implements SingleProbeEmbeddingAlgorithm,
 	ProbeSetEmbeddingAlgorithm
@@ -188,11 +188,11 @@ public class RightMostEmbedding implements SingleProbeEmbeddingAlgorithm,
 		newint =(int) Math.floor((double) newpos/Integer.SIZE);
 		oldint =(int) Math.floor((double) oldpos/Integer.SIZE);
 		boolean middle_synthesized = false, compl_synthesized = false;
-		basenumber = chip.AFFY_PROBE_LENGTH - 1;
+		basenumber = AffymetrixChip.AFFY_PROBE_LENGTH - 1;
 		char compl = 'A';
 	
 	// synthesize till MIDDLE_BASE+1 
-	while (basenumber > chip.AFFY_MIDDLE_BASE)
+	while (basenumber > AffymetrixChip.AFFY_MIDDLE_BASE)
 	{
 		if ((oldpos+1) % (Integer.SIZE) == 0)
 		{	
