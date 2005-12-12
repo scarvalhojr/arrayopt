@@ -15,7 +15,7 @@
  * Software Foundation; either version 2 of the License, or (at your option)
  * any later version.
  *
- * ÂrrayOpt is distributed in the hope that it will be useful, but WITHOUT ANY
+ * ï¿½rrayOpt is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
  * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
  * details.
@@ -82,13 +82,46 @@ public class PivotEmbedding implements ProbeSetEmbeddingAlgorithm
 	}
 
 	/**
-	 * please document this
+	 * calculates the number of possible embeddings a probe of an Simple Chip can have
 	 */
 	public static int numberOfEmbeddings (SimpleChip chip, int probe_id)
 	{
-		// to do
+		int[] current = new int[(chip.embed_len + 1)];
+		int [] previous = new int[(chip.embed_len + 1)];
+		int pos = -1;
+		
+		previous[0] = 1;
+		current[0] = 1;
+		
+		int mask = 0x01 << (Integer.SIZE-1);
+		
+		for (int  j=0; j<= chip.dep_seq.length; j++)
+		{
+			for(int i=1; i<=chip.embed_len; i++)
+			{
+				if(i % Integer.SIZE == 0)
+				{
+					mask = 0x01 << (Integer.SIZE-1);
+					pos++;
+				}
+				
+				if((chip.embed[probe_id][pos] & mask) != 0)
+				{
+					current[i] = previous[i];   
+					
+					if(chip.dep_seq[i-1] == chip.dep_seq[j])
+					{
+						current[i] += previous[i-1];
+					}
+					
+					if (current[i] == 0)
+						break;
+				}
+			}
+			previous = current;
+		}
 
-		return 0;
+		return current[chip.embed_len];  
 	}
 
 	/**
