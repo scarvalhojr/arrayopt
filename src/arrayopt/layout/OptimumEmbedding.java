@@ -81,6 +81,16 @@ public class OptimumEmbedding
 			throw new IllegalArgumentException ("Unsupported chip type.");
 	}
 
+	// package access
+	// reembed probe 1 so that it has the minimum hamming distance to
+	// a given set of probes (whose embedding is fixed)
+	static void reembedProbe (Chip chip, int id, int p[])
+	{
+		// to do
+		
+		reembedProbe (chip, id, p[0]);
+	}
+
 	// compute the minimum hamming distance between all possible embeddings
 	// of probe 1 and a fixed embedding of probe 2
 	protected static int minHammingDistance (SimpleChip chip, int id_1, int id_2)
