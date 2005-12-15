@@ -113,6 +113,13 @@ public abstract class Chip
 	public char dep_seq[];
 
 	/**
+	 * The length of the base permutation that form the deposition sequence.
+	 *
+	 * <B>Implementation note:</B> this is not being checked at the moment.
+	 */
+	public static final int DEP_SEQ_CYCLE = 4;
+
+	/**
 	 * The matrix of sites (or spots) on the chip. Each spot can either be
 	 * uninitialized ({@link #UNINITIALIZED_SPOT}), empty ({@link #EMPTY_SPOT})
 	 * or associated with a unique probe ID (see {@link #embed}).
@@ -256,11 +263,20 @@ public abstract class Chip
 	 * Returns the number of columns of sites this chip has.
 	 *
 	 * @return number of columns of sites on the chip
-
 	 */
 	public int getNumberOfColumns ()
 	{
 		return this.num_cols;
+	}
+
+	/**
+	 * Returns the number of probes this chip has.
+	 *
+	 * @return number of probes on the chip
+	 */
+	public int getNumberOfProbes ()
+	{
+		return this.num_probes;
 	}
 
 	/**
@@ -308,6 +324,22 @@ public abstract class Chip
 	 * @return a list of movable (not fixed) probe IDs
 	 */
 	public abstract int[] getMovableProbes ();
+
+	/**
+	 * Returns a list of ALL probe IDs (including those of fixed probes and all
+	 * probes instances in case of a multi-probe type of chip).
+	 *
+	 * @return a list of all probe IDs
+	 */
+	public int[] getAllProbes ()
+	{
+		int id[] = new int [this.num_probes];
+		
+		for (int i = 0; i < this.num_probes; i++)
+			id[i] = i;
+		
+		return id;
+	}
 
 	/**
 	 * Resets the layout of this microarray chip by marking all non-fixed spots
