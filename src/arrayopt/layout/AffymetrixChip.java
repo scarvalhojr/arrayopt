@@ -348,10 +348,6 @@ public class AffymetrixChip extends Chip
 				throw new IOException ("Spot conflict at row " + r +
 										", column " + c + ".");
 
-			// check if number of probes has been exceeded
-			if (probe_id >= num_probes)
-				throw new IOException ("Found more probes than expected.");
-
 			// mark spot as fixed or non-fixed
 			setFixedSpot(r, c, fixed);
 
@@ -366,6 +362,11 @@ public class AffymetrixChip extends Chip
 
 			// new probe found
 			probe_id++;
+
+			// check if number of probes has been exceeded
+			if (probe_id >= num_probes)
+				throw new IOException
+					("Found more probes in the input than expected.");
 
 			// place probe on the spot (mark spot as used)
 			this.spot[r][c] = probe_id;
