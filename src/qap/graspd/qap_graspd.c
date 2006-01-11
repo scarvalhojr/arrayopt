@@ -89,26 +89,27 @@ JNIEXPORT jlong JNICALL Java_arrayopt_qap_GraspDense_qap_1graspd
 	n2 = n * n;
 
 	// allocate temporary working space
-	if (!(a 	= malloc (n  * sizeof(int)))) return ERROR_CODE;
-	if (!(b 	= malloc (n  * sizeof(int)))) return ERROR_CODE;
-	if (!(srtf	= malloc (n2 * sizeof(int)))) return ERROR_CODE;
-	if (!(srtif	= malloc (n2 * sizeof(int)))) return ERROR_CODE;
-	if (!(srtd	= malloc (n2 * sizeof(int)))) return ERROR_CODE;
-	if (!(srtid	= malloc (n2 * sizeof(int)))) return ERROR_CODE;
-	if (!(srtc	= malloc (n2 * sizeof(int)))) return ERROR_CODE;
-	if (!(srtic	= malloc (n2 * sizeof(int)))) return ERROR_CODE;
-	if (!(idxd	= malloc (n2 * sizeof(int)))) return ERROR_CODE;
-	if (!(idxf	= malloc (n2 * sizeof(int)))) return ERROR_CODE;
-	if (!(cost	= malloc (n2 * sizeof(int)))) return ERROR_CODE;
-	if (!(fdind	= malloc (n2 * sizeof(int)))) return ERROR_CODE;
+	if (!(a 	= malloc (n  * sizeof(a))))		return ERROR_CODE;
+	if (!(b 	= malloc (n  * sizeof(b))))		return ERROR_CODE;
+	if (!(srtf	= malloc (n2 * sizeof(srtf))))	return ERROR_CODE;
+	if (!(srtif	= malloc (n2 * sizeof(srtif)))) return ERROR_CODE;
+	if (!(srtd	= malloc (n2 * sizeof(srtd))))	return ERROR_CODE;
+	if (!(srtid	= malloc (n2 * sizeof(srtid))))	return ERROR_CODE;
+	if (!(srtc	= malloc (n2 * sizeof(srtc))))	return ERROR_CODE;
+	if (!(srtic	= malloc (n2 * sizeof(srtic))))	return ERROR_CODE;
+	if (!(idxd	= malloc (n2 * sizeof(idxd))))	return ERROR_CODE;
+	if (!(idxf	= malloc (n2 * sizeof(idxf))))	return ERROR_CODE;
+	if (!(cost	= malloc (n2 * sizeof(cost))))	return ERROR_CODE;
+	if (!(fdind	= malloc (n2 * sizeof(fdind))))	return ERROR_CODE;
 
-	// get reference to Java arrays
+	// get reference to Java arrays (input)
 	jint *d    = (*env)->GetIntArrayElements(env, dist, 0);
 	jint *f    = (*env)->GetIntArrayElements(env, flow, 0);
 	jint *opta = (*env)->GetIntArrayElements(env, sol, 0);
 	jint *io   = (*env)->GetIntArrayElements(env, in_out, 0);
 
-	// workaround (passing a pointer doesn't work)
+	// workaround: use an integer variable to pass an in/out argument
+	// to the Fortran subroutine (passing a pointer to an integer doesn't work)
 	seed = io[0];
 
 	// call fortran subroutine
@@ -116,17 +117,18 @@ JNIEXPORT jlong JNICALL Java_arrayopt_qap_GraspDense_qap_1graspd
 						srtf,srtif,srtd,srtid,srtc,srtic,idxd,
 						idxf,cost,fdind,opta,bestv,iter);
 
-	// workaround (passing a pointer doesn't work)
+	// workaround: copy values returned by the Fortran subroutine back
+	// to the array passed by the Java call (passing a pointer doesn't work)
 	io[0] = seed;
 	io[1] = iter;
 
-	// release Java arrays memory
+	// release Java arrays' memory
 	(*env)->ReleaseIntArrayElements(env, dist, d, 0);
 	(*env)->ReleaseIntArrayElements(env, flow, f, 0);
 	(*env)->ReleaseIntArrayElements(env, sol, opta, 0);
 	(*env)->ReleaseIntArrayElements(env, in_out, io, 0);
 
-	// release allocated memory
+	// release locally allocated memory
 	free(a);
 	free(b);
 	free(srtf);
