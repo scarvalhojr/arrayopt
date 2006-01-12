@@ -55,22 +55,6 @@ public class SimpleChip extends Chip
 	 *
 	 * @param num_rows number of rows of sites
 	 * @param num_cols number of columns of sites
-	 * @param num_probes total number of probes (not probe pairs)
-	 * @param probe_len length of probe sequences
-	 * @param embed_len length of embeddings (deposition sequence)
-	 */
-	public SimpleChip (int num_rows, int num_cols, int num_probes,
-		int probe_len, int embed_len)
-	{
-		super (num_rows, num_cols, num_probes, probe_len, embed_len);
-	}
-
-	/**
-	 * Creates a new SimpleChip instance with a pre-defined deposition
-	 * sequence.
-	 *
-	 * @param num_rows number of rows of sites
-	 * @param num_cols number of columns of sites
 	 * @param num_probes total number of probes (not probe pairs or tuples)
 	 * @param probe_len length of the probes
 	 * @param dep_seq deposition sequence as a String

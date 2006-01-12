@@ -90,7 +90,14 @@ public class CenteredEmbedding implements SingleProbeEmbeddingAlgorithm,
 	public void reembedProbe (SimpleChip chip, int probe_id)
 	{
 		// to do:
-		int shift = 0, mask, int_index, pos, count_appearance = 0;
+		int shift = 0, mask, int_index, pos, count_appearance = 0, cycle;
+
+		if ((cycle = chip.depositionSequenceCycleLength()) <= 0)
+			throw new IllegalArgumentException
+				("Only chips with cyclical deposition sequences are supported.");
+		
+		// NOTE: Use the 'cycle' variable instead of the Chip.DEP_SEQ_CYCLE
+		// constant (which has been removed) or hardcoded numbers
 		
 		pos = chip.dep_seq.length - 1;
 		mask = 0x01 << ((Integer.SIZE-1) - (pos % Integer.SIZE));
@@ -142,7 +149,14 @@ public class CenteredEmbedding implements SingleProbeEmbeddingAlgorithm,
 	 */
 	public void reembedProbe (AffymetrixChip chip, int probe_id)
 	{
-		int shift = 0, mask, int_index, pos, count_appearance = 0;
+		int shift = 0, mask, int_index, pos, count_appearance = 0, cycle;
+
+		if ((cycle = chip.depositionSequenceCycleLength()) <= 0)
+			throw new IllegalArgumentException
+				("Only chips with cyclical deposition sequences are supported.");
+		
+		// NOTE: Use the 'cycle' variable instead of the Chip.DEP_SEQ_CYCLE
+		// constant (which has been removed) or hardcoded numbers
 		
 		pos = chip.dep_seq.length - 1;
 		mask = 0x01 << ((Integer.SIZE-1) - (pos % Integer.SIZE));

@@ -46,30 +46,42 @@ import java.io.*;
  */
 public class ArrayOpt
 {
+	private static final String DEFAULT_DEP_SEQ = "TGCATGCATGCATGCATGCATGCA" +
+						"TGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATG";
+	
 	public static void main (String args[])
 	{
 		Chip				chip;
 		PlacementAlgorithm	placer;
-		int					rows, cols, probes, probe_len, embed_len, unplaced;
-		String				chip_type, filename, algorithm;
+		int					rows, cols, probes, probe_len, unplaced;
+		String				chip_type, filename, algorithm, dep_seq;
 
 		try
 		{
-			// get command-line arguments
+			// get mandatory command-line arguments
 			chip_type = args[0];
 			filename  = args[1];
 			rows      = Integer.parseInt(args[2]);
 			cols      = Integer.parseInt(args[3]);
 			probes    = Integer.parseInt(args[4]);
 			probe_len = Integer.parseInt(args[5]);
-			embed_len = Integer.parseInt(args[6]);
-			algorithm = args[7];
+			algorithm = args[6];
 		}
 		catch (Exception e)
 		{
 			usage();
 			System.exit(1);
 			return;
+		}
+
+		try
+		{
+			// get optional command-line arguments
+			dep_seq = args[7];
+		}
+		catch (ArrayIndexOutOfBoundsException e)
+		{
+			dep_seq = DEFAULT_DEP_SEQ;
 		}
 
 		try
@@ -97,12 +109,6 @@ public class ArrayOpt
 			{
 				throw new IllegalArgumentException
 					("Illegal length of probes.");
-			}
-
-			if (embed_len < 1)
-			{
-				throw new IllegalArgumentException
-					("Illegal length of embeddings.");
 			}
 
 			// algorithm selection
@@ -158,6 +164,18 @@ public class ArrayOpt
 			else if (algorithm.equalsIgnoreCase("QAPGRASPD"))
 				placer = new QAPOptimization(new GraspDense());
 
+			else if (algorithm.equalsIgnoreCase("LEFT"))
+				placer = new ProbeSetEmbeddingWrapper(new LeftMostEmbedding());
+				
+			else if (algorithm.equalsIgnoreCase("RIGHT"))
+				placer = new ProbeSetEmbeddingWrapper(new RightMostEmbedding());
+				
+			else if (algorithm.equalsIgnoreCase("CENTER"))
+				placer = new ProbeSetEmbeddingWrapper(new CenteredEmbedding());
+				
+			else if (algorithm.equalsIgnoreCase("PIVOT"))
+				placer = new ProbeSetEmbeddingWrapper(new PivotEmbedding());
+
 			else
 				throw new IllegalArgumentException
 					("Unknown placement algorithm.");
@@ -165,7 +183,7 @@ public class ArrayOpt
 			// chip type
 
 			if (chip_type.equalsIgnoreCase("simple"))
-				chip = new SimpleChip (rows, cols, probes, probe_len, embed_len);
+				chip = new SimpleChip (rows, cols, probes, probe_len, dep_seq);
 
 			else if (chip_type.equalsIgnoreCase("affy"))
 			{
@@ -174,13 +192,12 @@ public class ArrayOpt
 						("Invalid probe length (Affymetrix probes must be " +
 						 AffymetrixChip.AFFY_PROBE_LENGTH + " base-long).");
 
-				chip = new AffymetrixChip (rows, cols, probes, embed_len);
+				chip = new AffymetrixChip (rows, cols, probes, dep_seq);
 			}
 
 			else
 				throw new IllegalArgumentException
 					("Unknown chip type.");
-
 		}
 		catch (Exception e)
 		{
@@ -229,6 +246,9 @@ public class ArrayOpt
 
 	private static void usage ()
 	{
-		System.out.println ("Usage: ArrayOpt [affy | simple] <input file> <# of rows> <# of columns> <# of probes> <probe length> <embedding length> <placement algorithm>");
+		System.out.println (
+			"Usage: ArrayOpt [affy | simple] <input file> <# of rows>" +
+				" <# of columns> <# of probes> <probe length> " +
+				" <placement algorithm> [<deposition sequence>]");
 	}
 }

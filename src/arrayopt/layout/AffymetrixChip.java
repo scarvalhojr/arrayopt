@@ -115,24 +115,6 @@ public class AffymetrixChip extends Chip
 	}
 
 	/**
-	 * Creates a new AffymetrixChip instance with the specified embedding
-	 * length.
-	 *
-	 * @param num_rows number of rows of sites
-	 * @param num_cols number of columns of sites
-	 * @param num_probes total number of probes (not probe pairs)
-	 * @param embed_len length of embeddings (deposition sequence)
-	 */
-	public AffymetrixChip (int num_rows, int num_cols, int num_probes,
-		int embed_len)
-	{
-		super (num_rows, num_cols, num_probes, AFFY_PROBE_LENGTH, embed_len);
-
-		// create BitSet of flags for PM probes
-		this.pm_probe = new BitSet (num_probes);
-	}
-
-	/**
 	 * Creates a new AffymetrixChip instance with the specified deposition
 	 * sequence.
 	 *

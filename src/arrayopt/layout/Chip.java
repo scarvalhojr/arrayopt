@@ -113,11 +113,9 @@ public abstract class Chip
 	public char dep_seq[];
 
 	/**
-	 * The length of the base permutation that form the deposition sequence.
-	 *
-	 * <B>Implementation note:</B> this is not being checked at the moment.
+	 * The length of the basic permutation that forms the deposition sequence.
 	 */
-	public static final int DEP_SEQ_CYCLE = 4;
+	public int dep_seq_cycle;
 
 	/**
 	 * The matrix of sites (or spots) on the chip. Each spot can either be
@@ -194,16 +192,18 @@ public abstract class Chip
 	 * @param num_cols number of columns of sites
 	 * @param num_probes total number of probes (not probe pairs or tuples)
 	 * @param probe_len length of the probes
-	 * @param embed_len length of the embeddings (deposition sequence)
+	 * @param dep_seq deposition sequence
 	 */
 	public Chip (int num_rows, int num_cols, int num_probes, int probe_len,
-		int embed_len)
+		String dep_seq)
 	{
+		checkDepositionSequence (dep_seq);
+		
 		// store chip parameters
 		this.num_rows = num_rows;
 		this.num_cols = num_cols;
 		this.num_probes = num_probes;
-		this.embed_len = embed_len;
+		this.embed_len = dep_seq.length();
 		this.probe_len = probe_len;
 
 		// how many integers are needed to encode each embedding?
@@ -211,13 +211,6 @@ public abstract class Chip
 
 		// allocate space for probe embeddings
 		this.embed = new int [num_probes][b];
-
-		// allocate space for the deposition sequence
-		this.dep_seq = new char [embed_len];
-
-		// initialize the deposition sequence as a string of white spaces
-		for (b = 0; b < embed_len; b++)
-			dep_seq[b] = ' ';
 
 		// allocate space for spots
 		this.spot = new int [num_rows][num_cols];
@@ -229,24 +222,78 @@ public abstract class Chip
 		// flag that the layout spec must still be loaded
 		input_done = false;
 	}
+	
+	/**
+	 * Checks whether the deposition sequence is valid. This method is called
+	 * by the constructor and, in the case of an invalid deposition sequence,
+	 * throws a IllegalArgumentException which aborts the instantiation of
+	 * the Chip object. This method also checks if the deposition sequence is
+	 * cyclical (and stores the cycle length in the {@link dep_seq_cycle}.
+	 * 
+	 * @param the deposition sequence to be checked
+	 */
+	protected void checkDepositionSequence (String seq)
+	{
+		int		i, c;
+		char	base;
+		boolean	cyclical;
+		
+		embed_len = seq.length();
+		
+		// check minimum sequence length
+		if (embed_len <= 0)
+			throw new IllegalArgumentException
+				("Invalid deposition sequence: invalid length.");
+		
+		dep_seq = new char [embed_len];
+
+		// check if fully determined and composed of valid bases
+		for (i = 0; i < embed_len; i++)
+		{
+			base = seq.charAt(i);
+			
+			if (base == 'A' || base == 'C' || base == 'G' || base == 'T')
+				dep_seq[i] = base;
+			else
+				throw new IllegalArgumentException
+					("Invalid deposition sequence: invalid base at position " +
+						(i + 1) + ".");
+		}
+		
+		// check if dep. seq. is cyclical
+		// max cycle length is half the length of dep. seq.
+		c = 1;
+		while (c <= embed_len / 2)
+		{
+			cyclical = true;
+			
+			for (i = 0; cyclical && i + c < embed_len; i++)
+				if (dep_seq[i] != dep_seq[i + c])
+					cyclical = false;
+
+			if (cyclical)
+			{
+				// save cylce length and return
+				dep_seq_cycle = c;
+				return;
+			}
+			else
+				c++;
+		}
+		
+		// zero means dep. seq. is not cyclical
+		dep_seq_cycle = 0;
+	}
 
 	/**
-	 * Creates a new instance of a chip with a pre-defined deposition sequence.
+	 * Returns the lenght of basic permutation that forms the deposition
+	 * sequence or zero if the deposition sequence is not cyclical.
 	 *
-	 * @param num_rows number of rows of sites
-	 * @param num_cols number of columns of sites
-	 * @param num_probes total number of probes (not probe pairs or tuples)
-	 * @param probe_len length of the probes
-	 * @param dep_seq deposition sequence as a String
+	 * @return deposition sequence's cycle lenght or zero if non-cyclical
 	 */
-	public Chip (int num_rows, int num_cols, int num_probes, int probe_len,
-		String dep_seq)
+	protected int depositionSequenceCycleLength ()
 	{
-		this (num_rows, num_cols, num_probes, probe_len, dep_seq.length());
-
-		// set deposition sequence
-		for (int i = 0; i < dep_seq.length(); i++)
-			this.dep_seq[i] = dep_seq.charAt(i);
+		return dep_seq_cycle;
 	}
 
 	/**
@@ -445,21 +492,15 @@ public abstract class Chip
 			// if step is not masked
 			if ((ch = embedding.charAt(pos)) != ' ')
 			{
-				if (dep_seq[pos] == ' ')
-				{
-					// save the base at the corresponding position in
-					// the deposition sequence if it is still unknown
-					dep_seq[pos] = ch;
-				}
-				else if (dep_seq[pos] != ch)
+				if (dep_seq[pos] != ch)
 				{
 					// the embedding does not "agree" with the
 					// deposition sequence at this postition
 					throw new IllegalArgumentException ("unexpected base at step " + pos);
 				}
-
-				// turn on bit to indicate productive step
-				embed[probe_id][w] |= mask;
+				else
+					// turn on bit to indicate productive step
+					embed[probe_id][w] |= mask;
 			}
 
 			// shift bit to the right
