@@ -42,13 +42,13 @@ package arrayopt.layout;
  */
 public class RectangularRegion implements Region
 {
-	public final int first_row;
+	public int first_row;
 
-	public final int last_row;
+	public int last_row;
 
-	public final int first_col;
+	public int first_col;
 
-	public final int last_col;
+	public int last_col;
 
 	public RectangularRegion (int first_row, int last_row, int first_col, int last_col)
 	{

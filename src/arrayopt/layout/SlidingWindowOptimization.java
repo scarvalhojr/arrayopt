@@ -45,12 +45,17 @@ public class SlidingWindowOptimization implements PostPlacementAlgorithm
 	/**
 	 * document this
 	 */
-	protected IteractiveOptimizationAlgorithm alg;
+	protected IteractiveOptimizationAlgorithm optimizer;
 
 	/**
 	 * document this
 	 */
-	protected RectangularRegion region;
+	protected RectangularRegion window;
+
+	/**
+	 * document this
+	 */
+	protected int window_dim;
 
 	/**
 	 * document this
@@ -79,7 +84,7 @@ public class SlidingWindowOptimization implements PostPlacementAlgorithm
 	 *
 	 * can be specified as to stop the iteractions if improvement falls below it
 	 */
-	protected int threshold;
+	protected float threshold;
 
 	/**
 	 * document this
@@ -97,7 +102,7 @@ public class SlidingWindowOptimization implements PostPlacementAlgorithm
 	public SlidingWindowOptimization (IteractiveOptimizationAlgorithm alg,
 		int window_dim, int shift)
 	{
-		// to do
+		this (alg, window_dim, shift, DEFAULT_MAX_ITER);
 	}
 
 	/**
@@ -106,7 +111,7 @@ public class SlidingWindowOptimization implements PostPlacementAlgorithm
 	public SlidingWindowOptimization (IteractiveOptimizationAlgorithm alg,
 		int window_dim, int shift, int max_iter)
 	{
-		// to do
+		this (alg, window_dim, shift, max_iter, DEFAULT_THRESHOLD);
 	}
 
 	/**
@@ -115,16 +120,27 @@ public class SlidingWindowOptimization implements PostPlacementAlgorithm
 	public SlidingWindowOptimization (IteractiveOptimizationAlgorithm alg,
 		 int window_dim, int shift, int max_iter, float threshold)
 	{
-		// to do
+		if (window_dim < 2)
+			throw new IllegalArgumentException
+				("Window dimension cannot be smaller than 2.");
 
-		// validate arguments
+		if (shift < 1)
+			throw new IllegalArgumentException
+				("Shift cannot be smaller than 1.");
 
-		// instantiate arrays to appropriate dimension
-		// and initialize instance variables
+		if (max_iter < 1)
+			throw new IllegalArgumentException
+				("Maximum number of iteractions cannot be smaller than 1.");
 
-		// instantiate rectangular region object, initially pointing to
-		// coordinates (0,0) with the requested dimension (this object
-		// will be reused as the window slides over the chip surface)
+		this.optimizer = alg;
+		this.window_dim = window_dim;
+		this.shift = shift;
+		this.max_iter = max_iter;
+		this.threshold = threshold;
+		
+		// instantiate the window as a rectangular region object
+		// (appropriate coordinates will be set when needed)
+		window = new RectangularRegion (0, 0, 0, 0);
 	}
 
 	/**
@@ -132,17 +148,99 @@ public class SlidingWindowOptimization implements PostPlacementAlgorithm
 	 */
 	public synchronized void optimizeLayout (Chip chip)
 	{
+		RectangularRegion	region;
+		float				impr, total_impr = 0;
+		int					ncols, nrows, ncalls;
+		
+		region = chip.getChipRegion();
+
+		// window dimension must not be greater than the chip's area
+		if (window_dim > region.last_row - region.first_row + 1 ||
+			window_dim > region.last_col - region.first_col + 1)
+			throw new IllegalStateException
+				("Dimension of sliding window is larger than the chip's region.");
+				
+		// compute how many times the algorithm must run
+		// to fully cover the chip's surface
+		ncols = region.last_col - region.first_col + 1;
+		nrows = region.last_row - region.first_row + 1;
+		ncalls  = 1 + (int) Math.ceil((ncols - window_dim) / (float) shift);
+		ncalls *= 1 + (int) Math.ceil((nrows - window_dim) / (float) shift);
+		
+		System.err.println("ncalls: " + ncalls);
+
+		// set window's position to top left corner
+		window.first_col = region.first_col;
+		window.last_col = region.first_col + window_dim - 1;
+		window.first_row = region.first_row;
+		window.last_row = region.first_row + window_dim - 1;					
+
 		// loop for desired number of iteraction
+		for (int i = 0; i < max_iter;)
+		{
+			// call opt algorithm
+			impr = optimizer.optimizeLayout (chip, window);
+			
+			// update total improvement
+			total_impr += impr / ncalls;
 
-			// slide window from left to right, top to bottom
+			// check if can shift window to the right
+			if (window.last_col != region.last_col)
+			{
+				// right shift is possible
+				window.last_col += shift;
+				
+				// correct if went outside the chip's surface
+				if (window.last_col > region.last_col)
+				{
+					window.last_col = region.last_col;
+					window.first_col = region.last_col - window_dim + 1;
+				}
+				else
+					window.first_col += shift;
+			}
+			else
+			{
+				// no, need to move window back to the left border
+				window.first_col = region.first_col;
+				window.last_col = region.first_col + window_dim - 1;
+				
+				// and now shift it downwards
+				
+				// but first check if not reached bottom already
+				if (window.last_row == region.last_row)
+				{
+					// yes... then move window to the top
+					window.first_row = region.first_row;
+					window.last_row = region.first_row + window_dim - 1;					
 
-				// update window coordinates
+					// this means another iteraction
+					// has been completed
+					i++;
+					
+					System.err.println ("Total improvement: " + total_impr);
+					
+					// quit if total improvement is insufficient
+					if (total_impr < threshold) return;
+					
+					// otherwise just reset it
+					total_impr = 0;
+				}
+				else
+				{
+					// ok, just shift it down
+					window.last_row += shift;
 
-				// run iteractive algorithm
-
-				// check improvement
-
-			// quit if maximum improvement of last iteraction
-			// (full pass over the chip) falls below threshold
+					// correct if went outside the chip's surface
+					if (window.last_row > region.last_row)
+					{
+						window.last_row = region.last_row;
+						window.first_row = region.last_row - window_dim + 1;
+					}
+					else
+						window.first_row += shift;
+				}
+			}
+		}
 	}
 }
