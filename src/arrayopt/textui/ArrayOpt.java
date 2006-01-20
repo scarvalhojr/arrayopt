@@ -51,10 +51,11 @@ public class ArrayOpt
 	
 	public static void main (String args[])
 	{
-		Chip				chip;
-		PlacementAlgorithm	placer;
-		int					rows, cols, probes, probe_len, unplaced;
-		String				chip_type, filename, algorithm, dep_seq;
+		Chip					chip;
+		PlacementAlgorithm		placer = null;
+		PostPlacementAlgorithm	optimizer = null;
+		int						rows, cols, probes, probe_len, unplaced;
+		String					chip_type, filename, algorithm, dep_seq;
 
 		try
 		{
@@ -176,6 +177,12 @@ public class ArrayOpt
 			else if (algorithm.equalsIgnoreCase("PIVOT"))
 				placer = new ProbeSetEmbeddingWrapper(new PivotEmbedding());
 
+			else if (algorithm.equalsIgnoreCase("SWIN-GRASPD"))
+				optimizer = new SlidingWindowOptimization (
+								new QAPOptimization (
+									new GraspDense()
+							), 6, 2);
+
 			else
 				throw new IllegalArgumentException
 					("Unknown placement algorithm.");
@@ -224,12 +231,20 @@ public class ArrayOpt
 			System.exit(1);
 			return;
 		}
+		
+		if (placer != null)
+		{
+			// re-place probes on the chip
+			unplaced = placer.makeLayout(chip);
 
-		// place probes on the chip
-		unplaced = placer.makeLayout(chip);
-
-		if (unplaced > 0)
-			System.err.println(unplaced + " unplaced probe(s)");
+			if (unplaced > 0)
+				System.err.println(unplaced + " unplaced probe(s)");
+		}
+		
+		if (optimizer != null)
+		{
+			optimizer.optimizeLayout (chip);
+		}
 
 		try
 		{
