@@ -110,8 +110,7 @@ public class RightMostEmbedding implements SingleProbeEmbeddingAlgorithm,
 		for (newint = 0; newint < chip.embed[probe_id].length; newint++)
 			newembedding[newint] = 0;
 
-		
-		oldpos = chip.dep_seq.length - 1;
+        oldpos = chip.dep_seq.length - 1;
 		newpos = oldpos - shift;
 		oldmask = 0x01 << ((Integer.SIZE-1)-(oldpos % Integer.SIZE));
 		newmask = 0x01 << ((Integer.SIZE-1)-(newpos % Integer.SIZE));
@@ -132,16 +131,18 @@ public class RightMostEmbedding implements SingleProbeEmbeddingAlgorithm,
 				while (--newpos > -1)
 				{
 				
-				if ((newpos+1) % (Integer.SIZE) == 0)
-				{
-					newint--;
-					newmask = 0x01;
-				}
-				else
-					newmask <<= 1;
+				    if ((newpos+1) % (Integer.SIZE) == 0)
+				    {
+				        newint--;
+				        newmask = 0x01;
+				    }
+				    else
+				        newmask <<= 1;
 			
-				if (chip.dep_seq[oldpos] == chip.dep_seq[newpos])
-					break;
+				    if (chip.dep_seq[oldpos] == chip.dep_seq[newpos])
+				    {
+				        break;
+				    }
 				}
 			
 			if (newpos < -1)
@@ -154,7 +155,7 @@ public class RightMostEmbedding implements SingleProbeEmbeddingAlgorithm,
 		oldpos--;
 		oldmask <<=1;
 	}
-
+        System.arraycopy(newembedding,0,chip.embed[probe_id],0,chip.embed[probe_id].length);
 		// similar to a left-most embedding, but everything goes
 		// from right to left
 	}
