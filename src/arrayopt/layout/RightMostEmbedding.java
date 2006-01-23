@@ -111,9 +111,9 @@ public class RightMostEmbedding implements SingleProbeEmbeddingAlgorithm,
 			newembedding[newint] = 0;
 
         oldpos = chip.dep_seq.length - 1;
-		newpos = oldpos - shift;
-		oldmask = 0x01 << ((Integer.SIZE-1)-(oldpos % Integer.SIZE));
-		newmask = 0x01 << ((Integer.SIZE-1)-(newpos % Integer.SIZE));
+		newpos = oldpos - shift + 1;
+		oldmask = 0x01 << ((Integer.SIZE - 1) - (oldpos % Integer.SIZE));
+		newmask = 0x01 << ((Integer.SIZE - 1) - (newpos % Integer.SIZE));
 		newint =(int) Math.floor((double) newpos/Integer.SIZE);
 		oldint =(int) Math.floor((double) oldpos/Integer.SIZE);
 
@@ -145,7 +145,7 @@ public class RightMostEmbedding implements SingleProbeEmbeddingAlgorithm,
 				    }
 				}
 			
-			if (newpos < -1)
+			if (newpos < 0)
 			{
 				throw new IllegalArgumentException ("Unable to reembed probe.");
 			}
@@ -153,7 +153,7 @@ public class RightMostEmbedding implements SingleProbeEmbeddingAlgorithm,
 			newembedding[newint] |= newmask;
 		}
 		oldpos--;
-		oldmask <<=1;
+		oldmask <<= 1;
 	}
         System.arraycopy(newembedding,0,chip.embed[probe_id],0,chip.embed[probe_id].length);
 		// similar to a left-most embedding, but everything goes
