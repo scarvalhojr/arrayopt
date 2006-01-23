@@ -128,8 +128,8 @@ public class CenteredEmbedding implements SingleProbeEmbeddingAlgorithm,
 			if (chip.dep_seq[i] == chip.dep_seq[pos])
 				count_appearance++;
 		}
-		//Attention! length of cycle is hardcoded --> here length of cycle = 4
-		shift = ((int) Math.floor((double) count_appearance/2)) * 4;
+		// compute shift by multiples of a cycle of the deposition sequence
+		shift = ((int) Math.floor((double) count_appearance/2)) * cycle;
 	
 		embedder.reembedProbe(chip, probe_id, shift);
 		// do a left-most embedding and check how many masked steps
@@ -187,8 +187,8 @@ public class CenteredEmbedding implements SingleProbeEmbeddingAlgorithm,
 			if (chip.dep_seq[i] == chip.dep_seq[pos])
 				count_appearance++;
 		}
-		//Attention! length of cycle is hardcoded --> here length of cycle = 4
-		shift = ((int) Math.floor((double) count_appearance/2)) * 4;
+		// compute shift by multiples of a cycle of the deposition sequence
+        shift = ((int) Math.floor((double) count_appearance/2)) * cycle;
 	
 		embedder.reembedProbe(chip, probe_id, shift);
 		// do a left-most embedding and check how many masked steps
