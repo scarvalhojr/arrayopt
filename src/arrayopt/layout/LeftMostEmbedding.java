@@ -110,8 +110,7 @@ public class LeftMostEmbedding implements SingleProbeEmbeddingAlgorithm,
 	int oldmask = 0, newmask, oldint, oldpos, newint, newpos = shift - 1;
 	int[] newembedding = new int[chip.embed[probe_id].length];
 		
-
-	for (newint = 0; newint < chip.embed[probe_id].length; newint++)
+    for (newint = 0; newint < chip.embed[probe_id].length; newint++)
                        newembedding[newint] = 0;
 
 	newmask = 0x01 << ((Integer.SIZE)-(newpos % Integer.SIZE));
@@ -188,7 +187,7 @@ public class LeftMostEmbedding implements SingleProbeEmbeddingAlgorithm,
 	boolean middle_synthesized = false, compl_synthesized = false;
 	char compl = 'A'; //can be replaced if an appropriate method for returning the complement of a given base in class Chip exists
 
-	//turn all bits off
+    //turn all bits off
 	for (newint = 0; newint < chip.embed[probe_id].length; newint++)
                        newembedding[newint] = 0;
 	
@@ -198,7 +197,8 @@ public class LeftMostEmbedding implements SingleProbeEmbeddingAlgorithm,
 	// synthesize up to 12th base
 	while (basenumber < AffymetrixChip.AFFY_MIDDLE_BASE)
 	{
-		if (oldpos % Integer.SIZE == 0)
+
+        if (oldpos % Integer.SIZE == 0)
 		{	
 			oldint++;
 			oldmask=0x01 << (Integer.SIZE-1);
@@ -217,7 +217,9 @@ public class LeftMostEmbedding implements SingleProbeEmbeddingAlgorithm,
 				else
 					newmask >>>=1;
 				if (chip.dep_seq[oldpos] == chip.dep_seq[newpos])
-					break;
+                {
+				    break;
+                }
 			}
 			if (newpos >= chip.dep_seq.length)
 			{
@@ -235,7 +237,7 @@ public class LeftMostEmbedding implements SingleProbeEmbeddingAlgorithm,
 
 	while (!middle_synthesized)
 	{
-		if (oldpos % Integer.SIZE == 0)
+        if (oldpos % Integer.SIZE == 0)
 		{	
 			oldint++;
 			oldmask=0x01 << (Integer.SIZE-1);
@@ -269,7 +271,10 @@ public class LeftMostEmbedding implements SingleProbeEmbeddingAlgorithm,
 					compl_synthesized = true;
 				
 				if (chip.dep_seq[oldpos] == chip.dep_seq[newpos])
-					break;
+                {
+                    break;
+                } 
+                   
 			}
 			
 			if (newpos >= chip.dep_seq.length)
@@ -287,12 +292,13 @@ public class LeftMostEmbedding implements SingleProbeEmbeddingAlgorithm,
 	int temp = oldpos;
 	while (!compl_synthesized)
 	{
-		if (chip.dep_seq[oldpos] == compl)
+        
+		if (chip.dep_seq[temp] == compl)
 			compl_synthesized = true;
 		
 		if (++newpos >= chip.dep_seq.length)
 		{
-			throw new IllegalArgumentException ("Unable to reembed probe.");
+           			throw new IllegalArgumentException ("Unable to reembed probe.");
 		}
 		if (newpos % Integer.SIZE == 0)
 		{
@@ -301,7 +307,7 @@ public class LeftMostEmbedding implements SingleProbeEmbeddingAlgorithm,
 		}
 		else
 			newmask >>>=1;
-
+			
 		temp++;
 	}
 
@@ -309,7 +315,7 @@ public class LeftMostEmbedding implements SingleProbeEmbeddingAlgorithm,
 	
 	while (basenumber < AffymetrixChip.AFFY_PROBE_LENGTH)
 	{
-		if (oldpos % Integer.SIZE == 0)
+	    if (oldpos % Integer.SIZE == 0)
 		{	
 			oldint++;
 			oldmask=0x01 << (Integer.SIZE-1);
@@ -328,7 +334,9 @@ public class LeftMostEmbedding implements SingleProbeEmbeddingAlgorithm,
 				else
 					newmask >>>=1;
 				if (chip.dep_seq[oldpos] == chip.dep_seq[newpos])
-					break;
+                {
+                   	break;
+                }
 			}
 			if (newpos >= chip.dep_seq.length)
 			{
@@ -342,7 +350,6 @@ public class LeftMostEmbedding implements SingleProbeEmbeddingAlgorithm,
 		oldpos++;
 		oldmask >>>= 1;
 	}
-
 	System.arraycopy(newembedding,0,chip.embed[probe_id],0,chip.embed[probe_id].length);
 	
 	
