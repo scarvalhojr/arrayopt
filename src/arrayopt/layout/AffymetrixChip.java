@@ -253,12 +253,10 @@ public class AffymetrixChip extends Chip
 			throw new IllegalStateException
 				("Layout specification has already been loaded.");
 
-		// mark all spots as unitialized and not fixed
+		// mark all spots as unitialized
 		for (r = 0; r < num_rows; r++)
 			for (c = 0; c < num_cols; c++)
-			{
 				this.spot[r][c] = UNINITIALIZED_SPOT;
-			}
 
 		// create a list of IDs of fixed probes with an initial
 		// capacity of about 5% of the number of probes
@@ -360,7 +358,7 @@ public class AffymetrixChip extends Chip
 			try
 			{
 				// encode probe embedding
-				encodeEmbedding (field[6], probe_id);
+				encodeEmbedding (field[5], field[6], probe_id);
 			}
 			catch (IllegalArgumentException e)
 			{
@@ -413,6 +411,12 @@ public class AffymetrixChip extends Chip
 		for (Integer id : fixed_list)
 			this.fixed_probe[i++] = id;
 
+		// set uninitialized spots as empty
+		for (r = 0; r < num_rows; r++)
+			for (c = 0; c < num_cols; c++)
+				if (spot[r][c] == UNINITIALIZED_SPOT)
+					spot[r][c] = EMPTY_SPOT;
+
 		// reading successful
 		input_done = true;
 	}
@@ -458,7 +462,7 @@ public class AffymetrixChip extends Chip
 	 */
 	public int[] getMovableProbes ()
 	{
-		int size, i, f, m, movable[];
+		int i, f, m, movable[];
 
 		// check if chip spec has already been input
 		if (!input_done)
@@ -503,8 +507,8 @@ public class AffymetrixChip extends Chip
 		int		mask = 0, w, pos;
 		char	fix, typ;
 
-		for (int r = 0; r < num_rows; r++)
 		for (int c = 0; c < num_cols; c++)
+		for (int r = 0; r < num_rows; r++)
 		{
 			fix = isFixedSpot(r, c) ? 'Y' : 'N';
 
@@ -567,5 +571,219 @@ public class AffymetrixChip extends Chip
 
 		// end of output
 		out.flush();
+	}
+
+	/**
+	 * Creates and returns a copy of this AffymetrixChip object. The new object
+	 * will contain the same chip specification as the cloned object, i.e.
+	 * same chip dimension, same PM/MM pairs of probes on the same locations
+	 * and with the same embeddings, same deposition sequence and so on.
+	 *
+	 * @return a clone of this instance
+	 */
+	public AffymetrixChip clone ()
+	{
+		AffymetrixChip c;
+		
+		// use superclass' clone method
+		c = (AffymetrixChip) super.clone();
+		
+		// now clone the BitSet containing the PM flags
+		c.pm_probe = (BitSet) this.pm_probe.clone();
+		
+		return c;
+	}
+
+	/**
+	 * Indicates whether some other AffymetrixChip instance is "equal to" this
+	 * one. Equals here means that both chips have the same specification, i.e.
+	 * both have same dimension, same probes on the same locations and with the
+	 * same embeddings, same deposition sequence and so on. The
+	 * {link #compatible} method provides another way of comparing two chip
+	 * instances.
+	 *
+	 * @param obj the reference object with which to compare
+	 * @return true if this Chip is "equal to" the argument; false otherwise
+	 */
+	public boolean equals (Object obj)
+	{
+		AffymetrixChip other;
+
+		// check if superclass members are equal
+		if (!super.equals(obj)) return false;
+		
+		// cannot compare objects that are not AffymetrixChip instances
+		if (!(obj instanceof AffymetrixChip)) return false;
+		
+		other = (AffymetrixChip) obj;
+		
+		// if specifications have not been loaded yet,
+		// then the chips are considered equal
+		if (!input_done) return true;
+		
+		// check the list of PM probe IDs
+		if (this.pm_probe == null)
+		{
+			if(!(other.pm_probe == null)) return false;
+		}
+		else
+		{
+			if (!(this.pm_probe.equals(other.pm_probe))) return false;
+		}
+		
+		// if passed all tests, they are considered equal
+		return true;
+	}
+
+	/**
+	 * Indicates whether some other AffymetrixChip instance is
+	 * "compatible with" this one. Compatible here means that both chips have
+	 * almost the same specification, i.e. both have same dimension, same
+	 * probes, same deposition sequence and so on. However, two differences
+	 * are allowed: 1) the probes might be located on different spots; and 2)
+	 * the same probe on one chip might have a different but "compatible"
+	 * embeddings on the other chip). Compatible embeddings means that they
+	 * produce the same probe sequence under the given deposition sequence
+	 * (which must 	 * be the same for both chips); see
+	 * {link #compatibleEmbedding}. Note that this method is similar but
+	 * conceptually different from the {link #equals} method.
+	 *
+	 * @param other the reference object with which to compare
+	 * @return true if this Chip is "compatible with" the argument; false
+	 * otherwise
+	 */
+	public boolean compatible (AffymetrixChip other)
+	{
+		int i, j;
+
+		// check the superclass members for compatibility
+		if (!super.compatible(other)) return false;
+		
+		// if specifications have not been loaded yet,
+		// then the chips are considered compatible
+		if (!input_done) return true;
+		
+		// check the list of PM probes
+		if (this.pm_probe == null)
+		{
+			if(!(other.fixed_spots == null)) return false;
+		}
+		else
+		{
+			if (!(this.fixed_spots.equals(other.fixed_spots))) return false;
+		}
+		
+		// if passed all test, they are considered equal
+		return true;
+	}
+
+	/**
+	 * Checks that the layout specification is valid. Several test are
+	 * performed. For instace, it is checked whether all probe IDs are assigned
+	 * to a (single) spot, and whether all probes on fixed spots have their IDs
+	 * on the list of fixed probes.
+	 *
+	 * A chip whose specification has not been loaded yet (by the
+	 * {link #readSpecification} method) is NOT considered to be in a valid
+	 * state.
+	 *
+	 * @return true if the current layout specification is valid; false
+	 * otherwise
+	 */
+	public boolean validateLayout ()
+	{
+		HashSet<Integer>	fixed_id;
+		BitSet				visited_id;
+		int					i, j, probe_id;
+		
+		// check basic properties
+		if (spot == null || fixed_spots == null || fixed_probe == null)
+			return false;
+		
+		// if specification has not been loaded yet,
+		// the chip is considered in an INVALID state
+		if (!input_done) return false;
+		
+		// create a BitSet object to check whether all probe IDs are placed (and that
+		// they are placed only once); a zero means the corresponding ID has not been
+		// seen yet while a 1 flags a "visited" ID
+		visited_id = new BitSet (num_probes);
+		
+		// create a HashSet to check whether all probes on fixed spots are
+		// marked as fixed (and that only these probes are marked as fixed);
+		// its size must be twice the number of elements on the fixed list
+		// since this list only stores the main ID of a probe pair
+		fixed_id = new HashSet<Integer> (2 * fixed_probe.length);
+		
+		// the set is initially populated with all IDs found on the list of
+		// fixed probes; then, while the spot matrix is scanned, every probe
+		// found on a fixed spot will have its ID removed from the set; in
+		// the end, the set must be empty (otherwise, an ID in the fixed list
+		// is not placed on a fixed spot)
+		for (i = 0; i < fixed_probe.length; i++)
+		{
+			// add the PM and MM probe's IDs
+			fixed_id.add (fixed_probe[i]);
+			fixed_id.add (fixed_probe[i] + 1);
+		}
+
+		// check spot matrix			
+		if (spot.length != num_rows) return false;
+		
+		for (i = 0; i < num_rows; i++)
+		{
+			if (spot[i].length != num_cols)
+			{
+				System.err.println ("\tbad num_cols!");
+				return false;
+			}
+			
+			for (j = 0; j < num_cols; j++)
+			{
+				probe_id = spot[i][j];
+				
+				// check if ID is in the valid range
+				if (probe_id >= 0 && probe_id < num_probes)
+				{
+					// check that ID has not been visited already (i.e. that
+					// the same probe does not appear in more than one spot)
+					if (visited_id.get(probe_id))
+						return false;
+					
+					// mark probe ID as "visited"
+					visited_id.set(probe_id);
+					
+					// if spot is fixed...
+					if (isFixedSpot(i, j))
+					{
+						// ...remove probe ID from the hash set
+						if (!fixed_id.remove(probe_id))
+						{
+							// if it fails, then there is something wrong as
+							// the probe placed on the fixed spot does not have
+							// its ID in the fixed list
+							return false;
+						}
+					}
+				}
+				else
+				{
+					// the only other possible value is the EMPTY flag
+					if (probe_id != EMPTY_SPOT)
+						return false;
+				}
+			}
+		}
+		
+		// if the cardinality is not equal to the number of probes,
+		// one or more probes are not placed
+		if (visited_id.cardinality() != num_probes) return false;
+		
+		// if the fixed list is not empty, then one or more fixed
+		// probes were not found on fixed spots
+		if (!fixed_id.isEmpty()) return false;
+
+		// valid layout if passed all tests
+		return true;
 	}
 }

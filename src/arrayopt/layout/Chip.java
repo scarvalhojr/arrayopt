@@ -74,7 +74,7 @@ import java.io.*;
  * @author Sergio A. de Carvalho Jr.
  * @see PlacementAlgorithm
  */
-public abstract class Chip
+public abstract class Chip implements Cloneable
 {
 	/**
 	 * Total number of rows of sites on the chip.
@@ -118,7 +118,9 @@ public abstract class Chip
 	public int dep_seq_cycle;
 
 	/**
-	 * The matrix of sites (or spots) on the chip. Each spot can either be
+	 * The matrix of sites (or spots) on the chip. The matrix's first dimension
+	 * corresponds to the spot's row number while the second dimension is the
+	 * column number (<CODE>spot[row][col]</CODE>). Each spot can either be
 	 * uninitialized ({@link #UNINITIALIZED_SPOT}), empty ({@link #EMPTY_SPOT})
 	 * or associated with a unique probe ID (see {@link #embed}).
 	 * <B>Implementation note:</B> for ease of access, this is a public
@@ -197,6 +199,19 @@ public abstract class Chip
 	public Chip (int num_rows, int num_cols, int num_probes, int probe_len,
 		String dep_seq)
 	{
+		// validate parameters
+		if (num_rows < 1 || num_cols < 1)
+			throw new IllegalArgumentException
+				("Invalid chip dimensions.");
+
+		if (num_probes < 1 || num_probes > num_rows * num_cols)
+			throw new IllegalArgumentException
+				("Invalid number of probes.");
+
+		if (probe_len < 1)
+			throw new IllegalArgumentException
+				("Invalid probe length.");
+		
 		checkDepositionSequence (dep_seq);
 		
 		// store chip parameters
@@ -228,9 +243,9 @@ public abstract class Chip
 	 * by the constructor and, in the case of an invalid deposition sequence,
 	 * throws a IllegalArgumentException which aborts the instantiation of
 	 * the Chip object. This method also checks if the deposition sequence is
-	 * cyclical (and stores the cycle length in the {@link dep_seq_cycle}.
+	 * cyclical (and stores the cycle length in {@link #dep_seq_cycle}.
 	 * 
-	 * @param the deposition sequence to be checked
+	 * @param seq the deposition sequence to be checked
 	 */
 	protected void checkDepositionSequence (String seq)
 	{
@@ -415,7 +430,8 @@ public abstract class Chip
 	}
 
 	/**
-	 * Marks the spot at position (row, col) as fixed or non-fixed.
+	 * Marks the spot at position (row, col) as fixed or non-fixed. This method
+	 * can only be called internally.
 	 *
 	 * @param row spot's row number
 	 * @param col spot's column number
@@ -465,10 +481,10 @@ public abstract class Chip
 	 * spaces
 	 * @param probe_id probe ID
 	 */
-	protected void encodeEmbedding (String embedding, int probe_id)
+	protected void encodeEmbedding (String probe, String embedding, int probe_id)
 	{
 		char ch;
-		int  mask = 0, w, pos;
+		int  mask = 0, w, pos, len = 0;
 
 		// validate embedding length
 		if (embedding.length() != embed_len)
@@ -492,21 +508,33 @@ public abstract class Chip
 			// if step is not masked
 			if ((ch = embedding.charAt(pos)) != ' ')
 			{
+				// check that the embedding "agree" with the
+				// probe's base at this postition
+				if (probe.charAt(len) != ch)
+					throw new IllegalArgumentException ("probe sequence and " +
+						"embedding differ at step " + pos);
+				
+				// check that the embedding "agree" with the
+				// deposition sequence at this postition
 				if (dep_seq[pos] != ch)
-				{
-					// the embedding does not "agree" with the
-					// deposition sequence at this postition
-					throw new IllegalArgumentException ("unexpected base at step " + pos);
-				}
-				else
-					// turn on bit to indicate productive step
-					embed[probe_id][w] |= mask;
+					throw new IllegalArgumentException ("base at step " + pos +
+						" is not synchronized with the deposition sequence");
+				
+				// turn on bit to indicate productive step
+				embed[probe_id][w] |= mask;
+				
+				len++;
 			}
 
 			// shift bit to the right
 			// ('>>>' means unsigned shift)
 			mask >>>= 1;
 		}
+		
+		// check probe length
+		if (len != probe_len)
+			throw new IllegalArgumentException ("unexpected probe length: " +
+				len);
 	}
 
 	/**
@@ -528,7 +556,7 @@ public abstract class Chip
 	public void printEmbedding (int probe_id)
 	{
 		int mask = 0, w, pos;
-
+		
 		for (w = -1, pos = 0; pos < embed_len; pos++)
 		{
 			if (pos % Integer.SIZE == 0)
@@ -541,11 +569,338 @@ public abstract class Chip
 			}
 
 			if ((mask & embed[probe_id][w]) == 0)
-				System.out.print (" ");
+				System.err.print (" ");
 			else
-				System.out.print (dep_seq[pos]);
+				System.err.print (dep_seq[pos]);
 
 			mask >>>= 1;
 		}
 	}
+	
+	/**
+	 * Creates and returns a copy of this Chip object. The new object will
+	 * contain the same chip specification as the cloned object, i.e. same
+	 * chip dimension, same probes on the same locations and with the same
+	 * embeddings, same deposition sequence and so on. Specific
+	 * sub-classes may need to extend this method to account for added
+	 * member variables.
+	 *
+	 * @return a clone of this instance
+	 */
+	protected Chip clone ()
+	{
+		Chip c;
+		int i, len, dim1, dim2;
+		
+		try
+		{
+			// clone the chip
+			c = (Chip) super.clone();
+		}
+		catch (CloneNotSupportedException e)
+		{
+			// this shouldn't happen anyway...
+			throw new AssertionError();
+		}
+		
+		// now we need to clone members that are
+		// not of primitive types (including arrays)
+
+		c.dep_seq = this.dep_seq.clone();
+		c.fixed_probe = this.fixed_probe.clone();
+		c.fixed_spots = (BitSet) this.fixed_spots.clone();
+
+		// special care is needed with multidimensional arrays since
+		// their clones are shallow (subarrays are still shared)
+		// see the Java Language Specification's chapter on arrays:
+		// java.sun.com/docs/books/jls/second_edition/html/arrays.doc.html
+
+		// spots
+		c.spot = this.spot.clone();
+		for (i = 0; i < this.spot.length; i++)
+			c.spot[i] = this.spot[i].clone();
+		
+		// embeddings
+		c.embed = this.embed.clone();
+		for (i = 0; i < this.embed.length; i++)
+			c.embed[i] = this.embed[i].clone();
+		
+		return c;
+	}
+
+	/**
+	 * Indicates whether some other Chip instance is "equal to" this one.
+	 * Equals here means that both chips have the same specification, i.e. both
+	 * have same dimension, same probes on the same locations and with the same
+	 * embeddings, same deposition sequence and so on. Specific sub-classes may
+	 * need to extend this method to account for added member variables. The
+	 * {link #compatible} method provides another way of comparing two chip
+	 * instances.
+	 *
+	 * @param obj the reference object with which to compare
+	 * @return true if this Chip is "equal to" the argument; false otherwise
+	 */
+	public boolean equals (Object obj)
+	{
+		Chip other;
+		int i, j;
+		
+		// equal if references point
+		// to the same instance
+		if (this == obj) return true;
+		
+		// cannot compare objects that are not Chip instances
+		if (!(obj instanceof Chip)) return false;
+		
+		other = (Chip) obj;
+		
+		// check basic properties
+		if (this.num_rows != other.num_rows) return false;
+		if (this.num_cols != other.num_cols) return false;
+		if (this.num_probes != other.num_probes) return false;
+		if (this.probe_len != other.probe_len) return false;
+		
+		// check if have the same deposition sequence
+		if (this.embed_len != other.embed_len) return false;
+		
+		for (i = 0; i < dep_seq.length; i++)
+			if (this.dep_seq[i] != other.dep_seq[i])
+				return false;
+		
+		// check if specification (probes, spots, etc.)
+		// of both chips have been loaded (or not)
+		if (this.input_done != other.input_done) return false;
+		
+		// if specifications have not been loaded yet,
+		// then the chips are considered equal
+		if (!input_done) return true;
+		
+		// check if spots have the same contents
+		if (this.spot.length != other.spot.length) return false;
+		
+		for (i = 0; i < this.spot.length; i++)
+		{
+			if (this.spot[i].length != other.spot[i].length) return false;
+			
+			for (j = 0; j < this.spot[i].length; j++)
+				if (this.spot[i][j] != other.spot[i][j])
+					return false;
+		}
+							
+		// check if embeddings have the same contents
+		if (this.embed.length != other.embed.length) return false;
+		
+		for (i = 0; i < this.embed.length; i++)
+		{
+			if (this.embed[i].length != other.embed[i].length) return false;
+			
+			for (j = 0; j < this.embed[i].length; j++)
+				if (this.embed[i][j] != other.embed[i][j])
+					return false;
+		}
+
+		// check the list of fixed probes
+		if (this.fixed_probe.length != other.fixed_probe.length) return false;
+		
+		for (i = 0; i < fixed_probe.length; i++)
+			if (this.fixed_probe[i] != other.fixed_probe[i])
+				return false;
+		
+		// check the list of fixed spots
+		if (this.fixed_spots == null)
+		{
+			if(!(other.fixed_spots == null)) return false;
+		}
+		else
+		{
+			if (!(this.fixed_spots.equals(other.fixed_spots))) return false;
+		}
+		
+		// if passed all tests, they are considered equal
+		return true;
+	}	
+
+	/**
+	 * Indicates whether some other Chip instance is "compatible with" this
+	 * one. Compatible here means that both chips have almost the same
+	 * specification, i.e. both have same dimension, same probes, same
+	 * deposition sequence and so on. However, two differences are allowed:
+	 * 1) the probes might be located on different spots; and 2) the same
+	 * probe on one chip might have a different but "compatible" embeddings
+	 * on the other chip). Compatible embeddings means that they produce the
+	 * same probe sequence under their own deposition sequences (which must
+	 * not necessarily be the same for both chips); see
+	 * {link #compatibleEmbedding}.
+	 *
+	 * In normal circunstances, compatible chips can only be produced by
+	 * cloning a chip (and optionally changing its layout). This is mainly
+	 * because the compatibility test assumes that a given probe has the same
+	 * ID on both chips. Thus, it is possible that two chips containing
+	 * identical set of probes may be regarded as not compatible just because
+	 * the lists of probes were input in a different order.
+	 *
+	 * The {link #validateLayout} method is called on both chips before checking
+	 * their compatibility to make sure that both are in a correct state (and
+	 * thus avoiding errors such as NullPointerException).
+	 *
+	 * Specific sub-classes may need to extend this method to account for added
+	 * member variables. Note that this method is similar but conceptually
+	 * different from the {link #equals} method.
+	 *
+	 * @param other the reference object with which to compare
+	 * @return true if this Chip is "compatible with" the argument; false
+	 * otherwise
+	 */
+	public boolean compatible (Chip other)
+	{
+		int	i, j;
+		
+		// first check that both chips have valid layouts;
+		if (!this.validateLayout()) return false;
+		if (!other.validateLayout()) return false;
+		
+		// if references point to the same instance
+		// there is no need to check for compatibility
+		if (this == other) return true;
+		
+		// check basic properties
+		if (this.num_rows != other.num_rows) return false;
+		if (this.num_cols != other.num_cols) return false;
+		if (this.num_probes != other.num_probes) return false;
+		if (this.probe_len != other.probe_len) return false;
+		
+		// check if specification (probes, spots, etc.)
+		// of both chips have been loaded (or not)
+		if (this.input_done != other.input_done) return false;
+		
+		// if specifications have not been loaded yet,
+		// then the chips are considered compatible
+		if (!input_done) return true;
+		
+		// the list of fixed probes must be equal
+		if (this.fixed_probe.length != other.fixed_probe.length) return false;
+		for (i = 0; i < fixed_probe.length; i++)
+			if (this.fixed_probe[i] != other.fixed_probe[i])
+				return false;
+		
+		// the list of fixed spots must also be equal
+		if (!(this.fixed_spots.equals(other.fixed_spots))) return false;
+		
+		// check if embeddings are compatible
+		for (i = 0; i < num_probes; i++)
+			if (!compatibleEmbedding(i, other))
+				return false;
+
+		// check that the chips have the same set of fixed spots
+		for (i = 0; i < num_rows; i++)
+			for (j = 0; j < num_cols; j++)
+			{
+				if (this.isFixedSpot (i, j))
+				{
+					if (!other.isFixedSpot(i, j)) return false;
+					
+					// also check that fixed spots have the same contents
+					if (this.spot[i][j] != other.spot[i][j]) return false;
+				}
+				else
+				{
+					if (other.isFixedSpot(i, j)) return false;
+				}
+			}
+		
+		// if passed all tests, they are considered compatible
+		return true;
+	}
+
+	/**
+	 * Indicates whether a given probe has a "compatible" embedding on other
+	 * Chip instance. Compatible here means that the embeddings produce the
+	 * same probe sequence under their own deposition sequence (which must not
+	 * necessarily be the same for both chips). This method is mainly used by
+	 * the {link #compatible} method.
+	 *
+	 * @param id the ID of the probe whose embeddings are to be verified
+	 * @param other the other chip where the embedding is to be checked
+	 * @return true if the embeddings are "compatible"; false otherwise
+	 */
+	protected boolean compatibleEmbedding (int id, Chip other)
+	{
+		int 	this_pos, other_pos, this_w, other_w, this_mask, other_mask;
+		char	ch;
+		
+		this_pos = other_pos = -1;
+		this_w = other_w = -1;
+		this_mask = other_mask = 0;
+		
+		while (++this_pos < this.embed_len)
+		{
+			if (this_pos % Integer.SIZE == 0)
+			{
+				// use next 4-byte word
+				this_w++;
+				this_mask = 0x01 << (Integer.SIZE - 1);
+			}
+			else
+			{
+				this_mask >>>= 1;
+			}
+
+			// when the embedding has a set bit, that
+			// means we found the probe's next base
+			if ((this_mask & this.embed[id][this_w]) != 0)
+			{
+				ch = this.dep_seq[this_pos];
+				
+				// now we need to find the next
+				// base on the 'other' chip
+				while (++other_pos < other.embed_len)
+				{
+					if (other_pos % Integer.SIZE == 0)
+					{
+						// use next 4-byte word
+						other_w++;
+						other_mask = 0x01 << (Integer.SIZE - 1);
+					}
+					else
+					{
+						other_mask >>>= 1;
+					}
+
+					if ((other_mask & other.embed[id][other_w]) != 0)
+					{
+						// check if bases are equal
+						if (other.dep_seq[other_pos] != ch)
+							// if not, the embeddings produce
+							// different probe sequences
+							return false;
+							
+						break;
+					}
+				}
+			}
+		}
+		
+		// if reached here,
+		// embeddings are "compatible"
+		return true;
+	}
+
+	/**
+	 * Checks that the layout specification is valid. This method is useful for
+	 * checking that a {@linkplain PlacementAlgorithm} has produced a new but
+	 * still valid layout (according to the original specification). For
+	 * instance, it checks whether the fixed spots were respected (their
+	 * contents remain unchanged). This method must be provided by the
+	 * sub-classes according to their specific probe schemes and member
+	 * variables.
+	 *
+	 * Note that this method is called by the {link #compatible} method to make
+	 * sure that both chips being compared have a valid layout. Nonetheless,
+	 * this method can be called independently to check that the chip is in a
+	 * valid state after, for instance, a new layout is created.
+	 * 
+	 * @return true if the current layout specification is valid; false
+	 * otherwise
+	 */
+	public abstract boolean validateLayout ();
 }
