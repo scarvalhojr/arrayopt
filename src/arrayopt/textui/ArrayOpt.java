@@ -51,7 +51,7 @@ public class ArrayOpt
 	
 	public static void main (String args[])
 	{
-		Chip					chip;
+		Chip					chip, copy;
 		PlacementAlgorithm		placer = null;
 		PostPlacementAlgorithm	optimizer = null;
 		int						rows, cols, probes, probe_len, unplaced;
@@ -87,31 +87,6 @@ public class ArrayOpt
 
 		try
 		{
-			// validate arguments
-
-			if (rows < 1 || cols < 1)
-			{
-				throw new IllegalArgumentException
-					("Illegal number of rows and/or columns.");
-			}
-
-			if (probes < 1)
-			{
-				throw new IllegalArgumentException
-					("Illegal number of probes.");
-			}
-			else if (probes > rows * cols)
-			{
-				throw new IllegalArgumentException
-					("Number of spots is insufficient to place all probes.");
-			}
-
-			if (probe_len < 1)
-			{
-				throw new IllegalArgumentException
-					("Illegal length of probes.");
-			}
-
 			// algorithm selection
 
 			if (algorithm.equalsIgnoreCase("RANDOM"))
@@ -190,8 +165,9 @@ public class ArrayOpt
 			// chip type
 
 			if (chip_type.equalsIgnoreCase("simple"))
+			{
 				chip = new SimpleChip (rows, cols, probes, probe_len, dep_seq);
-
+			}
 			else if (chip_type.equalsIgnoreCase("affy"))
 			{
 				if (probe_len != AffymetrixChip.AFFY_PROBE_LENGTH)
@@ -212,7 +188,7 @@ public class ArrayOpt
 			System.exit(1);
 			return;
 		}
-
+		
 		try
 		{
 			// create a file reader for the input
@@ -231,7 +207,17 @@ public class ArrayOpt
 			System.exit(1);
 			return;
 		}
-		
+
+		// make a copy of the chip before modifying its layout
+		if (chip instanceof SimpleChip)
+		{
+			copy = ((SimpleChip) chip).clone();
+		}
+		else
+		{
+			copy = ((AffymetrixChip) chip).clone();
+		}
+
 		if (placer != null)
 		{
 			// re-place probes on the chip
@@ -245,6 +231,9 @@ public class ArrayOpt
 		{
 			optimizer.optimizeLayout (chip);
 		}
+
+		if (!chip.compatible(copy))
+			System.err.println("WARNING: new layout is not compatible with the original specification.");			
 
 		try
 		{
