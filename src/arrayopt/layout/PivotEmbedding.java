@@ -74,17 +74,17 @@ public class PivotEmbedding implements ProbeSetEmbeddingAlgorithm
 	 * @param chip chip on which probes reside
 	 * @param probe_id[] probe IDs
 	 * @param first probe ID of probe to be considered first
-	 * @param lasst probe ID of porbe to be considered last
+	 * @param last probe ID of probe to be considered last
 	 */
 	public void reembedProbeSet (Chip chip, int probe_id[], int first, int last)
 	{
 		int temp;
 		int border = 0;
 		int minhamdistance = Integer.MAX_VALUE;
-		int pivot = 0;
+        int pivot = 0;
 		
 		// find pivots (probes that have only one possible embedding) and
-		// move them to the beginning of the list
+		// move them to the beginning of the list --> what if there are no pivots?
 		for (int i = first; i <= last;i++)
 		{
 			if (numberOfEmbeddings(chip, probe_id[i]) == 1)
@@ -101,9 +101,12 @@ public class PivotEmbedding implements ProbeSetEmbeddingAlgorithm
 		{
 				for (int q = 0; q < border;q++)
 				{
-					if(minhamdistance > OptimumEmbedding.minHammingDistance(chip,probe_id[p],probe_id[q]))
-							minhamdistance=OptimumEmbedding.minHammingDistance(chip,probe_id[p],probe_id[q]);
+                    int compare = OptimumEmbedding.minHammingDistance(chip,probe_id[p],probe_id[q]);
+                    if(minhamdistance > compare)
+                    {
+							minhamdistance = compare;
 							pivot = q;
+                    }
 				}
 			
 			// reembed p optimally in regards to pivot
@@ -164,9 +167,7 @@ public class PivotEmbedding implements ProbeSetEmbeddingAlgorithm
 				
 				if((chip.embed[probe_id][pos] & mask) != 0)
 				{
-					//may not be necessary, because previous == current
-					current[i] = previous[i];   
-					
+									
 					if(chip.dep_seq[i-1] == chip.dep_seq[j])
 					{
 						current[i] += previous[i-1];
@@ -191,152 +192,101 @@ public class PivotEmbedding implements ProbeSetEmbeddingAlgorithm
 	 */
 	public static int numberOfEmbeddings (AffymetrixChip chip, int probe_id)
 	{
-		//variable for the PM & MM merged embedding
-		int[] mergedembedding = new int[chip.embed[probe_id].length];
-		//probe_id of the partner of given probe (PM <-> MM) 
-		int pair_probe_id;
-		
-		int[] current = new int[(chip.probe_len + 1)];
-		int [] previous = new int[(chip.probe_len + 1)];
-		boolean debug = true;
-		// int counter = 0;
-		
-		//setting the probe_id of the partner in regards to the given probe is PM or MM
-		if (chip.isPMProbe(probe_id))
-				pair_probe_id = probe_id + 1;
-		else
-				pair_probe_id = probe_id - 1;
-		
-		if (debug)
-			System.out.println("mergedembedding["+2+"] = "+mergedembedding[2] + " PM: " + chip.embed[probe_id][2] + " MM: "+ chip.embed[pair_probe_id][2]);
-
-		// creating embedding of PM and MM merged
-		for(int i = 0; i < chip.embed[probe_id].length; i++)
-		{
-			mergedembedding[i] = chip.embed[probe_id][i] | chip.embed[pair_probe_id][i];
-			if (debug)
-				System.out.println("mergedembedding["+i+"] = "+mergedembedding[i] + " PM: " + chip.embed[probe_id][i] + " MM: "+ chip.embed[pair_probe_id][i]);
-		}
-		int basecount = Integer.bitCount(mergedembedding[0]) + Integer.bitCount(mergedembedding[1]) + Integer.bitCount(mergedembedding[2]);
-		if (debug)
-			System.out.println("Anzahl Basen in merged: "+ basecount);
-		
-		
-		char[] probe = new char[chip.probe_len+1];
-		int pos = -1;
-		int mask = 0x01 << (Integer.SIZE-1);
-		int charpos = 0;
-		int counter =0;
-		
-		//convert BitSet to String  <-- have to fix it, but couldn't figure out failure
-		for (int i = 0; i < chip.dep_seq.length; i++)
-		{
-			if(i % Integer.SIZE == 0)
-			{
-				mask = 0x01 << (Integer.SIZE-1);
-				pos++;
-			}
-		
-			if((mergedembedding[pos] & mask) != 0)
-			{
-				probe[charpos]=chip.dep_seq[i];
-				System.out.println(counter++ +"te mal match!"+" total: "+ i+ " "+chip.dep_seq[i]+ " "+(mergedembedding[pos] & mask) );
-				//charpos++;
-			}
-			mask >>= 1;
-		}
-		
-		//initialize 2 rows of Embeddingsmatrix
-		previous[0] = 1;
-		current[0] = 1;	
-		for(int i =1; i <= chip.probe_len;i++)
-		{	previous[i] = 0;
-			current[i] = 0;
-		}	
-		for (int  j = 0; j < chip.dep_seq.length; j++)
-		{
-			for(int i = 1; i <= chip.probe_len; i++)
-			{ 	
-				if(probe[i-1] == chip.dep_seq[j])
-				{
-					// may not be necessary, because previous == current
-					// current[i] = previous[i];   
-					current[i] += previous[i-1];
-				}
-					
-				if (current[i] == 0)
-						break;
-				
-			}
-			previous = current;
-		}
-
-		return current[chip.probe_len];	
-		
-			
-			
-			
-			
-			
-			
-		/*	
-			
-			// try to access "BitSet" directly
-		for(int i =1; i<= chip.embed_len;i++)
-		{	previous[i] = 0;
-			current[i] = 0;
-		}	
-		previous[0] = 1;
-		current[0] = 1;
-		
-		int mask = 0x01 << (Integer.SIZE-1);
-		int counter2 = 0;
-		for (int  j = 0; j < chip.dep_seq.length; j++)
-		{
-			if (debug)
-				System.out.println(counter2 +". Base in DepSeq");
-			counter = 0;
-			int pos = -1;
-			for(int i = 1; i <= chip.embed_len; i++, mask >>= 1)
-			{ 	
-				if (debug)
-					System.out.println(i +". Base in Probe");
-				if((i-1) % Integer.SIZE == 0)
-				{
-					mask = 0x01 << (Integer.SIZE-1);
-					pos++;
-				}
-				if (debug)
-					System.out.println("maske: " + (mergedembedding[pos] & mask));
-				if((mergedembedding[pos] & mask) != 0)
-				{
-					if (debug)
-					{
-						System.out.println(counter + ".mal match "+i+".th Wert: "+ current[i]);
-						counter ++;
-					}
-					// may not be necessary, because previous == current
-					// current[i] = previous[i];   
-					last = i;
-					if(chip.dep_seq[i-1] == chip.dep_seq[j])
-					{
-						current[i] += previous[i-1];
-						if (debug)
-						{
-							System.out.println("extra");
-						}
-					}
-					
-					if (current[i] == 0)
-						break;
-				}
-				else
-					current[i]=current[i-1];
-			}
-			counter2++;
-			previous = current;
-		}
-
-		return current[last]; */ 
+	    //variable for the PM & MM merged embedding
+	    int[] mergedembedding = new int[chip.embed[probe_id].length];
+	    
+	    //probe_id of the partner of given probe (PM <-> MM) 
+	    int pair_probe_id;
+        
+        // merged_embedding has 1 base more than normal probe and one additional value for the first row of the embeddingsmatrix 
+        int merged_embedding_length = chip.probe_len + 2;
+        
+        // columns of the embeddingsmatrix - only 2 needed since we are 
+        // only interested of the value in the very last cell of this matrix 
+        // and one row is computed by the values of the previous row
+	    int[] current = new int[merged_embedding_length];
+	    int [] previous = new int[merged_embedding_length];
+	    
+        // mask for accessing the bitset of the embedding
+        int mask = 0x01 << (Integer.SIZE-1);
+        
+	    
+	    
+	    //setting the probe_id of the partner in regards to the given probe is PM or MM
+	    if (chip.isPMProbe(probe_id))
+	    {
+            pair_probe_id = probe_id + 1;
+        }
+	    else
+        {
+            pair_probe_id = probe_id - 1;
+        }
+	    
+	    // creating embedding of PM and MM merged <-- there should be a better way of creating a correct merdedembedding
+	    for(int i = 0; i < chip.embed[probe_id].length; i++)
+	    {
+	        mergedembedding[i] = chip.embed[probe_id][i] | chip.embed[pair_probe_id][i];
+	    }
+	      
+	    // make sure arrays are initialized with zero!
+	    for(int i =1; i< merged_embedding_length ;i++)
+	    {	
+	        previous[i] = 0;
+	        current[i] = 0;
+	    }	
+	    
+        // value of first row of matrix that will never be changed!
+	    previous[0] = 1;
+	    current[0] = 1;
+	    
+        // at the end of computing the matrix last should contain the number of possible embeddings
+	    int last = 0;
+	    
+        // j indicates the current column of our embeddings matrix where every column is labeled with the corresponding 
+        // character of the deposition sequence
+	    for (int  j = 0; j < chip.dep_seq.length; j++)
+	    {
+            // counter is used as a pointer that goes over the bitset of our merged probe to see which bits are set, therefore normally: counter < dep_seq.length
+            int counter = 0;
+            
+            // refers to that integer whose bitset will be accessed
+            int pos = -1;
+            
+            // indicates the current row of our embeddings matrix where every row is labeled with the corresponding 
+            // character of the merged probe
+            // since it is a merged probe, merged_probe_len = 26
+            for(int i = 0; i <= chip.probe_len; counter++, mask >>>= 1)
+	        { 	
+	           	            
+	            if(((counter) % Integer.SIZE) == 0)
+	            {
+	                mask = 0x01 << (Integer.SIZE-1);
+	                pos++;
+	            }
+	            
+                // see if bit is set for the merged_porbe --> position of counter indicates which character it is
+	            if(((mergedembedding[pos]) & mask) != 0)
+	            {
+                    i++;
+	          	    last = i;
+	                
+                    if(chip.dep_seq[counter] == chip.dep_seq[j])
+	                {
+	                    current[i] += previous[i-1];
+	                }
+	                
+	                if (current[i] == 0 || i == chip.probe_len+2)
+	                {
+	                    break;
+	                }
+	                
+	            }
+             
+	            
+	        }
+	        // previous = current;
+            System.arraycopy(current,1,previous,1,last); 
+	    }
+	    return current[last];  
 	}	
 }
