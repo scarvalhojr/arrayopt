@@ -144,43 +144,72 @@ public class PivotEmbedding implements ProbeSetEmbeddingAlgorithm
 	public static int numberOfEmbeddings (SimpleChip chip, int probe_id)
 	{
 		
-		// try to access "BitSet" directly
+	    // columns of the embeddingsmatrix - only 2 needed since we are 
+        // only interested of the value in the very last cell of this matrix 
+        // and one column is computed by the values of the previous column.
+        // each column has one additional value -> [0] represents the blank character
 		int[] current = new int[(chip.embed_len + 1)];
-		int [] previous = new int[(chip.embed_len + 1)];
+		int[] previous = new int[(chip.embed_len + 1)];
 		
-		
+		// at the end of computing the matrix last should contain the number of possible embeddings
+        int last = 0;
+        
+        int mask = 0x01 << (Integer.SIZE-1);
+        
+        // make sure arrays are initialized with zero!
+        for(int i =1; i < chip.embed_len+1 ;i++)
+        {   
+            previous[i] = 0;
+            current[i] = 0;
+        }   
+        
+        // value of first row (blank character) of matrix that will never be changed!
 		previous[0] = 1;
 		current[0] = 1;
-		
-		int mask = 0x01 << (Integer.SIZE-1);
-		
+        
+        // j indicates the current column of our embeddings matrix where every column is labeled 
+        // with the corresponding character of the deposition sequence
 		for (int  j = 0; j < chip.dep_seq.length; j++)
 		{
-			int pos = 0;
-			for(int i = 1; i < chip.embed_len; i++, mask >>= 1)
+		    // counter is used as a pointer that goes over the bitset of our probe to see which bits are set, therefore normally: counter < dep_seq.length
+            int counter = 0;
+            
+            // refers to that integer whose bitset will be accessed
+            int pos = -1;
+            
+            
+            // indicates the current row of our embeddings matrix where every row is labeled with the corresponding  
+            // character of the probe (i=0 -> blank character) --> j and i point to a cell in the matrix
+			for(int i = 0; i < chip.probe_len; counter++,mask >>= 1)
 			{
-				if(i % Integer.SIZE == 0)
+				if(counter % Integer.SIZE == 0)
 				{
 					mask = 0x01 << (Integer.SIZE-1);
 					pos++;
 				}
 				
+                // see if bit is set in the probe --> position of counter indicates which character it is
 				if((chip.embed[probe_id][pos] & mask) != 0)
 				{
-									
-					if(chip.dep_seq[i-1] == chip.dep_seq[j])
+                    i++;
+                    last = i;			
+					if(chip.dep_seq[counter] == chip.dep_seq[j])
 					{
 						current[i] += previous[i-1];
 					}
 					
 					if (current[i] == 0)
-						break;
+                    {
+                        break;
+                    }
 				}
 			}
-			previous = current;
+            
+			// previous = current
+            System.arraycopy(current,1,previous,1,last);
 		}
 
-		return current[chip.embed_len];  
+		return current[chip.probe_len];  
 	}
 
 	/**
@@ -193,7 +222,7 @@ public class PivotEmbedding implements ProbeSetEmbeddingAlgorithm
 	public static int numberOfEmbeddings (AffymetrixChip chip, int probe_id)
 	{
 	    //variable for the PM & MM merged embedding
-	    int[] mergedembedding = new int[chip.embed[probe_id].length];
+	    int[] merged_embedding = new int[chip.embed[probe_id].length];
 	    
 	    //probe_id of the partner of given probe (PM <-> MM) 
 	    int pair_probe_id;
@@ -225,7 +254,7 @@ public class PivotEmbedding implements ProbeSetEmbeddingAlgorithm
 	    // creating embedding of PM and MM merged <-- there should be a better way of creating a correct merdedembedding
 	    for(int i = 0; i < chip.embed[probe_id].length; i++)
 	    {
-	        mergedembedding[i] = chip.embed[probe_id][i] | chip.embed[pair_probe_id][i];
+	        merged_embedding[i] = chip.embed[probe_id][i] | chip.embed[pair_probe_id][i];
 	    }
 	      
 	    // make sure arrays are initialized with zero!
@@ -264,8 +293,8 @@ public class PivotEmbedding implements ProbeSetEmbeddingAlgorithm
 	                pos++;
 	            }
 	            
-                // see if bit is set for the merged_porbe --> position of counter indicates which character it is
-	            if(((mergedembedding[pos]) & mask) != 0)
+                // see if bit is set for the merged_probe --> position of counter indicates which character it is
+	            if(((merged_embedding[pos]) & mask) != 0)
 	            {
                     i++;
 	          	    last = i;
@@ -287,6 +316,6 @@ public class PivotEmbedding implements ProbeSetEmbeddingAlgorithm
 	        // previous = current;
             System.arraycopy(current,1,previous,1,last); 
 	    }
-	    return current[last];  
+	    return current[merged_embedding_length-1];  
 	}	
 }
