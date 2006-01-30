@@ -72,7 +72,7 @@ public class ProbeSetEmbeddingWrapper implements PlacementAlgorithm
 		}
 		else
 		*/
-			embedder.reembedProbeSet (chip, chip.getAllProbes());
+			embedder.reembedProbeSet (chip, chip.getMovableProbes());
 		
 		// since no probe has been moved,
 		// no probe may be left out
