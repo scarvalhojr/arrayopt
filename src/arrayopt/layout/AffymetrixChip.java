@@ -235,10 +235,20 @@ public class AffymetrixChip extends Chip
 	 * not fixed). Their embeddings must also contains sequences that differ
 	 * only in the middle base ({link AFFY_MIDDLE_BASE})</P>.
 	 *
+	 * <P>There is an option on whether fixed spots must have its contents
+	 * preserved (ignore_fixed = false) or not (ignore_fixed = true). In the
+	 * first case, the chip specification will contain a list of fixed spots
+	 * and fixed probes (those found on fixed spots). Otherwise, all fixed spots
+	 * will be treated as non-fixed (which may result, for instance, in their
+	 * their probes being moved to a new location).</P>
+	 *
 	 * @param input a character input stream
+	 * @param ignore_fixed true if fixed status should be ignored, false
+	 * otherwise
 	 * @throws IOException if an I/O error occurrs or input is not compliantan
 	 */
-	public void readLayout (Reader input) throws IOException
+	public void readLayout (Reader input, boolean ignore_fixed)
+		throws IOException
 	{
 		ArrayList<Integer>	fixed_list;
 		BufferedReader		in;
@@ -292,13 +302,21 @@ public class AffymetrixChip extends Chip
 				r = Integer.parseInt (field[1]);
 
 				// fixed spot?
-				if (field[3].equals("Y"))
-					fixed = true;
-				else if (field[3].equals("N"))
+				if (ignore_fixed)
+				{
 					fixed = false;
+				}
 				else
-					throw new IOException ("Invalid fixed flag at line " +
-											ln + ".");
+				{
+					if (field[3].equals("Y"))
+						fixed = true;
+					else if (field[3].equals("N"))
+						fixed = false;
+					else
+						throw new IOException ("Invalid fixed flag at line " +
+												ln + ".");
+				}
+				
 				// empty spot?
 				empty = (field[6].equals("-")) ? true : false;
 

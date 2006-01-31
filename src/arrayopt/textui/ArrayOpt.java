@@ -54,19 +54,20 @@ public class ArrayOpt
 		Chip					chip, copy;
 		PlacementAlgorithm		placer = null;
 		PostPlacementAlgorithm	optimizer = null;
-		int						rows, cols, probes, probe_len, unplaced;
 		String					chip_type, filename, algorithm, dep_seq;
+		int						rows, cols, probes, probe_len, unplaced;
+		boolean					ignore_fixed;
 
 		try
 		{
 			// get mandatory command-line arguments
 			chip_type = args[0];
-			filename  = args[1];
-			rows      = Integer.parseInt(args[2]);
-			cols      = Integer.parseInt(args[3]);
-			probes    = Integer.parseInt(args[4]);
-			probe_len = Integer.parseInt(args[5]);
-			algorithm = args[6];
+			filename  = args[2];
+			rows      = Integer.parseInt(args[3]);
+			cols      = Integer.parseInt(args[4]);
+			probes    = Integer.parseInt(args[5]);
+			probe_len = Integer.parseInt(args[6]);
+			algorithm = args[7];
 		}
 		catch (Exception e)
 		{
@@ -75,16 +76,32 @@ public class ArrayOpt
 			return;
 		}
 
+		// ignore fixed spots?
+		if (args[1].equalsIgnoreCase("fix"))
+		{
+			ignore_fixed = false;
+		}
+		else if (args[1].equalsIgnoreCase("nofix"))
+		{
+			ignore_fixed = true;
+		}
+		else
+		{
+			usage ();
+			System.exit(1);
+			return;
+		}
+
 		try
 		{
 			// get optional command-line arguments
-			dep_seq = args[7];
+			dep_seq = args[8];
 		}
 		catch (ArrayIndexOutOfBoundsException e)
 		{
 			dep_seq = DEFAULT_DEP_SEQ;
 		}
-
+		
 		try
 		{
 			// algorithm selection
@@ -195,7 +212,7 @@ public class ArrayOpt
 			FileReader file = new FileReader(filename);
 
 			// read input
-			chip.readLayout (file);
+			chip.readLayout (file, ignore_fixed);
 
 			// close reader
 			file.close();
@@ -232,8 +249,11 @@ public class ArrayOpt
 			optimizer.optimizeLayout (chip);
 		}
 
+		if (chip.equals(copy))
+			System.err.println("WARNING: new layout is equal to the original specification.");
+
 		if (!chip.compatible(copy))
-			System.err.println("WARNING: new layout is not compatible with the original specification.");			
+			System.err.println("WARNING: new layout is not compatible with the original specification.");
 
 		try
 		{
@@ -250,9 +270,9 @@ public class ArrayOpt
 
 	private static void usage ()
 	{
-		System.out.println (
-			"Usage: ArrayOpt [affy | simple] <input file> <# of rows>" +
-				" <# of columns> <# of probes> <probe length> " +
-				" <placement algorithm> [<deposition sequence>]");
+		System.err.println (
+			"Usage: ArrayOpt [affy | simple] [fix | nofix] <input file> " +
+				"<# of rows> <# of columns> <# of probes> <probe length> " +
+				"<placement algorithm> [<deposition sequence>]");
 	}
 }

@@ -461,14 +461,37 @@ public abstract class Chip implements Cloneable
 
 	/**
 	 * Read a chip layout specification from a character input stream. This
-	 * method must be provided by sub-classes who should specify the input's
-	 * format.
+	 * method calls the other {@link #readLayout(Reader,boolean)} method (that
+	 * must be provided by sub-classes) with the default behaviour
+	 * (ignore_fixed = false).
 	 *
 	 * @param input an character input stream
 	 * @throws IOException if an I/O error occurrs or input does not comply
 	 * with the format rules
 	 */
-	public abstract void readLayout (Reader input) throws IOException;
+	public void readLayout (Reader input) throws IOException
+	{
+		readLayout (input, false);
+	}
+
+	/**
+	 * Read a chip layout specification from a character input stream. This
+	 * method must be provided by sub-classes who should specify the input's
+	 * format. There is an option on whether fixed spots must have its
+	 * contents preserved (ignore_fixed = false) or not (ignore_fixed = true).
+	 * In the first case, the chip specification will contain a list of fixed
+	 * spots and fixed probes (those found on fixed spots). Otherwise, all
+	 * fixed spots will be treated as non-fixed (which may result, for
+	 * instance, in their probes being moved to a new location).
+	 *
+	 * @param input an character input stream
+	 * @param ignore_fixed true if fixed status should be ignored, false
+	 * otherwise
+	 * @throws IOException if an I/O error occurrs or input does not comply
+	 * with the format rules
+	 */
+	public abstract void readLayout (Reader input, boolean ignore_fixed)
+		throws IOException;
 
 	/**
 	 * This method stores a probe sequence as a binary string encoded in
