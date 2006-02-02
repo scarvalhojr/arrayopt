@@ -154,6 +154,15 @@ public class ArrayOpt
 			else if (algorithm.equalsIgnoreCase("2D4-QAPBB"))
 				placer = new TwoDimensionalPartitioning(new QAPOptimization(new BranchAndBound()), 4);
 
+			else if (algorithm.equalsIgnoreCase("2D8-GREEDY"))
+				placer = new TwoDimensionalPartitioning(new GreedyFiller(), 8);
+
+			else if (algorithm.equalsIgnoreCase("2D8-GRASPD"))
+				placer = new TwoDimensionalPartitioning(
+							new QAPOptimization(
+								new GraspDense(), QAPOptimization.MODE_CONFLICT_INDEX),
+							8);
+
 			else if (algorithm.equalsIgnoreCase("QAPGRASPD"))
 				placer = new QAPOptimization(new GraspDense());
 
@@ -172,8 +181,9 @@ public class ArrayOpt
 			else if (algorithm.equalsIgnoreCase("SWIN-GRASPD"))
 				optimizer = new SlidingWindowOptimization (
 								new QAPOptimization (
-									new GraspDense()
-							), 6, 2);
+									new GraspDense(), QAPOptimization.MODE_CONFLICT_INDEX
+								),
+								8, 8, 1);
 
 			else
 				throw new IllegalArgumentException
@@ -251,9 +261,13 @@ public class ArrayOpt
 
 		if (chip.equals(copy))
 			System.err.println("WARNING: new layout is equal to the original specification.");
+		else
+			System.err.println("New layout is not equal to the original specification.");
 
 		if (!chip.compatible(copy))
 			System.err.println("WARNING: new layout is not compatible with the original specification.");
+		else
+			System.err.println("New layout is compatible with the original specification.");
 
 		try
 		{
