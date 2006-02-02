@@ -56,7 +56,7 @@ public abstract class QAPSolverAlgorithm
 
 		for (int i = 0; i < dim; i++)
 			for (int j = 0; j < dim; j++)
-				cost += dist[i * dim + j] * flow[sol[i] * dim + sol[j]];
+				cost += dist[i * dim + j] * flow[(sol[i] - 1) * dim + (sol[j] - 1)];
 
 		return cost;
 	}
