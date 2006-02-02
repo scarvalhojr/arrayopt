@@ -157,7 +157,7 @@ public class SlidingWindowOptimization implements PostPlacementAlgorithm
 		// window dimension must not be greater than the chip's area
 		if (window_dim > region.last_row - region.first_row + 1 ||
 			window_dim > region.last_col - region.first_col + 1)
-			throw new IllegalStateException
+			throw new IllegalArgumentException
 				("Dimension of sliding window is larger than the chip's region.");
 				
 		// compute how many times the algorithm must run
