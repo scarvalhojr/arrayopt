@@ -158,15 +158,17 @@ public class AffymetrixChip extends Chip
 	}
 
 	/**
-	 * Returns the base complement of a given base. This can be used to
-	 * identify the middle base of a MM probe based on the middle base of the
-	 * corresponding PM probe (or vice-versa). The complementarity rules are
-	 * as follows: <CODE>A <-> T</CODE> and <CODE>C <-> G</CODE>.
+	 * Returns the base complement of a given base. This can be used, for
+	 * instance, to identify the middle base of a MM probe based on the middle
+	 * base of the corresponding PM probe (or vice-versa) of an Affymetrix chip.
+	 * 
+	 * <P>The complementarity rules are as follows: <CODE>A <-> T</CODE> and
+	 * <CODE>C <-> G</CODE>.</P>
 	 *
 	 * @param base a base whose complement is wanted
 	 * @return the base complement
 	 */
-	public char getBaseComplement (char base)
+	public static char getBaseComplement (char base)
 	{
 		switch (base)
 		{
@@ -247,6 +249,7 @@ public class AffymetrixChip extends Chip
 	 * otherwise
 	 * @throws IOException if an I/O error occurrs or input is not compliantan
 	 */
+	@Override
 	public void readLayout (Reader input, boolean ignore_fixed)
 		throws IOException
 	{
@@ -458,16 +461,14 @@ public class AffymetrixChip extends Chip
 
 		// there must be two differences
 		// (due to the middle bases)
-		if (diff != 2)
-			return false;
-		else
-			return true;
-
+		if (diff != 2) return false;
+		
 		// TO DO:
 		// In reality, this test is not enough as we do not check where
 		// the difference is occurring. A correct implementation would also
 		// check if the number of differences before and after the middle
 		// base is zero.
+		return true;
 	}
 
 	/**
@@ -478,6 +479,7 @@ public class AffymetrixChip extends Chip
 	 *
 	 * @return a list of movable (not fixed) PM probe IDs
 	 */
+	@Override
 	public int[] getMovableProbes ()
 	{
 		int i, f, m, movable[];
@@ -520,7 +522,8 @@ public class AffymetrixChip extends Chip
 	 * @param out a PrintWriter stream
 	 * @throws IOException if an error occurs while writing on the stream
 	 */
-	public void writeLayout (PrintWriter out) throws IOException
+	@Override
+	public void writeLayout (PrintWriter out)
 	{
 		int		mask = 0, w, pos;
 		char	fix, typ;
@@ -599,6 +602,7 @@ public class AffymetrixChip extends Chip
 	 *
 	 * @return a clone of this instance
 	 */
+	@Override
 	public AffymetrixChip clone ()
 	{
 		AffymetrixChip c;
@@ -623,6 +627,7 @@ public class AffymetrixChip extends Chip
 	 * @param obj the reference object with which to compare
 	 * @return true if this Chip is "equal to" the argument; false otherwise
 	 */
+	@Override
 	public boolean equals (Object obj)
 	{
 		AffymetrixChip other;
@@ -672,8 +677,6 @@ public class AffymetrixChip extends Chip
 	 */
 	public boolean compatible (AffymetrixChip other)
 	{
-		int i, j;
-
 		// check the superclass members for compatibility
 		if (!super.compatible(other)) return false;
 		
@@ -708,6 +711,7 @@ public class AffymetrixChip extends Chip
 	 * @return true if the current layout specification is valid; false
 	 * otherwise
 	 */
+	@Override
 	public boolean validateLayout ()
 	{
 		HashSet<Integer>	fixed_id;
