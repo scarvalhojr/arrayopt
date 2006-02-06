@@ -42,6 +42,8 @@ package arrayopt.layout;
  */
 public class LayoutEvaluation
 {
+	static final int DIM_CONFLICT_REGION = 3;
+	
 	// package access
 	// distance-based weighting function
 	static final double WEIGHT_DIST[][] = {
@@ -53,6 +55,15 @@ public class LayoutEvaluation
 				{	0,		0.125,	0.2,	0.25,	0.2,	0.125,	0		},
 				{	0,		0,		0.1,	0.1111,	0.1,	0,		0		}};
 
+	// compute position multiplier: conflicts
+	// are more harmful in the middle of a probe
+	static double positionMultiplier (int probe_len, int base)
+	{
+		// pos_mult = sqrt ( min (base + 1, probe_len - base + 1) )
+		return Math.sqrt ((base <= probe_len - base) ? (base + 1) :
+								(probe_len - base + 1));
+	}
+	
 	// package access
 	// compute the hamming distance between two probes' embeddings
 	static int hammingDistance (Chip chip, int id_1, int id_2)
@@ -87,7 +98,6 @@ public class LayoutEvaluation
 	 */
 	protected static int hammingDistance (SimpleChip chip, int id_1, int id_2)
 	{
-		char ch;
 		int  bits = 0, hd = 0, mask = 0, w, pos;
 
 		for (w = -1, pos = 0; pos < chip.getEmbeddingLength(); pos++)
@@ -119,7 +129,6 @@ public class LayoutEvaluation
 	 */
 	protected static int hammingDistance (AffymetrixChip chip, int id_1, int id_2)
 	{
-		char ch;
 		int  bits = 0, hd = 0, mask = 0, w, pos;
 
 		for (w = -1, pos = 0; pos < chip.getEmbeddingLength(); pos++)
@@ -165,8 +174,8 @@ public class LayoutEvaluation
 	{
 		if (chip.spot[row][col] == Chip.EMPTY_SPOT)
 			return 0;
-		else
-			return spotConflict (chip, row, col, chip.spot[row][col]);
+
+		return spotConflict (chip, row, col, chip.spot[row][col]);
 	}
 
 	protected static double spotConflict (Chip chip, int row, int col, int probe_id)
@@ -218,15 +227,9 @@ public class LayoutEvaluation
 				continue;
 			}
 
-			// compute position multiplier: conflicts
-			// are more harmful in the middle of a probe
-			// (a conflict would harm the next nucleotide
-			// to be synthesized, if there is any)
-			// pos_mult = sqrt ( min (base + 1, probe_len - base + 1) )
-			pos_mult = (base + 1 <= probe_len - base + 1) ?
-						base + 1 :  probe_len - base + 1;
-
-			pos_mult = Math.sqrt(pos_mult);
+			// compute position multiplier (a conflict would
+			// harm the next nucleotide to be synthesized)
+			pos_mult = positionMultiplier (probe_len, base);
 
 			r = (row >= 3) ? row - 3 : 0;
 			for (; r <= row + 3 && r < num_rows; r++)
@@ -235,7 +238,7 @@ public class LayoutEvaluation
 				for (; c <= col + 3 && c < num_cols; c++)
 				{
 					// skip if neighbor is empty
-					if (chip.spot[r][c] == chip.EMPTY_SPOT) continue;
+					if (chip.spot[r][c] == Chip.EMPTY_SPOT) continue;
 
 					// conflict only when neighbor is unmasked
 					if ((chip.embed[chip.spot[r][c]][w] & mask) == 0) continue;
