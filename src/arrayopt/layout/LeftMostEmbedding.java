@@ -113,7 +113,7 @@ public class LeftMostEmbedding implements SingleProbeEmbeddingAlgorithm,
     for (newint = 0; newint < chip.embed[probe_id].length; newint++)
                        newembedding[newint] = 0;
 
-	newmask = 0x01 << ((Integer.SIZE)-(newpos % Integer.SIZE));
+	newmask = 0x01 << ((Integer.SIZE)-(shift % Integer.SIZE));
 	newint = (int) Math.floor((double) newpos/Integer.SIZE);
 	
 	for (oldint = -1, oldpos =0; oldpos < chip.embed_len; oldpos++)
