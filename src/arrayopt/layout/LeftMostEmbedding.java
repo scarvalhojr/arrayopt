@@ -195,7 +195,7 @@ public class LeftMostEmbedding implements SingleProbeEmbeddingAlgorithm,
 	newint = (int) Math.floor((double) newpos/Integer.SIZE);
 		
 	// synthesize up to 12th base
-	while (basenumber < AffymetrixChip.AFFY_MIDDLE_BASE)
+	while (basenumber < AffymetrixChip.AFFY_MIDDLE_BASE - 1)
 	{
 
         if (oldpos % Integer.SIZE == 0)

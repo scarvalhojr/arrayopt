@@ -193,7 +193,7 @@ public class RightMostEmbedding implements SingleProbeEmbeddingAlgorithm,
 		char compl = 'A';
 	
 	// synthesize till MIDDLE_BASE+1 
-	while (basenumber > AffymetrixChip.AFFY_MIDDLE_BASE)
+	while (basenumber > AffymetrixChip.AFFY_MIDDLE_BASE - 1)
 	{
 		if ((oldpos+1) % (Integer.SIZE) == 0)
 		{	

@@ -68,7 +68,7 @@ public class AffymetrixChip extends Chip
 	 * This constant holds the middle base position of a probe, where the PM
 	 * probes differ from the MM probes.
 	 */
-	public static final int AFFY_MIDDLE_BASE = 12;
+	public static final int AFFY_MIDDLE_BASE = 13;
 
 	/**
 	 * This constant holds the default deposition sequence of Affymetrix chips,
