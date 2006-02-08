@@ -278,11 +278,11 @@ public abstract class OptimumEmbedding
 	 * @param id_2 the ID of the probe with a fixed embedding
 	 * @return the minimum distance between id_1 and id_2
 	 */
-	void reembedProbe (int id_1, int id_2)
+	double reembedProbe (int id_1, int id_2)
 	{
 		resetCosts();
 		addProbeCost (id_2);
-		reembedOptimally (id_1);
+		return reembedOptimally (id_1);
 	}
 
 	/**
@@ -292,9 +292,9 @@ public abstract class OptimumEmbedding
 	 * @param id the IDs of the set of probe with a fixed embedding
 	 * @return the minimum distance between id_1 and the set of probes
 	 */
-	void reembedProbe (int id_1, int id[])
+	double reembedProbe (int id_1, int id[])
 	{
-		reembedProbe (id_1, id, 0, id.length - 1); 
+		return reembedProbe (id_1, id, 0, id.length - 1); 
 	}
 
 	/**
@@ -306,11 +306,11 @@ public abstract class OptimumEmbedding
 	 * @param end the index of the last element on the list 
 	 * @return the minimum distance between id_1 and the set of probes
 	 */
-	void reembedProbe (int id_1, int id[], int start, int end)
+	double reembedProbe (int id_1, int id[], int start, int end)
 	{
 		resetCosts();
 		addProbeCost (id, start, end);
-		reembedOptimally (id_1);
+		return reembedOptimally (id_1);
 	}
 
 	/**
@@ -319,17 +319,17 @@ public abstract class OptimumEmbedding
 	 * @param row spot's row coordinate
 	 * @param col spot's column coordinate
 	 * @return the minimum conflict that the probe on the given spot can cause
-	 * to the neighboring probes
+	 * to the neighboring probes or zero if the spot is empty
 	 */
-	void reembedSpot (int row, int col)
+	double reembedSpot (int row, int col)
 	{
 		int id;
 		
-		if ((id = chip.spot[row][col]) == Chip.EMPTY_SPOT) return;
+		if ((id = chip.spot[row][col]) == Chip.EMPTY_SPOT) return 0;
 
 		resetCosts();
 		addSpotCost (row, col);
-		reembedOptimally (id);
+		return reembedOptimally (id);
 	}
 	
 	/**
@@ -349,7 +349,7 @@ public abstract class OptimumEmbedding
 	
 	protected abstract double computeMinDistance (int id);
 	
-	protected abstract void reembedOptimally (int id);
+	protected abstract double reembedOptimally (int id);
 	
 	protected double computeMatrix (double matrix[][], char probe[])
 	{
@@ -408,13 +408,15 @@ public abstract class OptimumEmbedding
 		}
 
 		@Override
-		protected void reembedOptimally (int id)
+		protected double reembedOptimally (int id)
 		{
 			decodeEmbedding (id);
 			
-			computeMatrix (matrix, probe);
+			double d = computeMatrix (matrix, probe);
 			
 			encodeEmbedding (id);
+			
+			return d;
 		}
 
 		protected void decodeEmbedding (int id)
@@ -577,19 +579,67 @@ public abstract class OptimumEmbedding
 			@Override
 			protected void addProbeCost (int id)
 			{
-				// TODO
+				addProbeCost (id, 1);
 			}
 
 			@Override
 			protected void addProbeCost (int id[], int start, int end)
 			{
-				// TODO
+				for (int p = start; p <= end; p++)
+					addProbeCost (id[p], 1);
 			}
 
 			@Override
-			protected void addSpotCost (int row, int col)
+			protected void addSpotCost (int r_1, int c_1)
 			{
-				// TODO
+				int		dim, r_2, c_2, r_min, c_min, r_max, c_max, id;
+				double	w;
+				
+				dim = LayoutEvaluation.DIM_CONFLICT_REGION;
+				
+				r_min = Math.max(r_1 - dim, chip_region.first_row);
+				c_min = Math.max(c_1 - dim, chip_region.first_col);
+				r_max = Math.min(r_1 + dim, chip_region.last_row);
+				c_max = Math.min(c_1 + dim, chip_region.last_col);
+				
+				for (r_2 = r_min; r_2 <= r_max; r_2++)
+					for (c_2 = c_min; c_2 <= c_max; c_2++)
+					{
+						if (r_1 == r_2 && c_1 == c_2)
+							continue;
+						
+						if ((id = chip.spot[r_2][c_2]) == Chip.EMPTY_SPOT)
+							continue;
+						
+						w = LayoutEvaluation.WEIGHT_DIST[dim + r_1 - r_2]
+						                                 [dim + c_1 - c_2];
+						if (w > 0) addProbeCost (id, w);
+					}
+			}
+			
+			private void addProbeCost (int id, double weight_dist)
+			{
+				int		b, pos, word, mask = 0;
+				
+				for (b = 0, word = -1, pos = 0; pos < embed_len; pos++)
+				{
+					if (pos % Integer.SIZE == 0)
+					{
+						word++;
+						mask = 0x01 << (Integer.SIZE-1);
+					}
+					else
+						mask >>>= 1;
+					
+					if ((chip.embed[id][word] & mask) != 0)
+					{
+						mask_cost[pos] += weight_dist;
+						b++;
+					}
+					else
+						unmask_cost[pos] += weight_dist *
+							LayoutEvaluation.positionMultiplier(probe_len, b);
+				}
 			}
 		}
 	}
@@ -633,7 +683,7 @@ public abstract class OptimumEmbedding
 		}
 
 		@Override
-		protected void reembedOptimally (int id)
+		protected double reembedOptimally (int id)
 		{
 			double	d1, d2;
 			
@@ -643,9 +693,14 @@ public abstract class OptimumEmbedding
 			d2 = computeMatrix (matrix_2, probe_2);
 			
 			if (d1 <= d2)
+			{
 				encodeEmbedding (id, id + 1, matrix_1, probe_1);
-			else
-				encodeEmbedding (id + 1, id, matrix_2, probe_2);
+				return d1;
+			}
+			
+			// else
+			encodeEmbedding (id + 1, id, matrix_2, probe_2);
+			return d2;
 		}
 
 		protected void decodeEmbedding (int id)
@@ -775,9 +830,14 @@ public abstract class OptimumEmbedding
 			}
 			
 			@Override
-			protected void addProbeCost (int id)
+			protected void addProbeCost (int id_1)
 			{
-				int word, pos, mask = 0;
+				int id_2, word, pos, mask = 0;
+				
+				if (((AffymetrixChip) chip).isPMProbe(id_1))
+					id_2 = id_1 + 1;
+				else
+					id_2 = id_1 - 1;
 				
 				for (word = -1, pos = 0; pos < embed_len; pos++)
 				{
@@ -789,8 +849,8 @@ public abstract class OptimumEmbedding
 					else
 						mask >>>= 1;
 					
-					if ((chip.embed[id][word] & mask) != 0 ||
-						(chip.embed[id +1][word] & mask) != 0)
+					if ((chip.embed[id_1][word] & mask) != 0 ||
+						(chip.embed[id_2][word] & mask) != 0)
 						mask_cost[pos] += 1;
 					else
 						unmask_cost[pos] += 1;
@@ -800,7 +860,7 @@ public abstract class OptimumEmbedding
 			@Override
 			protected void addProbeCost (int id[], int start, int end)
 			{
-				int i, word, pos, mask = 0;
+				int i, id_1, id_2, word, pos, mask = 0;
 				
 				for (word = -1, pos = 0; pos < embed_len; pos++)
 				{
@@ -814,8 +874,15 @@ public abstract class OptimumEmbedding
 					
 					for (i = start; i <= end; i++)
 					{
-						if ((chip.embed[id[i]][word] & mask) != 0 ||
-							(chip.embed[id[i] +1][word] & mask) != 0)
+						id_1 = id[i];
+						
+						if (((AffymetrixChip) chip).isPMProbe(id_1))
+							id_2 = id_1 + 1;
+						else
+							id_2 = id_1 - 1;
+
+						if ((chip.embed[id_1][word] & mask) != 0 ||
+							(chip.embed[id_2][word] & mask) != 0)
 							mask_cost[pos] += 1;
 						else
 							unmask_cost[pos] += 1;
@@ -884,19 +951,79 @@ public abstract class OptimumEmbedding
 			@Override
 			protected void addProbeCost (int id)
 			{
-				// TODO
+				addProbeCost (id, 1);
 			}
 
 			@Override
 			protected void addProbeCost (int id[], int start, int end)
 			{
-				// TODO
+				for (int p = start; p <= end; p++)
+					addProbeCost (id[p], 1);
 			}
 
 			@Override
-			protected void addSpotCost (int row, int col)
+			protected void addSpotCost (int r_1, int c_1)
 			{
-				// TODO
+				int		dim, r_2, c_2, r_min, c_min, r_max, c_max, id;
+				double	w;
+				
+				dim = LayoutEvaluation.DIM_CONFLICT_REGION;
+				
+				r_min = Math.max(r_1 - 2 * dim, chip_region.first_row);
+				r_max = Math.min(r_1 + 2 * dim, chip_region.last_row);
+				c_min = Math.max(c_1 - dim, chip_region.first_col);
+				c_max = Math.min(c_1 + dim, chip_region.last_col);
+				
+				for (r_2 = r_min; r_2 <= r_max; r_2 += 2)
+					for (c_2 = c_min; c_2 <= c_max; c_2++)
+					{
+						if (r_1 == r_2 && c_1 == c_2)
+							continue;
+						
+						if ((id = chip.spot[r_2][c_2]) == Chip.EMPTY_SPOT)
+							continue;
+						
+						w = LayoutEvaluation.WEIGHT_DIST[2 * dim + r_1 - r_2]
+						                                 [dim + c_1 - c_2];
+						if (w > 0) addProbeCost (id, w);
+					}
+			}
+			
+			private void addProbeCost (int id_1, double weight_dist)
+			{
+				int		id_2, b, pos, word, mask = 0;
+				boolean	pm, mm;
+				
+				if (((AffymetrixChip) chip).isPMProbe(id_1))
+					id_2 = id_1 + 1;
+				else
+					id_2 = id_1 - 1;
+				
+				for (b = 0, word = -1, pos = 0; pos < embed_len; pos++)
+				{
+					if (pos % Integer.SIZE == 0)
+					{
+						word++;
+						mask = 0x01 << (Integer.SIZE-1);
+					}
+					else
+						mask >>>= 1;
+					
+					pm = (chip.embed[id_1][word] & mask) != 0;
+					mm = (chip.embed[id_2][word] & mask) != 0;
+					
+					if (pm || mm)
+					{
+						mask_cost[pos] += weight_dist;
+						
+						if (pm) b++;
+					}
+					else
+					{
+						unmask_cost[pos] += weight_dist *
+						   LayoutEvaluation.positionMultiplier(probe_len -1, b);
+					}
+				}
 			}
 		}
 	}
