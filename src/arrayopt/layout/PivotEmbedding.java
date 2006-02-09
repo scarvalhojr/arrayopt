@@ -78,9 +78,10 @@ public class PivotEmbedding implements ProbeSetEmbeddingAlgorithm
 	 */
 	public void reembedProbeSet (Chip chip, int probe_id[], int first, int last)
 	{
+        OptimumEmbedding embedder = OptimumEmbedding.createEmbedder(chip, OptimumEmbedding.MODE_CONFLICT_INDEX);
 		int temp;
 		int border = 0;
-		int minhamdistance = Integer.MAX_VALUE;
+		double minhamdistance = Double.MAX_VALUE;
         int pivot = 0;
 		
 		// find pivots (probes that have only one possible embedding) and
@@ -101,7 +102,7 @@ public class PivotEmbedding implements ProbeSetEmbeddingAlgorithm
 		{
 				for (int q = 0; q < border;q++)
 				{
-                    int compare = OptimumEmbedding.minHammingDistance(chip,probe_id[p],probe_id[q]);
+                    double compare = embedder.minDistanceProbe(probe_id[p],probe_id[q]);
                     if(minhamdistance > compare)
                     {
 							minhamdistance = compare;
@@ -110,7 +111,7 @@ public class PivotEmbedding implements ProbeSetEmbeddingAlgorithm
 				}
 			
 			// reembed p optimally in regards to pivot
-			OptimumEmbedding.reembedProbe(chip, p, pivot);
+			embedder.reembedProbe(p, pivot);
 		}
 	}
 
