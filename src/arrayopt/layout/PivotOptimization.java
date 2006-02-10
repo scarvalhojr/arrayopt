@@ -65,6 +65,7 @@ public class PivotOptimization implements PostPlacementAlgorithm
     
     void optimizeLayout(SimpleChip chip)
     {
+        OptimumEmbedding embedder = OptimumEmbedding.createEmbedder(chip, OptimumEmbedding.MODE_CONFLICT_INDEX);
         CompareProbe comparator = new CompareProbe(chip, chip.getFixedSpots());
         int num_col = chip.getNumberOfColumns();
         int num_row = chip.getNumberOfRows();
@@ -84,7 +85,7 @@ public class PivotOptimization implements PostPlacementAlgorithm
                 {
                     comparator.finished.set(r * num_col + c);
                     
-                    for (int i = r-1; i <= r+1; i++)
+                    for (int i = r - 1; i <= r + 1; i++)
                     {
                         for (int j = c - 1; j <= c + 1; j++) 
                         {
@@ -107,8 +108,9 @@ public class PivotOptimization implements PostPlacementAlgorithm
         while(comparator.finished.cardinality() != comparator.finished.length())
         {
             Element current = Queue.poll();
-            OptimumEmbedding.reembedProbe(chip, current.id, current.getImmediateNeighbors(comparator.finished));
+            embedder.reembedProbe(current.id, current.getImmediateNeighbors(comparator.finished));
             comparator.finished.set(current.row * num_col + current.column);
+            //TODO: test if Queue is empty --> throw Exception
         }
         
     }
@@ -169,7 +171,7 @@ public class PivotOptimization implements PostPlacementAlgorithm
             this.column = column;
             this.id = id;
         }
-        
+       // not necessary anymore is the same as getImmediateNeighbors(finished).length 
         public int getNumberOfImmediateNeighbors(BitSet finished)
         {
             int neighbors = 0;
@@ -192,7 +194,7 @@ public class PivotOptimization implements PostPlacementAlgorithm
             
             return neighbors;
         }
-        
+       
         public int getNumberOfRegionNeighbors(BitSet finished, int dimension)
         {
             int neighbors = 0;
