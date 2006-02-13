@@ -152,13 +152,19 @@ public class PivotEmbedding implements ProbeSetEmbeddingAlgorithm
 		int[] current = new int[(chip.embed_len + 1)];
 		int[] previous = new int[(chip.embed_len + 1)];
 		
+        // check if there is a probe
+        if (probe_id == Chip.EMPTY_SPOT)
+        {
+            return 0;
+        }
+        
 		// at the end of computing the matrix last should contain the number of possible embeddings
         int last = 0;
         
         int mask = 0x01 << (Integer.SIZE-1);
         
         // make sure arrays are initialized with zero!
-        for(int i =1; i < chip.embed_len+1 ;i++)
+        for(int i = 1; i < chip.embed_len+1 ;i++)
         {   
             previous[i] = 0;
             current[i] = 0;
@@ -181,9 +187,11 @@ public class PivotEmbedding implements ProbeSetEmbeddingAlgorithm
             
             // indicates the current row of our embeddings matrix where every row is labeled with the corresponding  
             // character of the probe (i=0 -> blank character) --> j and i point to a cell in the matrix
-			for(int i = 0; i < chip.probe_len; counter++,mask >>= 1)
+			for(int i = 0; i < chip.probe_len; counter++,mask >>>= 1)
 			{
-				if(counter % Integer.SIZE == 0)
+			    
+                
+                if(counter % Integer.SIZE == 0)
 				{
 					mask = 0x01 << (Integer.SIZE-1);
 					pos++;
