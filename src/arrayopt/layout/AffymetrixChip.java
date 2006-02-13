@@ -47,7 +47,8 @@ import java.io.*;
  * perfect-match probe (PM) while the other is called the mismatch (MM) probe.
  * The MM probe is a copy of the PM probe where the middle base is exchanged
  * according to the DNA complementarity rules (<CODE>A <-> T</CODE>,
- * <CODE>C <-> G</CODE>).
+ * <CODE>C <-> G</CODE>). PM and MM probes must always be placed next to each
+ * other (more precisely, on consecutive rows of the same column.  
  *
  * <P>Moreover, probe length if fixed to 25 ({@link #AFFY_PROBE_LENGTH}) and
  * there is a default deposition sequence, which is a truncated repetition of
@@ -402,6 +403,12 @@ public class AffymetrixChip extends Chip
 				if (!validateEmbeddings(probe_id - 1, probe_id))
 					throw new IOException ("Embedding of MM probe at line " +
 						ln + " is not compatible with PM probe.");
+				
+				// MM probes cannot appear in the first row
+				// since they must follow their PM counterparts
+				if (r == 0)
+					throw new IOException ("MM probe on line " + ln +
+						" cannot be placed on the first row.");
 
 				// check that PM probe is a located on row (r-1), column c
 				if (spot[r-1][c] != probe_id - 1)
@@ -755,10 +762,7 @@ public class AffymetrixChip extends Chip
 		for (i = 0; i < num_rows; i++)
 		{
 			if (spot[i].length != num_cols)
-			{
-				System.err.println ("\tbad num_cols!");
 				return false;
-			}
 			
 			for (j = 0; j < num_cols; j++)
 			{
