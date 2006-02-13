@@ -4,5 +4,10 @@
 
 <P>This package contains heuristic algorithms that attempt to find a layout (the location of the probes on the chip) that minimize the occurrence of unintended illumination problems that can occur during the production of microarrays. The algorithms also try to improve the quality of the chips by finding better embeddings of the probes into the deposition sequence.</P>
 
+<P><B>Note that these implementations were not developed for concurrent access.</B>
+Thus, several methods that should have been synchronized were not, simply
+for the sake of speed. Obviously, data corruption can be prevented easily with
+external synchronization.</P>
+
 </BODY>
 </HTML>
