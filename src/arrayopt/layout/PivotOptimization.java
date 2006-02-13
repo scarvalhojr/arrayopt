@@ -68,29 +68,20 @@ public class PivotOptimization implements PostPlacementAlgorithm
     {
         this.chip = chip;
         optimized_chip = chip.clone();
-        OptimumEmbedding embedder = OptimumEmbedding.createEmbedder(optimized_chip, OptimumEmbedding.MODE_CONFLICT_INDEX);
+        OptimumEmbedding embedder = OptimumEmbedding.createEmbedder(chip, OptimumEmbedding.MODE_CONFLICT_INDEX);
         CompareProbe comparator = new CompareProbe();
                 
-        //reset all spots on to be optimized chip
-        for (int r = 0; r < optimized_chip.num_rows; r++)
-            for (int c = 0; c < optimized_chip.num_cols; c++)
-            {
-                optimized_chip.spot[r][c] = Chip.EMPTY_SPOT;
-            }
-               
+        //reset all spots on to be optimized chip to empty spots
+        clearChip(optimized_chip);
+                               
         PriorityQueue<Element> queue = new PriorityQueue<Element>(chip.getNumberOfProbes(), comparator);
         
-        addNeighbors(queue, new Element(2,2));
-        
-        for (int r = 0, numberofembeddings = 0; r < chip.num_rows; r++)
+              
+        for (int r = 0; r < chip.num_rows; r++)
         {
             for (int c = 0; c < chip.num_cols; c++)
             {
-                /*if (chip.spot[r][c] == Chip.EMPTY_SPOT)
-                {
-                    optimized_chip.spot[r][c] = chip.spot[r][c];
-                }*/
-                if ((numberofembeddings = PivotEmbedding.numberOfEmbeddings(chip, chip.spot[r][c])) == 1 )
+                if ((PivotEmbedding.numberOfEmbeddings(chip, chip.spot[r][c])) == 1 )
                 {
                     optimized_chip.spot[r][c] = chip.spot[r][c];
                     addNeighbors(queue, new Element(r,c));
@@ -115,23 +106,30 @@ public class PivotOptimization implements PostPlacementAlgorithm
         {
             System.err.println("Warning: optimization of chip failed!");
         }
-        else
-        {
-            this.chip =  optimized_chip;
-        }
     }
     
     private void addNeighbors(PriorityQueue<Element> queue, Element element)
     {
+        
         int r;
         int c;
-        for (int i = -1; i <= +1; i++)
+        
+        int startrow = -1;
+        int stoprow = +1;
+        
+        if (chip instanceof AffymetrixChip)
+        {
+            startrow = -2;
+            stoprow = +2;
+        }
+        
+        for (int i = startrow; i <= stoprow; i++)
         {
             for (int j = -1; j <= +1; j++)
             {
                 if (!(i == 0 && j == 0) && (i == 0 || j == 0))
                 {
-                    if( ((r = element.row + i) > 0) && ( r < chip.num_rows) && ((c = element.column + j) > 0) && c < chip.num_cols)
+                    if( ((r = element.row + i) >= 0) && ( r < chip.num_rows) && ((c = element.column + j) >= 0) && c < chip.num_cols)
                     {
                         if (optimized_chip.spot[r][c] != Chip.EMPTY_SPOT || chip.spot[r][c] == Chip.EMPTY_SPOT)
                         {
@@ -142,43 +140,73 @@ public class PivotOptimization implements PostPlacementAlgorithm
                     
                 }
             }
+            if (chip instanceof AffymetrixChip)
+            {
+                i++;
+            }
         }
-        
-        
-        /* Element neighbor;
-        if (neighbor = element.getLeftNeighbor != null)
-        {
-            queue.add(neighbor);
-        }
-        if (neighbor = element.getRightNeighbor != null)
-        {
-            queue.add(neighbor);
-        }
-        if (neighbor = element.getAboveNeighbor != null)
-        {
-            queue.add(neighbor);
-        }
-        if (neighbor = element.getBelowNeighbor != null)
-        {
-            queue.add(neighbor);
-        }*/
+       
     }
     
-    
+    private void clearChip(Chip chip)
+    {
+        for (int r = 0; r < chip.num_rows; r++)
+        {
+            for (int c = 0; c < chip.num_cols; c++)
+            {
+                chip.spot[r][c] = Chip.EMPTY_SPOT;
+            }
+            if (chip instanceof AffymetrixChip)
+            {
+                r++;
+            }
+        }
+    }
     
     void optimizeLayout(AffymetrixChip chip)
     {
         this.chip = chip;
         optimized_chip = chip.clone();
-        OptimumEmbedding embedder = OptimumEmbedding.createEmbedder(optimized_chip, OptimumEmbedding.MODE_CONFLICT_INDEX);
+        OptimumEmbedding embedder = OptimumEmbedding.createEmbedder(chip, OptimumEmbedding.MODE_CONFLICT_INDEX);
         CompareProbe comparator = new CompareProbe();
         
-        for (int r = 0; r < optimized_chip.num_rows; r++)
-            for (int c = 0; c < optimized_chip.num_cols; c++)
+        clearChip(optimized_chip);
+        
+        PriorityQueue<Element> queue = new PriorityQueue<Element>(chip.getNumberOfProbes(), comparator);
+        
+        for (int r = 0; r < chip.num_rows; r += 2)
+        {
+            for (int c = 0; c < chip.num_cols; c++)
             {
-                optimized_chip.spot[r][c] = Chip.EMPTY_SPOT;
+                if ((PivotEmbedding.numberOfEmbeddings(chip, chip.spot[r][c]) == 1 ))
+                {
+                    optimized_chip.spot[r][c] = chip.spot[r][c];
+                    addNeighbors(queue, new Element(r,c));
+                }
             }
+            
+            
+            
+        }
+    
+
+        
+        while(queue.size() != 0)
+        {
+            Element current = queue.poll();
+            optimized_chip.spot[current.row][current.column] = chip.spot[current.row][current.column];
+            embedder.reembedSpot(current.row, current.column);
+            addNeighbors(queue, current);            
+        }
+        
+        if (!chip.compatible(optimized_chip))
+        {
+            System.err.println("Warning: optimization of chip failed!");
+        }
+        
     }
+         
+    
     
     private class CompareProbe implements Comparator<Element>
     {
@@ -265,6 +293,10 @@ public class PivotOptimization implements PostPlacementAlgorithm
                         
                     }
                 }
+                if ( chip instanceof AffymetrixChip)
+                {
+                    i++;
+                }
             }
             
             return neighbors;
@@ -285,13 +317,16 @@ public class PivotOptimization implements PostPlacementAlgorithm
             }
             if ((diff = (optimized_chip.num_rows-1) - row + dimension) < 0)
             {
-                stoprow = dimension - diff;
+                stoprow = dimension + diff;
             }
             if ((diff = column-dimension) < 0)
             {
                 startcolumn = dimension - diff;
             }
             if ((diff = (optimized_chip.num_cols-1) - column + dimension) < 0)
+            {
+                stopcolumn = dimension + diff;
+            }
             
             for (int i=startrow; i <= stoprow; i++)
             {
@@ -300,44 +335,19 @@ public class PivotOptimization implements PostPlacementAlgorithm
                     
                     if (!(i == 0 && j == 0))                     
                     {
-                        
-                        if(optimized_chip.spot[row+i][column+j] != Chip.EMPTY_SPOT)
                         {
                             neighbors++;
                         }
                         
                     }
                 }
+                if (chip instanceof AffymetrixChip)
+                {
+                    i++;
+                }
             }
             return neighbors;
         }
-        
-      /*  public int[] getImmediateNeighbors(BitSet finished)
-        {
-            int[] neighbors = new int[3];
-            int counter = 0;
-            
-            for (int i=-1; i <= +1; i++)
-            {
-                for (int j=-1; j <= +1; j++)
-                {
-                    if (!(i == 0 && j == 0) && (i == 0 || j == 0))
-                        
-                    {
-                        
-                        if(finished.get((row+i)*chip.num_cols+(column+j)))
-                        {
-                            neighbors[counter] = chip.spot[i][j];
-                            counter++;
-                        }
-                        
-                    }
-                }
-            }
-        int[] neighbors_opt = new int[counter];
-        System.arraycopy(neighbors,0,neighbors_opt,0,counter);
-        return neighbors_opt;
-        } */
     }
     
 }
