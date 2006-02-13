@@ -74,7 +74,7 @@ public class SimpleChip extends Chip
 	 * 2. Row number (Y coordinate)<BR>
 	 * 3. Group<BR>
 	 * 4. Fixed: <CODE>Y</CODE> or <CODE>N</CODE><BR>
-	 * 5. PM/MM: not used
+	 * 5. PM/MM: must contain a dash (<CODE>-</CODE>)<BR>
 	 * 6. Probe sequence<BR>
 	 * 7. Embedding<BR>
 	 *
@@ -88,7 +88,7 @@ public class SimpleChip extends Chip
 	 * <CODE>N</CODE> otherwise. If the spot contains a probe, a text tag can
 	 * appear on the third field to "group" a set of probes under a single name
 	 * (this grouping may or may not be explored by a placement algorithm). The
-	 * 5th field is not used and its content is just ignored.<P>
+	 * 5th field is not used but it must contain a dash.<P>
 	 *
 	 * <P>The exact probe sequence appears at field 6th as a sequence of the
 	 * characters <CODE>A</CODE>, <CODE>C</CODE>, <CODE>G</CODE> and
@@ -114,6 +114,7 @@ public class SimpleChip extends Chip
 	 * otherwise
 	 * @throws IOException if an I/O error occurrs or input is not compliantan
 	 */
+	@Override
 	public void readLayout (Reader input, boolean ignore_fixed)
 		throws IOException
 	{
@@ -180,6 +181,10 @@ public class SimpleChip extends Chip
 						throw new IOException ("Invalid fixed flag at line " +
 												ln + ".");
 				}
+				
+				if (!field[4].equals("-"))
+					throw new IOException ("Invalid probe type flag at line " +
+												ln + " (must contain a dash).");
 				
 				// empty spot?
 				empty = (field[6].equals("-")) ? true : false;
@@ -273,6 +278,7 @@ public class SimpleChip extends Chip
 	 *
 	 * @return a list of movable (not fixed) probe IDs
 	 */
+	@Override
 	public int[] getMovableProbes ()
 	{
 		int i, f, m, movable[];
@@ -314,7 +320,8 @@ public class SimpleChip extends Chip
 	 * @param out a PrintWriter stream
 	 * @throws IOException if an error occurs while writing on the stream
 	 */
-	public void writeLayout (PrintWriter out) throws IOException
+	@Override
+	public void writeLayout (PrintWriter out)
 	{
 		int		mask = 0, w, pos;
 		char	fix;
@@ -391,6 +398,7 @@ public class SimpleChip extends Chip
 	 *
 	 * @return a clone of this instance
 	 */
+	@Override
 	public SimpleChip clone ()
 	{
 		// use superclass' clone method as
@@ -411,6 +419,7 @@ public class SimpleChip extends Chip
 	 * @return true if the current layout specification is valid; false
 	 * otherwise
 	 */
+	@Override
 	public boolean validateLayout ()
 	{
 		HashSet<Integer>	fixed_id;
