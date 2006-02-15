@@ -57,7 +57,18 @@ public class RectangularRegion implements Region
 		this.first_col = first_col;
 		this.last_col  = last_col;
 	}
+	
+	public int getNumberOfRows ()
+	{
+		return last_row - first_row + 1;
+	}
 
+	public int getNumberOfColumns ()
+	{
+		return last_col - first_col + 1;
+	}
+
+	@Override
 	public String toString ()
 	{
 		return first_row + "-" + last_row + ";" + first_col + "-" + last_col;
