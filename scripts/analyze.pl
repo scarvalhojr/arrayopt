@@ -270,8 +270,8 @@ use warnings 'uninitialized';
 # compute border length and conflict indexes
 # ------------------------------------------------------------------------------
 
-my ($total_border) = (0);
-my ($border, $border_norm, $cost, $rx, $ry, $pos_mult);
+my ($total_border, $log10) = (0, log(10));
+my ($border, $border_norm, $cost, $rx, $ry, $pos_mult, $weight);
 
 # open BORDER output file
 open (OUTFILE, '>', ${border_file}) or
@@ -325,11 +325,11 @@ for (my $m = 0; $m < $ds_len; $m++)
 				# are more harmful in the middle of a
 				# (a conflict would harm the next nucleotide
 				# to be synthesized, if there is any)
-				# pos_mult = sqrt ( min (pos + 1, probe_len - pos + 1) )
-				$pos_mult = ($pos[$x][$y] + 1 <= $probe_len - $pos[$x][$y] + 1) ?
+				# pos_mult = 1 + log10 ( min (pos + 1, probe_len - pos + 1) )
+				$pos_mult = ($pos[$x][$y] <= $probe_len - $pos[$x][$y]) ?
 							 $pos[$x][$y] + 1 :  $probe_len - $pos[$x][$y] + 1;
 				
-				$pos_mult = sqrt($pos_mult);
+				$pos_mult = 1 + log($pos_mult)/$log10;
 
 				$cost = 0;
 				$rx = ($x >= 3) ? $x - 3 : 0;
@@ -338,10 +338,13 @@ for (my $m = 0; $m < $ds_len; $m++)
 					$ry = ($y >= 3) ? $y - 3 : 0;
 					for (; $ry <= $y + 3 && $ry <= $max_y; $ry++)
 					{
+						# NOTE: $y is the row number and $x the column number!
+						$weight = $weight_dist[$ry - $y + 3][$rx - $x + 3];
+						
 						# skip if neighbor is not close enough
 						# for influencing the conflict index
 						# or if (rx, ry) equals (x, y)
-						($weight_dist[$rx - $x + 3][$ry - $y + 3] == 0) and next;
+						($weight == 0) and next;
 						
 						# skip if neighbor is empty
 						($spot[$rx][$ry] == 0) and next;
@@ -350,7 +353,7 @@ for (my $m = 0; $m < $ds_len; $m++)
 						# (light directed to neighbor can activate this spot)
 						(substr($embed[$rx][$ry], $m, 1) eq " ") and next;
 						
-						$cost += $pos_mult * $weight_dist[$rx - $x + 3][$ry - $y + 3];
+						$cost += $pos_mult * $weight;
 					}
 				}
 				
