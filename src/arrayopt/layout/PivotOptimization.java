@@ -46,12 +46,24 @@ public class PivotOptimization implements PostPlacementAlgorithm
 {
     private Chip chip;
     private Chip optimized_chip;
-    
+    private Integer embedding_mode;
+    private final int default_mode = OptimumEmbedding.MODE_CONFLICT_INDEX;
     /**
      * document this
      */
+    public void optimizeLayout (Chip chip, int mode)
+    {
+           embedding_mode = mode;
+           optimizeLayout(chip);
+    }
+    
     public void optimizeLayout (Chip chip)
     {
+        if (embedding_mode == null)
+        {
+            embedding_mode = default_mode;
+        }
+        
         if (chip instanceof SimpleChip)
             optimizeLayout ((SimpleChip) chip);
         
@@ -68,7 +80,8 @@ public class PivotOptimization implements PostPlacementAlgorithm
     {
         this.chip = chip;
         optimized_chip = chip.clone();
-        OptimumEmbedding embedder = OptimumEmbedding.createEmbedder(chip, OptimumEmbedding.MODE_CONFLICT_INDEX);
+        embedding_mode = OptimumEmbedding.MODE_CONFLICT_INDEX;
+        OptimumEmbedding embedder = OptimumEmbedding.createEmbedder(chip, embedding_mode);
         CompareProbe comparator = new CompareProbe();
                 
         //reset all spots on to be optimized chip to empty spots
@@ -215,15 +228,15 @@ public class PivotOptimization implements PostPlacementAlgorithm
                
         public int  compare(Element first,Element second)
         {
-            int compareproperties = ((Integer) (PivotEmbedding.numberOfEmbeddings(chip, first.id))).compareTo(PivotEmbedding.numberOfEmbeddings(chip, second.id));
+            int compareproperties = ((Integer) first.num_embed).compareTo(second.num_embed);
             
             if (compareproperties == 0)
             {
-                compareproperties = ((Integer) first.getNumberOfImmediateNeighbors()).compareTo((Integer) (second.getNumberOfImmediateNeighbors()));                    
+                compareproperties = ((Integer) first.immediate_neighbors).compareTo( second.immediate_neighbors);                    
                 
                 if (compareproperties == 0)
                 {
-                    compareproperties = ((Integer) first.getNumberOfRegionNeighbors(REGION_DIMENSION)).compareTo((Integer) second.getNumberOfRegionNeighbors(REGION_DIMENSION));
+                    compareproperties = ((Integer) first.region_neighbors).compareTo(second.region_neighbors);
                     
                     // if still no decision could be made set it to the second probe! <-- could also be the first one, but a decision must be achieved!
                     if (compareproperties == 0)
@@ -237,23 +250,44 @@ public class PivotOptimization implements PostPlacementAlgorithm
         }
     }
     
-    protected class Element 
+    private class Element 
     {
-        protected  int row;
-        protected  int column;
-        protected  int id;
+        private int row;
+        private int column;
+        private int id;
+        private int num_embed;
+        private int immediate_neighbors;
+        private int region_neighbors;
+        
         
         protected Element(int row, int column)
         {
             this.row = row;
             this.column = column;
             id = chip.spot[row][column];
+            num_embed = PivotEmbedding.numberOfEmbeddings(chip, id);
         }
        
        
-        
-        // not necessary anymore is the same as getImmediateNeighbors(finished).length 
-        public int getNumberOfImmediateNeighbors()
+        private boolean updateNeighbors()
+        {
+            int compare = getNumberOfImmediateNeighbors();
+            if (immediate_neighbors != compare)
+            {
+                immediate_neighbors = compare;
+                return true;
+            }
+            
+            compare = getNumberOfRegionNeighbors(3);
+            if (region_neighbors != compare)
+            {
+                region_neighbors = compare;
+                return true;
+            }
+            return false;
+        }
+         
+        private int getNumberOfImmediateNeighbors()
         {
             int neighbors = 0;
             int startrow = -1;
@@ -302,7 +336,7 @@ public class PivotOptimization implements PostPlacementAlgorithm
             return neighbors;
         }
        
-        public int getNumberOfRegionNeighbors(int dimension)
+        private int getNumberOfRegionNeighbors(int dimension)
         {
             int neighbors = 0;
             int startrow = -dimension; 
