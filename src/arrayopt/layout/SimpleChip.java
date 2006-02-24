@@ -154,6 +154,9 @@ public class SimpleChip extends Chip
 		{
 			// line number
 			ln++;
+			
+			// skip blank lines
+			if (line.length() <= 0) continue;
 
 			// parse fields
 			field = parser.split(line, field.length);
@@ -183,8 +186,8 @@ public class SimpleChip extends Chip
 				}
 				
 				if (!field[4].equals("-"))
-					throw new IOException ("Invalid probe type flag at line " +
-												ln + " (must contain a dash).");
+					throw new IOException ("Non-empty probe type flag at line "
+											+ ln + " (must contain a dash).");
 				
 				// empty spot?
 				empty = (field[6].equals("-")) ? true : false;

@@ -293,6 +293,9 @@ public class AffymetrixChip extends Chip
 		{
 			// line number
 			ln++;
+			
+			// skip blank lines
+			if (line.length() <= 0) continue;
 
 			// parse fields
 			field = parser.split(line, field.length);
