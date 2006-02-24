@@ -118,8 +118,7 @@ public class GreedyFiller implements PlacementAlgorithm, FillingAlgorithm
 	protected int fillRegion (SimpleChip chip, RectangularRegion region,
 		int probe_id[], int start, int end)
 	{
-		// to do
-
+		// TODO implement
 		return 0;
 	}
 
@@ -152,8 +151,8 @@ public class GreedyFiller implements PlacementAlgorithm, FillingAlgorithm
 			for (int c = region.first_col; c <= region.last_col; c++)
 			{
 				// skip spot pair if not empty
-				if (chip.spot[r][c] != chip.EMPTY_SPOT ||
-					chip.spot[r+1][c] != chip.EMPTY_SPOT)
+				if (chip.spot[r][c] != Chip.EMPTY_SPOT ||
+					chip.spot[r+1][c] != Chip.EMPTY_SPOT)
 					continue;
 
 				// skip fixed spot pair

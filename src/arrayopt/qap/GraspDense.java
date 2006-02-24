@@ -102,12 +102,13 @@ public class GraspDense extends QAPSolverAlgorithm
 	/**
 	 * Native method (C->Fortran).
 	 */
-	private native long qap_graspd (int dim, int niter, float alpha,
-		float beta, int look4, int dist[], int flow[], int sol[], int in_out[]);
+	private native long qap_graspd (int dim, int niter, float alpha_,
+		float beta_, int look4, int dist[], int flow[], int sol[], int in_out_[]);
 
 	/**
 	 *
 	 */
+	@Override
 	public long solve (int dim, int dist[], int flow[], int sol[])
 	{
 		long cost;
@@ -115,7 +116,7 @@ public class GraspDense extends QAPSolverAlgorithm
 
 		this.in_out[0] = seed;
 
-		cost = qap_graspd (dim, this.max_iter, this.alpha, this.beta, look4,
+		cost = qap_graspd (dim, max_iter, alpha, beta, look4,
 							dist, flow, sol, in_out);
 
 		this.seed = in_out[0];

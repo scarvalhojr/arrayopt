@@ -116,12 +116,10 @@ public class TwoDimensionalPartitioning implements PlacementAlgorithm
 				// place probes on the specified region and return
 				return filler.fillRegion (chip, r, probe_id, start, end);
 			}
-			else
-			{
-				// region can still be vertically partitined
-				return verticalDivide (chip, step, r, rows_per_probe, hor_par,
-										ver_par, probe_id, start, end);
-			}
+
+			// region can still be vertically partitined
+			return verticalDivide (chip, step, r, rows_per_probe, hor_par,
+									ver_par, probe_id, start, end);
 		}
 
 		// split the probes into two groups, M and U, according to
@@ -246,12 +244,10 @@ public class TwoDimensionalPartitioning implements PlacementAlgorithm
 				// place probes on the specified region and return
 				return filler.fillRegion (chip, r, probe_id, start, end);
 			}
-			else
-			{
-				// region can still be horizontally partitined
-				return horizontalDivide (chip, step, r, rows_per_probe,
-									hor_par, ver_par, probe_id, start, end);
-			}
+
+			// region can still be horizontally partitined
+			return horizontalDivide (chip, step, r, rows_per_probe,
+								hor_par, ver_par, probe_id, start, end);
 		}
 
 		// split the probes into two groups, M and U, according to
@@ -338,10 +334,7 @@ public class TwoDimensionalPartitioning implements PlacementAlgorithm
 	protected int divideProbes (Chip chip, int step, int probe_id[],
 		int start, int end)
 	{
-		int	p_id, w, mask, backup_min, backup_max;
-
-		backup_min = start;
-		backup_max = end;
+		int	p_id, w, mask;
 
 		// which 4-byte word will be interrogated?
 		w = (int) Math.floor((double) step / Integer.SIZE);
