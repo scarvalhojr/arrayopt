@@ -1,6 +1,7 @@
 .classpath
 .project
 .settings
+.externalToolBuilders
 bin
 doc
 lib
