@@ -224,7 +224,7 @@ public class PivotOptimization implements PostPlacementAlgorithm
     private class CompareProbe implements Comparator<Element>
     {
              
-        private int  compare(Element first,Element second)
+        public int  compare(Element first,Element second)
         {
             int compareproperties = ((Integer) first.num_embed).compareTo(second.num_embed);
             
