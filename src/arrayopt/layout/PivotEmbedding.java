@@ -78,7 +78,7 @@ public class PivotEmbedding implements ProbeSetEmbeddingAlgorithm
 	 */
 	public void reembedProbeSet (Chip chip, int probe_id[], int first, int last)
 	{
-        OptimumEmbedding embedder = OptimumEmbedding.createEmbedder(chip, OptimumEmbedding.MODE_CONFLICT_INDEX);
+        OptimumSingleProbeEmbedding embedder = OptimumSingleProbeEmbedding.createEmbedder(chip, OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN);
 		int temp;
 		int border = 0;
 		double minhamdistance = Double.MAX_VALUE;

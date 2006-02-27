@@ -47,7 +47,7 @@ public class PivotOptimization implements PostPlacementAlgorithm
     private Chip chip;
     private Chip optimized_chip;
     private Integer embedding_mode;
-    private final int default_mode = OptimumEmbedding.MODE_CONFLICT_INDEX;
+    private final int default_mode = OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN;
     /**
      * document this
      */
@@ -80,8 +80,8 @@ public class PivotOptimization implements PostPlacementAlgorithm
     {
         this.chip = chip;
         optimized_chip = chip.clone();
-        embedding_mode = OptimumEmbedding.MODE_CONFLICT_INDEX;
-        OptimumEmbedding embedder = OptimumEmbedding.createEmbedder(chip, embedding_mode);
+        embedding_mode = OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN;
+        OptimumSingleProbeEmbedding embedder = OptimumSingleProbeEmbedding.createEmbedder(chip, embedding_mode);
         CompareProbe comparator = new CompareProbe();
                 
         //reset all spots on to be optimized chip to empty spots
@@ -180,7 +180,7 @@ public class PivotOptimization implements PostPlacementAlgorithm
     {
         this.chip = chip;
         optimized_chip = chip.clone();
-        OptimumEmbedding embedder = OptimumEmbedding.createEmbedder(chip, OptimumEmbedding.MODE_CONFLICT_INDEX);
+        OptimumSingleProbeEmbedding embedder = OptimumSingleProbeEmbedding.createEmbedder(chip, OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN);
         CompareProbe comparator = new CompareProbe();
         
         clearChip(optimized_chip);
