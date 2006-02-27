@@ -15,7 +15,7 @@
  * Software Foundation; either version 2 of the License, or (at your option)
  * any later version.
  *
- * ÂrrayOpt is distributed in the hope that it will be useful, but WITHOUT ANY
+ * ?rrayOpt is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
  * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
  * details.
@@ -223,10 +223,8 @@ public class PivotOptimization implements PostPlacementAlgorithm
     
     private class CompareProbe implements Comparator<Element>
     {
-        private final int REGION_DIMENSION = 3;
-        
-               
-        public int  compare(Element first,Element second)
+             
+        private int  compare(Element first,Element second)
         {
             int compareproperties = ((Integer) first.num_embed).compareTo(second.num_embed);
             
@@ -258,7 +256,7 @@ public class PivotOptimization implements PostPlacementAlgorithm
         private int num_embed;
         private int immediate_neighbors;
         private int region_neighbors;
-        
+        private final int REGION_DIMENSION = 3;
         
         protected Element(int row, int column)
         {
@@ -271,20 +269,19 @@ public class PivotOptimization implements PostPlacementAlgorithm
        
         private boolean updateNeighbors()
         {
-            int compare = getNumberOfImmediateNeighbors();
-            if (immediate_neighbors != compare)
+            int immediate = getNumberOfImmediateNeighbors();
+            int region = getNumberOfRegionNeighbors(REGION_DIMENSION);
+  
+            if (immediate_neighbors != immediate || region_neighbors != region)
             {
-                immediate_neighbors = compare;
+                immediate_neighbors = immediate;
+                region_neighbors = region;
                 return true;
             }
-            
-            compare = getNumberOfRegionNeighbors(3);
-            if (region_neighbors != compare)
+            else
             {
-                region_neighbors = compare;
-                return true;
+            	return false;
             }
-            return false;
         }
          
         private int getNumberOfImmediateNeighbors()
