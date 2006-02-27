@@ -42,6 +42,9 @@ package arrayopt.layout;
  */
 public class LayoutEvaluation
 {
+	// TODO Separate the layout evaluation functions from the definition of
+	// conflict index
+	
 	static final int DIM_CONFLICT_REGION = 3;
 	
 	// package access
@@ -59,8 +62,12 @@ public class LayoutEvaluation
 	// are more harmful in the middle of a probe
 	static double positionMultiplier (int probe_len, int base)
 	{
-		// pos_mult = sqrt ( min (base + 1, probe_len - base + 1) )
-		return Math.sqrt ((base <= probe_len - base) ? (base + 1) :
+		if (base < 0 || base > probe_len)
+			throw new IllegalArgumentException
+				("Invalid base number when computing a position multiplier.");
+
+		// 1 + log10 ( min (base + 1, probe_len - base + 1) )
+		return 1 + Math.log10 ((base <= probe_len - base) ? (base + 1) :
 								(probe_len - base + 1));
 	}
 	
@@ -92,11 +99,138 @@ public class LayoutEvaluation
 		else
 			throw new IllegalArgumentException ("Unsupported chip type.");
 	}
+	
+	public static double analyzeBorderLength (Chip chip)
+	{
+		RectangularRegion region;
+		int embed_len, num_probes, r, c, id1, id2, step, word, bitmask = 0;
+		int border[], total_bl = 0;
+		double norm_bl[], total_norm_bl = 0;
+		
+		region = chip.getChipRegion();
+		embed_len = chip.getEmbeddingLength();
+		num_probes = chip.getNumberOfProbes();
+		
+		border = new int [embed_len];
+		norm_bl = new double [embed_len];
+		
+		for (word = -1, step = 0; step < embed_len; step++)
+		{
+			if (step % Integer.SIZE == 0)
+			{
+				word++;
+				bitmask = 0x01 << (Integer.SIZE - 1);
+			}
+			else
+				bitmask >>>= 1;
+			
+			// compute current mask's border length
+			border[step] = 0;
+			
+			// first, conflicts in the vertical borders between spots
+			for (r = region.first_row; r <= region.last_row; r ++)
+				for (c = region.first_col; c < region.last_col; c++)
+				{
+					if ((id1 = chip.spot[r][c]) == Chip.EMPTY_SPOT)
+						continue;
+					
+					if ((id2 = chip.spot[r][c + 1]) == Chip.EMPTY_SPOT)
+						continue;
+					
+					if (((chip.embed[id1][word] ^ chip.embed[id2][word])
+							& bitmask) != 0)
+						border[step]++;
+				}
+
+			// now, conflicts in the horizontal borders between spots
+			for (c = region.first_col; c <= region.last_col; c ++)
+				for (r = region.first_row; r < region.last_row; r++)
+				{
+					if ((id1 = chip.spot[r][c]) == Chip.EMPTY_SPOT)
+						continue;
+					
+					if ((id2 = chip.spot[r + 1][c]) == Chip.EMPTY_SPOT)
+						continue;
+					
+					if (((chip.embed[id1][word] ^ chip.embed[id2][word])
+							& bitmask) != 0)
+						border[step]++;
+				}
+			
+			norm_bl[step] = border[step] / (double) num_probes;
+			total_bl += border[step];
+			total_norm_bl += norm_bl[step]; 
+			
+			//System.err.println("Step " + step + " => border length: " +
+			//		border[step] + " (normalized: " + norm_bl[step] +
+			//		")");
+		}
+		
+		//System.err.println("Total border length: " + total_bl +
+		//		" (normalized: " + total_norm_bl + ")");
+		
+		return total_norm_bl;
+	}
+
+	public static double analyzeConflictIndex (Chip chip)
+	{
+		RectangularRegion region;
+		int id, num_probes; // min_row, max_row, min_col, max_col;
+		double	conf, avg_conf; //min_conf, max_conf;
+		
+		region = chip.getChipRegion();
+		num_probes = chip.getNumberOfProbes();
+		
+		avg_conf = 0;
+		// min_conf = Double.POSITIVE_INFINITY;
+		// max_conf = Double.NEGATIVE_INFINITY;
+		// min_row = max_row = min_col = max_col = -1;
+		
+		for (int r = region.first_row; r <= region.last_row; r++)
+			for (int c = region.first_col; c <= region.last_col; c++)
+				if ((id = chip.spot[r][c]) != Chip.EMPTY_SPOT)
+				{
+					conf = spotConflict(chip, r, c, id);
+					
+					/*
+					if (conf < min_conf)
+					{
+						min_conf = conf;
+						min_row = r;
+						min_col = c;
+					}
+					else if (conf > max_conf)
+					{
+						max_conf = conf;
+						max_row = r;
+						max_col = c;
+					}
+					//*/
+					
+					avg_conf += conf / num_probes; 
+				}
+		
+		//System.err.println("Min conflict: " + min_conf + "(" + min_row + "," +
+		//		min_col + ")");
+		//System.err.println("Avg conflict: " + avg_conf);
+		//System.err.println("Max conflict: " + max_conf + "(" + max_row + "," +
+		//		max_col + ")");
+		
+		return avg_conf;
+	}
+
+	protected static int hammingDistance (SimpleChip chip, int id_1, int id_2)
+	{
+		// TODO implement a new function using Integer.bitCount
+		// and use the old one for comparing the results; then drop
+		// the old code
+		return hammingDistance_old (chip, id_1, id_2);
+	}
 
 	/**
-	 * TO DO: use Integer.bitCount(int i) instead of this ugly bit shifting stuff
+	 * TODO: use Integer.bitCount(int i) instead of this ugly bit shifting stuff
 	 */
-	protected static int hammingDistance (SimpleChip chip, int id_1, int id_2)
+	protected static int hammingDistance_old (SimpleChip chip, int id_1, int id_2)
 	{
 		int  bits = 0, hd = 0, mask = 0, w, pos;
 
@@ -125,7 +259,7 @@ public class LayoutEvaluation
 	}
 
 	/**
-	 * TO DO: use Integer.bitCount(int i) instead of this ugly bit shifting stuff
+	 * TODO: use Integer.bitCount(int i) instead of this ugly bit shifting stuff
 	 */
 	protected static int hammingDistance (AffymetrixChip chip, int id_1, int id_2)
 	{
@@ -178,43 +312,41 @@ public class LayoutEvaluation
 		return spotConflict (chip, row, col, chip.spot[row][col]);
 	}
 
-	protected static double spotConflict (Chip chip, int row, int col, int probe_id)
+	protected static double spotConflict (Chip chip, int row, int col, int pid)
 	{
+		RectangularRegion	region;
 		double	conflict, pos_mult;
-		int		base, r, c, w, mask, embed_len, probe_len, num_rows, num_cols;
+		int		embed_len, probe_len, r, c, step, word, base, bitmask = 0;
 
-		num_rows = chip.getNumberOfRows();
-		num_cols = chip.getNumberOfColumns();
+		region = chip.getChipRegion();
 		embed_len = chip.getEmbeddingLength();
 		probe_len = chip.getProbeLength();
+		
+		int min_row = Math.max(row - DIM_CONFLICT_REGION, region.first_row);
+		int max_row = Math.min(row + DIM_CONFLICT_REGION, region.last_row);
+		int min_col = Math.max(col - DIM_CONFLICT_REGION, region.first_col);
+		int max_col = Math.min(col + DIM_CONFLICT_REGION, region.last_col);
+		
+		// from now on, row and col will only be used to index
+		// the right element at the weighted distance matrix
+		row -= DIM_CONFLICT_REGION;
+		col -= DIM_CONFLICT_REGION;
 
 		conflict = 0;
 
-		base = 0;
-		w = -1;
-		mask = 0;
-
-		for (int step = 0; step < embed_len; step++)
+		for (base = 0, step = 0, word = - 1; step < embed_len; step++)
 		{
-			// prepare mask to interrogate the bit
-			// corresponding to the current masking step
 			if (step % Integer.SIZE == 0)
 			{
-				// jump to the next 4-byte word
-				w++;
-
-				// prepare mask to interrogate first bit
-				mask = 0x01 << (Integer.SIZE - 1);
+				word++;
+				bitmask = 0x01 << (Integer.SIZE - 1);
 			}
 			else
-			{
-				// shift mask to the right
-				mask >>>= 1;
-			}
+				bitmask >>>= 1;
 
-			// check the state of the proposed
-			// embedding at the current masking step
-			if ((chip.embed[probe_id][w] & mask) != 0)
+			// check the state of the embedding
+			// at the current masking step
+			if ((chip.embed[pid][word] & bitmask) != 0)
 			{
 				// spot is in an unmasked step
 				// (a nucleotide is being synthesized)
@@ -227,23 +359,23 @@ public class LayoutEvaluation
 				continue;
 			}
 
-			// compute position multiplier (a conflict would
-			// harm the next nucleotide to be synthesized)
+			// masked step: compute position multiplier (a conflict
+			// would harm the next nucleotide to be synthesized)
 			pos_mult = positionMultiplier (probe_len, base);
 
-			r = (row >= 3) ? row - 3 : 0;
-			for (; r <= row + 3 && r < num_rows; r++)
+			for (r = min_row; r <= max_row; r++)
 			{
-				c = (col >= 3) ? col - 3 : 0;
-				for (; c <= col + 3 && c < num_cols; c++)
+				for (c = min_col; c <= max_col; c++)
 				{
 					// skip if neighbor is empty
-					if (chip.spot[r][c] == Chip.EMPTY_SPOT) continue;
+					if (chip.spot[r][c] == Chip.EMPTY_SPOT)
+						continue;
 
 					// conflict only when neighbor is unmasked
-					if ((chip.embed[chip.spot[r][c]][w] & mask) == 0) continue;
+					if ((chip.embed[chip.spot[r][c]][word] & bitmask) == 0)
+						continue;
 
-					conflict += pos_mult * WEIGHT_DIST[r - row + 3][c - col + 3];
+					conflict += pos_mult * WEIGHT_DIST[r - row][c - col];
 				}
 			}
 		}
