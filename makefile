@@ -32,7 +32,7 @@ SOL_INC = -I$(INC_DIR) -I$(JDK_PATH)/include -I$(JDK_PATH)/include/solaris
 JAVA_SRC = $(SRC_DIR)/arrayopt/layout/*.java $(SRC_DIR)/arrayopt/qap/*.java $(SRC_DIR)/arrayopt/textui/*.java
 JAVA_BIN = $(BIN_DIR)/arrayopt/layout/*.class $(BIN_DIR)/arrayopt/qap/*.class $(BIN_DIR)/arrayopt/textui/*.class
 JAVA_PCK = arrayopt.layout arrayopt.qap arrayopt.textui
-JNI_CLS = arrayopt.qap.GraspDense
+JNI_CLS = arrayopt.qap.GraspDense arrayopt.qap.GraspSparse
 
 # phony targets (always execute)
 .PHONY: classes apidoc jni cleanbin cleandoc cleanlib
@@ -68,10 +68,14 @@ all: classes apidoc
 # ==============================================================================
 
 # build Solaris libraries of external implementations
-libsol: $(SOL_LIB) $(SOL_LIB)/libqap_graspd.so
+libsol: $(SOL_LIB) $(SOL_LIB)/libqap_graspd.so $(SOL_LIB)/libqap_grasps.so
 
 # external library (Solaris): GRASP for dense QAP
 $(SOL_LIB)/libqap_graspd.so: $(QAP_DIR)/graspd/qap_graspd.c $(QAP_DIR)/graspd/qap_graspd.f
+	$(GCC) -G -O3 -o $@ $(SOL_INC) $^
+
+# external library (Solaris): GRASP for sparse QAP
+$(SOL_LIB)/libqap_grasps.so: $(QAP_DIR)/grasps/qap_grasps.c $(QAP_DIR)/grasps/qap_grasps.f
 	$(GCC) -G -O3 -o $@ $(SOL_INC) $^
 
 # To do:
