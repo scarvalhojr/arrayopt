@@ -55,19 +55,19 @@
 // ****************************************************************************
 // C to Fortran prototype
 
-	PROTOCCALLSFSUB24 (GQAPS,gqaps, INT,INT,INT,FLOAT,FLOAT,INT,PINT,INTV,	\
+	PROTOCCALLSFSUB26 (GQAPS,gqaps, INT,INT,INT,FLOAT,FLOAT,INT,PINT,INTV,	\
 							INTV,INTV,INTV,INTV,INTV,INTV,INTV,INTV,INTV,	\
-							INTV,INTV,INTV,INTV,INTV,PINT,PINT)
+							INTV,INTV,INTV,INTV,INTV,INTV,PINT,PINT,INTV)
 
 #define QAP_GRASP_SPARSE(N,N2,NITER,ALPHA,BETA,LOOK4,SEED,F,				\
-							D,A,B,SRTF,SRTIF,SRTD,SRTID,SRTC,SRTIC,			\
-							INDEXD,INDEXF,COST,FDIND,OPTA,BESTV,ITER)		\
-		CCALLSFSUB24 (GQAPS,gqapd, INT,INT,INT,FLOAT,FLOAT,INT,PINT,INTV,	\
+							D,A,B,OPTB,SRTF,SRTIF,SRTD,SRTID,SRTC,SRTIC,	\
+							INDEXD,INDEXF,COST,FDIND,OPTA,BESTV,ITER,CP)	\
+		CCALLSFSUB26 (GQAPS,gqaps, INT,INT,INT,FLOAT,FLOAT,INT,PINT,INTV,	\
 							INTV,INTV,INTV,INTV,INTV,INTV,INTV,INTV,INTV,	\
-							INTV,INTV,INTV,INTV,INTV,PINT,PINT,				\
+							INTV,INTV,INTV,INTV,INTV,INTV,PINT,PINT,INTV,	\
 							N,N2,NITER,ALPHA,BETA,LOOK4,SEED,F,				\
-							D,A,B,SRTF,SRTIF,SRTD,SRTID,SRTC,SRTIC,			\
-							INDEXD,INDEXF,COST,FDIND,OPTA,BESTV,ITER)
+							D,A,B,OPTB,SRTF,SRTIF,SRTD,SRTID,SRTC,SRTIC,	\
+							INDEXD,INDEXF,COST,FDIND,OPTA,BESTV,ITER,CP)
 
 // ****************************************************************************
 // Java to C interface
@@ -78,8 +78,8 @@ JNIEXPORT jlong JNICALL Java_arrayopt_qap_GraspSparse_qap_1grasps
 		jintArray in_out)
 {
 	int	n2, seed, bestv, iter;
-	int	*a, *b, *srtf, *srtif, *srtd, *srtid, *srtc, *srtic, *idxd, *idxf,
-		*cost, *fdind;
+	int	*a, *b, *optb, *srtf, *srtif, *srtd, *srtid, *srtc, *srtic, *idxd,
+		*idxf, *cost, *fdind, *cp;
 
 	// check min dimension
 	if (n < MIN_DIMENSION) return ERROR_CODE;
@@ -91,6 +91,10 @@ JNIEXPORT jlong JNICALL Java_arrayopt_qap_GraspSparse_qap_1grasps
 	// allocate temporary working space
 	if (!(a 	= malloc (n  * sizeof(a))))		return ERROR_CODE;
 	if (!(b 	= malloc (n  * sizeof(b))))		return ERROR_CODE;
+
+	// TODO is this really needed? what does it return?
+	if (!(optb 	= malloc (n  * sizeof(optb))))	return ERROR_CODE;
+
 	if (!(srtf	= malloc (n2 * sizeof(srtf))))	return ERROR_CODE;
 	if (!(srtif	= malloc (n2 * sizeof(srtif)))) return ERROR_CODE;
 	if (!(srtd	= malloc (n2 * sizeof(srtd))))	return ERROR_CODE;
@@ -101,6 +105,7 @@ JNIEXPORT jlong JNICALL Java_arrayopt_qap_GraspSparse_qap_1grasps
 	if (!(idxf	= malloc (n2 * sizeof(idxf))))	return ERROR_CODE;
 	if (!(cost	= malloc (n2 * sizeof(cost))))	return ERROR_CODE;
 	if (!(fdind	= malloc (n2 * sizeof(fdind))))	return ERROR_CODE;
+	if (!(cp	= malloc (n2 * sizeof(cp))))	return ERROR_CODE;
 
 	// get reference to Java arrays (input)
 	jint *d    = (*env)->GetIntArrayElements(env, dist, 0);
@@ -114,8 +119,8 @@ JNIEXPORT jlong JNICALL Java_arrayopt_qap_GraspSparse_qap_1grasps
 
 	// call fortran subroutine
 	QAP_GRASP_SPARSE (n,n2,niter,alpha,beta,look4,seed,f,d,a,b,
-						srtf,srtif,srtd,srtid,srtc,srtic,idxd,
-						idxf,cost,fdind,opta,bestv,iter);
+						optb,srtf,srtif,srtd,srtid,srtc,srtic,idxd,
+						idxf,cost,fdind,opta,bestv,iter,cp);
 
 	// workaround: copy values returned by the Fortran subroutine back
 	// to the array passed by the Java call (passing a pointer doesn't work)
@@ -131,6 +136,7 @@ JNIEXPORT jlong JNICALL Java_arrayopt_qap_GraspSparse_qap_1grasps
 	// release locally allocated memory
 	free(a);
 	free(b);
+	free(optb);
 	free(srtf);
 	free(srtif);
 	free(srtd);
@@ -141,6 +147,7 @@ JNIEXPORT jlong JNICALL Java_arrayopt_qap_GraspSparse_qap_1grasps
 	free(idxf);
 	free(cost);
 	free(fdind);
+	free(cp);
 
 	return bestv;
 }
