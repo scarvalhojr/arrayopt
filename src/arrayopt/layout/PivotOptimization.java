@@ -38,9 +38,23 @@
 package arrayopt.layout;
 import java.util.Comparator;
 import java.util.PriorityQueue;
+import java.util.Iterator;
+import java.util.Stack;
 
 /**
- * document this 
+ * PivotOptimization just reembedds the probes of a chip according to its pivots (normally probes with only 1 possible embedding).
+ * If no real pivot can be found, the probes with a minimum of embeddings are handled as pivots.
+ * Once the pivots are found, all neighbors around it will be reembedded according to it and after that alle neighbors of the already re
+ * embedded probes will be reembedded according to the {@link OptimumEmbedding} and so forth.
+ * The probes will not change their spot on the chip.
+ * 
+ * <P>PivotOptimization is considered for use with simple chips and affymetrix chips.
+ * Since it uses the {@link OptimumEmbedding} class for reembedding the probes you can also define which mode should be used for re
+ * embedding the probes, i.e.{@link OptimumEmbedding#MODE_CONFLICT_INDEX} or {@link OptimumEmbedding#MODE_BORDER_LENGTH}. If no mode is given the
+ * {@link OptimumEmbedding#MODE_CONFLICT_INDEX} is used.</P>
+ * 
+ * @author Anna Domanski & Ronny Gaertner
+ * 
  */
 public class PivotOptimization implements PostPlacementAlgorithm
 {
@@ -48,15 +62,21 @@ public class PivotOptimization implements PostPlacementAlgorithm
     private Chip optimized_chip;
     private Integer embedding_mode;
     private final int default_mode = OptimumEmbedding.MODE_CONFLICT_INDEX;
+    private int min_number_of_embeddings = Integer.MAX_VALUE;
+    private PriorityQueue<Element> queue;
+    
     /**
-     * document this
+     * @param chip chip instance 
+     * @param mode reembedding mode (either optimization for conflict index or border length)
      */
     public void optimizeLayout (Chip chip, int mode)
     {
            embedding_mode = mode;
            optimizeLayout(chip);
     }
-    
+    /**
+     * @param
+     */
     public void optimizeLayout (Chip chip)
     {
         if (embedding_mode == null)
@@ -64,64 +84,26 @@ public class PivotOptimization implements PostPlacementAlgorithm
             embedding_mode = default_mode;
         }
         
-        if (chip instanceof SimpleChip)
-            optimizeLayout ((SimpleChip) chip);
-        
-        else if (chip instanceof AffymetrixChip)
-            optimizeLayout ((AffymetrixChip) chip);
-        
+        if (chip instanceof SimpleChip);
+        else if (chip instanceof AffymetrixChip);
         else
             throw new IllegalArgumentException ("Unsupported chip type.");
-    }
     
-    
-    
-    void optimizeLayout(SimpleChip chip)
-    {
         this.chip = chip;
         optimized_chip = chip.clone();
         embedding_mode = OptimumEmbedding.MODE_CONFLICT_INDEX;
-        OptimumEmbedding embedder = OptimumEmbedding.createEmbedder(chip, embedding_mode);
         CompareProbe comparator = new CompareProbe();
-                
-        //reset all spots on to be optimized chip to empty spots
-        clearChip(optimized_chip);
-                               
-        PriorityQueue<Element> queue = new PriorityQueue<Element>(chip.getNumberOfProbes(), comparator);
+               
+        initializeChipOptimization();
+        queue = new PriorityQueue<Element>(chip.getNumberOfProbes(), comparator);
+        pivotScanning();
+        processing();
+        missedProbesScanning();
+        processing();
         
-              
-        for (int r = 0; r < chip.num_rows; r++)
-        {
-            for (int c = 0; c < chip.num_cols; c++)
-            {
-                if ((PivotEmbedding.numberOfEmbeddings(chip, chip.spot[r][c])) == 1 )
-                {
-                    optimized_chip.spot[r][c] = chip.spot[r][c];
-                    addNeighbors(queue, new Element(r,c));
-                }
-            }
-            
-            
-            
-        }
-    
-
-        
-        while(queue.size() != 0)
-        {
-            Element current = queue.poll();
-            optimized_chip.spot[current.row][current.column] = chip.spot[current.row][current.column];
-            embedder.reembedSpot(current.row, current.column);
-            addNeighbors(queue, current);            
-        }
-        
-        if (!chip.compatible(optimized_chip))
-        {
-            System.err.println("Warning: optimization of chip failed!");
-        }
     }
     
-    private void addNeighbors(PriorityQueue<Element> queue, Element element)
+    private void addNeighbors(Element element)
     {
         
         int r;
@@ -148,7 +130,7 @@ public class PivotOptimization implements PostPlacementAlgorithm
                         {
                             break;
                         }
-                        queue.add(new Element(r, c));
+                        this.queue.add(new Element(r, c));
                     }
                     
                 }
@@ -158,16 +140,81 @@ public class PivotOptimization implements PostPlacementAlgorithm
                 i++;
             }
         }
-       
+    }
+      
+    private void pivotScanning() 
+    {
+       int number_of_embeddings;
+        
+        for (int r = 0; r < chip.num_rows; r++)
+        {
+            for (int c = 0; c < chip.num_cols; c++)
+            {
+                number_of_embeddings = PivotEmbedding.numberOfEmbeddings(chip, chip.spot[r][c]);
+                if (number_of_embeddings == min_number_of_embeddings)
+                {
+                    optimized_chip.spot[r][c] = chip.spot[r][c];
+                    addNeighbors(new Element(r,c));
+                }
+            }
+            if (chip instanceof AffymetrixChip)
+            {
+                r++;
+            }
+                       
+        }
     }
     
-    private void clearChip(Chip chip)
+    // all elements in the collected in the priority queue will be processed. The queue
+    // will be updated for each new embedding of a probe
+    private void processing()
+    {
+        Stack<Element> updated_probes = new Stack<Element>();
+        OptimumEmbedding embedder = OptimumEmbedding.createEmbedder(chip, embedding_mode);
+        
+        
+        while(queue.size() != 0)
+        {
+            
+            Element current = queue.poll();
+            optimized_chip.spot[current.row][current.column] = chip.spot[current.row][current.column];
+            Iterator<Element> queue_iterator = queue.iterator();
+            
+            // 2 while loops are for updating the priority queue considering a probe was
+            // reembedded
+            while (queue_iterator.hasNext())
+            {
+                Element element = queue_iterator.next();
+                if (element.updateNeighbors())
+                {
+                    updated_probes.push(element);
+                    queue_iterator.remove();
+                }
+            }
+            while (!updated_probes.empty())
+            {
+                Element element = updated_probes.pop();
+                // queue.remove(element);
+                // element.updateNeighbors(true);
+                queue.add(element);
+            }
+            
+            embedder.reembedSpot(current.row, current.column);
+            addNeighbors(current);
+            
+        }
+    }
+      
+    private void missedProbesScanning()
     {
         for (int r = 0; r < chip.num_rows; r++)
         {
             for (int c = 0; c < chip.num_cols; c++)
             {
-                chip.spot[r][c] = Chip.EMPTY_SPOT;
+                if((chip.spot[r][c] != Chip.EMPTY_SPOT) && (optimized_chip.spot[r][c] == Chip.EMPTY_SPOT))
+                {
+                    queue.add(new Element(r,c));
+                }
             }
             if (chip instanceof AffymetrixChip)
             {
@@ -175,52 +222,28 @@ public class PivotOptimization implements PostPlacementAlgorithm
             }
         }
     }
-    
-    void optimizeLayout(AffymetrixChip chip)
+//  reset all spots on to be optimized chip to empty spots and fine the minimum number of embeddings
+    private void initializeChipOptimization()
     {
-        this.chip = chip;
-        optimized_chip = chip.clone();
-        OptimumEmbedding embedder = OptimumEmbedding.createEmbedder(chip, OptimumEmbedding.MODE_CONFLICT_INDEX);
-        CompareProbe comparator = new CompareProbe();
-        
-        clearChip(optimized_chip);
-        
-        PriorityQueue<Element> queue = new PriorityQueue<Element>(chip.getNumberOfProbes(), comparator);
-        
-        for (int r = 0; r < chip.num_rows; r += 2)
+        int number_of_embeddings;
+        for (int r = 0; r < chip.num_rows; r++)
         {
             for (int c = 0; c < chip.num_cols; c++)
             {
-                if ((PivotEmbedding.numberOfEmbeddings(chip, chip.spot[r][c]) == 1 ))
-                {
-                    optimized_chip.spot[r][c] = chip.spot[r][c];
-                    addNeighbors(queue, new Element(r,c));
-                }
+                number_of_embeddings = PivotEmbedding.numberOfEmbeddings(chip, chip.spot[r][c]);
+                if (min_number_of_embeddings > number_of_embeddings)
+                        {
+                            min_number_of_embeddings = number_of_embeddings;
+                        }
+                optimized_chip.spot[r][c] = Chip.EMPTY_SPOT;
             }
-            
-            
-            
+            if (chip instanceof AffymetrixChip)
+            {
+                r++;
+            }
         }
-    
-
-        
-        while(queue.size() != 0)
-        {
-            Element current = queue.poll();
-            optimized_chip.spot[current.row][current.column] = chip.spot[current.row][current.column];
-            embedder.reembedSpot(current.row, current.column);
-            addNeighbors(queue, current);            
-        }
-        
-        if (!chip.compatible(optimized_chip))
-        {
-            System.err.println("Warning: optimization of chip failed!");
-        }
-        
     }
-         
-    
-    
+       
     private class CompareProbe implements Comparator<Element>
     {
              
