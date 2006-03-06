@@ -151,7 +151,7 @@ public class PivotOptimization implements PostPlacementAlgorithm
             for (int c = 0; c < chip.num_cols; c++)
             {
                 number_of_embeddings = PivotEmbedding.numberOfEmbeddings(chip, chip.spot[r][c]);
-                if (number_of_embeddings == min_number_of_embeddings)
+                if (number_of_embeddings <= min_number_of_embeddings)
                 {
                     optimized_chip.spot[r][c] = chip.spot[r][c];
                     addNeighbors(new Element(r,c));
@@ -165,7 +165,7 @@ public class PivotOptimization implements PostPlacementAlgorithm
         }
     }
     
-    // all elements in the collected in the priority queue will be processed. The queue
+    // all elements collected in the priority queue will be processed. The queue
     // will be updated for each new embedding of a probe
     private void processing()
     {
