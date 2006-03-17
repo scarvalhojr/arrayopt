@@ -59,9 +59,10 @@ public class PivotPartitioning implements PlacementAlgorithm
 	 */
 	private int stop_dimension;
 
-    private double pivot_threshold = 0.2;
+    private static final double PIVOT_THRESHOLD = 0.2;
     
-    private double MIN_DIV_RATE = .1;
+    private static final double DIV_RATE_PIVOT = .2;
+    private static final double DIV_RATE_NON_PIVOT = .2;
     
     /**
 	 * please document this
@@ -164,7 +165,7 @@ public class PivotPartitioning implements PlacementAlgorithm
         
         synchronousMergeSort(number_of_embeddings, id, 0, id.length - 1);
         
-        while (((pivot_margin + 1) / id.length) < pivot_threshold)
+        while (((pivot_margin + 1) / id.length) < PIVOT_THRESHOLD)
         {
             pivot_property++;
             for (int i = pivot_margin; i < id.length; i++)
@@ -229,15 +230,15 @@ public class PivotPartitioning implements PlacementAlgorithm
         id[from_index] = id[to_index];
         id[to_index] = temp;
     }
-    
-    protected int horizontalDivide(Chip chip, RectangularRegion region,int[] id, OptimumEmbedding embedder, int rows_per_probe, int start_pivot, int stop_pivot, int start_non_pivot, int stop_non_pivot)
+    // boolean parameter horizontal indicates whether the region is partitioned horizontal or vertical
+    protected int partitioning(Chip chip, RectangularRegion region, boolean horizontal, int[] id, OptimumEmbedding embedder, int rows_per_probe, int start_pivot, int stop_pivot, int start_non_pivot, int stop_non_pivot)
     {
         int         cut_pivot;
         int         cut_non_pivot;
         double[]    min_hamming_distance = new double[id.length];
-        int div_rate_non_pivot; 
-        int div_rate_pivot;
-        
+        int         div_rate_non_pivot; 
+        int         div_rate_pivot;
+        int         step = 0;
        // TODO:
        // if (nopivots)
        //  {
@@ -263,9 +264,10 @@ public class PivotPartitioning implements PlacementAlgorithm
         }
             */
         
-        // split array in 2 parts
-        
-        maxMinHammingDistancePivots(embedder, id, start_pivot, stop_pivot);
+        // processing and splitting array
+        do
+        {
+        maxMinHammingDistancePivots(embedder, id, start_pivot, stop_pivot, step);
         
         // compute hamming distance for non pivots and flag it to which pivot it belongs
         computeDistance(embedder, id, min_hamming_distance, start_pivot, stop_pivot, start_non_pivot, stop_non_pivot);
@@ -280,8 +282,11 @@ public class PivotPartitioning implements PlacementAlgorithm
         cut_non_pivot = getBorder(min_hamming_distance, start_non_pivot, stop_non_pivot);
         cut_pivot = getBorder(min_hamming_distance, start_pivot +1, stop_pivot - 1);
         
-        int div_rate_non_pivot  
-        int div_rate_pivot
+        div_rate_non_pivot = cut_non_pivot / (stop_non_pivot - start_non_pivot + 1);
+        div_rate_pivot = cut_pivot / (stop_pivot - start_pivot + 1);
+        step++;
+        }
+        while (div_rate_pivot < DIV_RATE_PIVOT);
         
         reverseArray(id, start_pivot + 1, cut_pivot);
         reverseArray(id, cut_pivot + 1, stop_pivot - 1);
@@ -436,7 +441,7 @@ public class PivotPartitioning implements PlacementAlgorithm
         elements[to_index] = temp;
     }
     
-    private void maxMinHammingDistancePivots(OptimumEmbedding embedder, int[] elements, int start_pivot, int stop_pivot)
+    private void maxMinHammingDistancePivots(OptimumEmbedding embedder, int[] elements, int start_pivot, int stop_pivot, int step)
     {
         double max_distance = -1;
         Integer[] max_distance_pivots = new Integer[2];

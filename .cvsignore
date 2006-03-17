@@ -3,3 +3,7 @@
 bin
 doc
 lib
+.settings
+.project
+.classpath
+.cvsignore

@@ -184,6 +184,15 @@ public class ArrayOpt
 									new GraspDense(), QAPOptimization.MODE_CONFLICT_INDEX
 								),
 								8, 8, 1);
+            else if (algorithm.equalsIgnoreCase("PIVOTOPTCI"))
+            {
+                optimizer = new PivotOptimization(QAPOptimization.MODE_CONFLICT_INDEX);
+            }
+            
+            else if(algorithm.equalsIgnoreCase("PIVOTOPTBL"))
+            {
+                optimizer = new PivotOptimization(QAPOptimization.MODE_BORDER_LENGTH);
+            }
 
 			else
 				throw new IllegalArgumentException

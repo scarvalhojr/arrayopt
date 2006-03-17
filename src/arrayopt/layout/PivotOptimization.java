@@ -69,6 +69,19 @@ public class PivotOptimization implements PostPlacementAlgorithm
      * @param chip chip instance 
      * @param mode reembedding mode (either optimization for conflict index or border length)
      */
+    public PivotOptimization(int mode)
+    {
+        if (mode == OptimumEmbedding.MODE_CONFLICT_INDEX)
+        {
+            embedding_mode = OptimumEmbedding.MODE_CONFLICT_INDEX;
+        }
+        if (mode == OptimumEmbedding.MODE_BORDER_LENGTH)
+        {
+            embedding_mode = OptimumEmbedding.MODE_BORDER_LENGTH;
+        }
+    }
+    
+    
     public void optimizeLayout (Chip chip, int mode)
     {
            embedding_mode = mode;
