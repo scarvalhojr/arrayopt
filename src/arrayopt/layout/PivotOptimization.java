@@ -104,7 +104,7 @@ public class PivotOptimization implements PostPlacementAlgorithm
     
         this.chip = chip;
         optimized_chip = chip.clone();
-        embedding_mode = OptimumEmbedding.MODE_CONFLICT_INDEX;
+        // embedding_mode = OptimumEmbedding.MODE_CONFLICT_INDEX;
         CompareProbe comparator = new CompareProbe();
                
         initializeChipOptimization();
@@ -163,11 +163,14 @@ public class PivotOptimization implements PostPlacementAlgorithm
         {
             for (int c = 0; c < chip.num_cols; c++)
             {
-                number_of_embeddings = PivotEmbedding.numberOfEmbeddings(chip, chip.spot[r][c]);
-                if (number_of_embeddings <= min_number_of_embeddings)
+                if (chip.spot[r][c] != Chip.EMPTY_SPOT)
                 {
-                    optimized_chip.spot[r][c] = chip.spot[r][c];
-                    addNeighbors(new Element(r,c));
+                    number_of_embeddings = PivotEmbedding.numberOfEmbeddings(chip, chip.spot[r][c]);
+                    if (number_of_embeddings <= min_number_of_embeddings)
+                    {
+                        optimized_chip.spot[r][c] = chip.spot[r][c];
+                        addNeighbors(new Element(r,c));
+                    }
                 }
             }
             if (chip instanceof AffymetrixChip)
@@ -243,11 +246,14 @@ public class PivotOptimization implements PostPlacementAlgorithm
         {
             for (int c = 0; c < chip.num_cols; c++)
             {
-                number_of_embeddings = PivotEmbedding.numberOfEmbeddings(chip, chip.spot[r][c]);
-                if (min_number_of_embeddings > number_of_embeddings)
-                        {
-                            min_number_of_embeddings = number_of_embeddings;
-                        }
+                if (chip.spot[r][c] != Chip.EMPTY_SPOT)
+                {
+                    number_of_embeddings = PivotEmbedding.numberOfEmbeddings(chip, chip.spot[r][c]);
+                    if (min_number_of_embeddings > number_of_embeddings)
+                    {
+                        min_number_of_embeddings = number_of_embeddings;
+                    }
+                }
                 optimized_chip.spot[r][c] = Chip.EMPTY_SPOT;
             }
             if (chip instanceof AffymetrixChip)
