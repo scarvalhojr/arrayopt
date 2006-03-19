@@ -36,8 +36,6 @@
  */
 
 package arrayopt.layout;
-import java.util.Comparator;
-import java.util.Arrays;
 
 /**
  * please document this
@@ -90,7 +88,7 @@ public class PivotPartitioning implements PlacementAlgorithm
         // <new version>
         int     id[] = chip.getMovableProbes();
         int     rows_per_probe;
-           
+        final boolean horizontal = true;
         if (chip instanceof AffymetrixChip)
             rows_per_probe = 2;
         else if (chip instanceof SimpleChip)
@@ -104,7 +102,7 @@ public class PivotPartitioning implements PlacementAlgorithm
         // sorting array in order to number of embeddings of probes 
         int pivot_margin = pivotMergeSort(chip, id, 0.05);
         OptimumEmbedding embedder = OptimumEmbedding.createEmbedder(chip, OptimumEmbedding.MODE_CONFLICT_INDEX);
-        return horizontalDivide(chip, chip.getChipRegion(),id, embedder, rows_per_probe, 0, pivot_margin, pivot_margin + 1, id.length - 1);
+        return partitioning(chip, chip.getChipRegion(),horizontal, id, embedder, rows_per_probe, 0, pivot_margin, pivot_margin + 1, id.length - 1);
     }
         
         //</new version>
@@ -239,71 +237,146 @@ public class PivotPartitioning implements PlacementAlgorithm
         int         div_rate_non_pivot; 
         int         div_rate_pivot;
         int         step = 0;
-       // TODO:
-       // if (nopivots)
-       //  {
-       //       return filler.fillRegion(chip, region, id, start_pivot, stop_pivot);
-       //       return filler.fillRegion(chip, region, id, start_non_pivot, stop_non_pivot);    
-       //  }
+        int         rows_first_region;
+        int         cols_first_region;
+        int         rows_second_region;
+        int         cols_second_region;
+        int         overflow;
+        int         unplaced;
         
-       /* if (region.last_row - region.first_row + 1 <= stop_dimension * rows_per_probe)
+        // check whether there are enough pivots for further partinioning
+        if (stop_pivot - start_pivot < 1)
         {
-            if (region.last_col - region.first_col + 1 <= stop_dimension)
+            return filler.fillRegion(chip, region, id, start_pivot, stop_pivot)
+            + filler.fillRegion(chip, region, id, start_non_pivot, stop_non_pivot);    
+        }
+               
+        if (horizontal)
+        {
+            if (region.last_row - region.first_row + 1 <= stop_dimension * rows_per_probe)
             {
-                // region cannot be partitioned anymore:
-                // place probes on the specified region and return
-                return filler.fillRegion(chip, region, id, start_pivot, stop_pivot);
-                return filler.fillRegion(chip, region, id, start_non_pivot, stop_non_pivot);
+                if (region.last_col - region.first_col + 1 <= stop_dimension)
+                {
+                    // region cannot be partitioned anymore:
+                    // place probes on the specified region and return
+                    return filler.fillRegion(chip, region, id, start_pivot, stop_pivot) 
+                            + filler.fillRegion(chip, region, id, start_non_pivot, stop_non_pivot);
+                }
+                else
+                {
+                    // region can still be vertically partitined
+                    return partitioning (chip, region, !horizontal, id, embedder, rows_per_probe, 
+                            start_pivot, stop_pivot, start_non_pivot, stop_non_pivot);
+                }
+            }
+        }
+        
+        if (!horizontal)
+        {
+            if (region.first_col - region.first_col + 1 <= stop_dimension)
+            {
+                if (region.last_row - region.first_row + 1 <= stop_dimension * rows_per_probe)
+                {
+                    return filler.fillRegion(chip, region, id, start_pivot, stop_pivot) 
+                            + filler.fillRegion(chip, region, id, start_non_pivot, stop_non_pivot);
+                }
             }
             else
             {
-                // region can still be vertically partitined
-                return verticalDivide (chip, step, region, rows_per_probe, hor_par,
-                                        ver_par, probe_id, start, end);
+                return partitioning(chip, region, horizontal, id, embedder, rows_per_probe, 
+                        start_pivot, stop_pivot, start_non_pivot, stop_non_pivot);
             }
         }
-            */
+            
         
         // processing and splitting array
         do
         {
-        maxMinHammingDistancePivots(embedder, id, start_pivot, stop_pivot, step);
-        
-        // compute hamming distance for non pivots and flag it to which pivot it belongs
-        computeDistance(embedder, id, min_hamming_distance, start_pivot, stop_pivot, start_non_pivot, stop_non_pivot);
-        
-        // compute hamming distance for non pivots and flag it to which pivot it belongs
-        computeDistance(embedder, id, min_hamming_distance, start_pivot, stop_pivot, start_pivot + 1, stop_pivot - 1);
-        
-        synchronousMergeSort(min_hamming_distance, id, start_non_pivot, stop_non_pivot);
-        
-        synchronousMergeSort(min_hamming_distance, id, start_pivot +1, stop_pivot - 1);
-        
-        cut_non_pivot = getBorder(min_hamming_distance, start_non_pivot, stop_non_pivot);
-        cut_pivot = getBorder(min_hamming_distance, start_pivot +1, stop_pivot - 1);
-        
-        div_rate_non_pivot = cut_non_pivot / (stop_non_pivot - start_non_pivot + 1);
-        div_rate_pivot = cut_pivot / (stop_pivot - start_pivot + 1);
-        step++;
+            // find 2 suitable pivots for adjusting the rest of the probes  
+            do
+            {
+                maxMinHammingDistancePivots(embedder, id, start_pivot, stop_pivot, step);
+                cut_pivot = getBorder(min_hamming_distance, start_pivot +1, stop_pivot - 1);
+                div_rate_pivot = (cut_pivot - start_pivot) / (stop_pivot - start_pivot + 1);
+                step++;
+            }
+            while (div_rate_pivot < DIV_RATE_PIVOT);
+            // compute hamming distance for non pivots and flag it to which pivot it belongs
+            computeDistance(embedder, id, min_hamming_distance, start_pivot, stop_pivot, start_non_pivot, stop_non_pivot);
+            
+            // compute hamming distance for non pivots and flag it to which pivot it belongs
+            computeDistance(embedder, id, min_hamming_distance, start_pivot, stop_pivot, start_pivot + 1, stop_pivot - 1);
+            
+            synchronousMergeSort(min_hamming_distance, id, start_non_pivot, stop_non_pivot);
+            
+            synchronousMergeSort(min_hamming_distance, id, start_pivot +1, stop_pivot - 1);
+            
+            cut_non_pivot = getBorder(min_hamming_distance, start_non_pivot, stop_non_pivot);
+            cut_pivot = getBorder(min_hamming_distance, start_pivot +1, stop_pivot - 1);
+            
+            div_rate_non_pivot = (cut_non_pivot - start_non_pivot) / (stop_non_pivot - start_non_pivot + 1);
         }
-        while (div_rate_pivot < DIV_RATE_PIVOT);
+        while (div_rate_non_pivot < DIV_RATE_NON_PIVOT);
         
         reverseArray(id, start_pivot + 1, cut_pivot);
         reverseArray(id, cut_pivot + 1, stop_pivot - 1);
         reverseArray(id, start_non_pivot, cut_non_pivot);
         reverseArray(id, cut_non_pivot + 1, stop_non_pivot);
         
+        int number_of_probes_first_region = (cut_pivot - start_pivot + cut_non_pivot - start_non_pivot + 2);
+        int number_of_probes_second_region = (stop_pivot - cut_pivot + stop_non_pivot - cut_non_pivot);
         
+        int div_rate = number_of_probes_first_region / (stop_pivot - start_pivot + stop_non_pivot - start_non_pivot +2);
+        // splitting region
+        if (horizontal)
+        {
+           rows_first_region = (int) Math.round(div_rate * (region.last_row - region.first_row + 1));
+           cols_first_region = region.last_col - region.first_col + 1;
+           rows_second_region = (region.last_row - region.first_row + 1) - rows_first_region;
+           cols_second_region = region.last_col - region.first_col + 1;
+        }
+        else
+        {
+            rows_first_region = region.last_row - region.first_row + 1;
+            cols_first_region =(int) Math.round(div_rate * (region.last_col - region.first_col + 1));
+            rows_second_region = region.last_row - region.first_row + 1;
+            cols_second_region = (region.last_row - region.first_row +1) - cols_first_region;
+        }
+        // test if region is suitable to number of probes
+        if ((overflow = number_of_probes_first_region - (cols_first_region * rows_first_region) / rows_per_probe) > 0)
+        {
+            cut_non_pivot -= overflow;
+        }
+        else if ((overflow = (number_of_probes_second_region) - (cols_second_region * rows_second_region) / rows_per_probe) > 0)
+        {
+            cut_non_pivot += overflow;
+        }
+    
+        if (horizontal)
+        {
+            //  create two regions
+            int row_div = region.first_row + rows_first_region;
+            RectangularRegion first_region = new RectangularRegion(region.first_row, row_div - 1, region.first_col, region.last_col);
+            RectangularRegion second_region = new RectangularRegion(row_div, region.last_row, region.first_col, region.last_col);
+            //  assign probes to regions 
+            unplaced = partitioning(chip, first_region, !horizontal, id, embedder, rows_per_probe, start_pivot, cut_pivot, start_non_pivot, cut_non_pivot);
+            unplaced += partitioning(chip, second_region, !horizontal, id, embedder, rows_per_probe, cut_pivot + 1, stop_pivot, cut_non_pivot + 1, stop_non_pivot);
+        }
+        else
+        {
+            // create two regions
+            int col_div = region.first_col + cols_first_region;
+            RectangularRegion first_region = new RectangularRegion(region.first_row, region.last_row, region.first_col, col_div - 1);
+            RectangularRegion second_region = new RectangularRegion(region.first_row, region.last_row, col_div, region.last_col);
+            // assign probes to regions 
+            unplaced = partitioning(chip, first_region, horizontal, id, embedder, rows_per_probe, start_pivot, cut_pivot, start_non_pivot, cut_non_pivot);
+            unplaced += partitioning(chip, second_region, horizontal, id, embedder, rows_per_probe, cut_pivot + 1, stop_pivot, cut_non_pivot + 1, stop_non_pivot);
+        }
         
-        return 0;
+        return unplaced;
     }
     
-    protected int verticalDivide()
-    {
-        return 0;
-    }
-    
-   /* private Element[] getElements(Chip chip)
+    /* private Element[] getElements(Chip chip)
     {
         int [] ids = chip.getMovableProbes();
         Element[] elements = new Element[ids.length-1];
@@ -314,7 +387,7 @@ public class PivotPartitioning implements PlacementAlgorithm
         return elements;
     }*/
     
-    private int processing(OptimumEmbedding embedder, Element[] elements, int start_pivot, int stop_pivot, int start_non_pivot, int stop_non_pivot)
+   /* private int processing(OptimumEmbedding embedder, Element[] elements, int start_pivot, int stop_pivot, int start_non_pivot, int stop_non_pivot)
     {
         int cut_pivot;
         int cut_non_pivot;
@@ -330,7 +403,7 @@ public class PivotPartitioning implements PlacementAlgorithm
         processing(embedder, elements, cut_pivot, stop_pivot, cut_non_pivot, stop_non_pivot);
         
         return 0;
-    }
+    }*/
     
     private int getBorder(double[] property, int start, int stop)
     {
@@ -368,7 +441,7 @@ public class PivotPartitioning implements PlacementAlgorithm
         }
     }
     
-    private int reorderToDistance(Element[] elements, int start_pivot, int stop_pivot, int start, int stop)
+    /*private int reorderToDistance(Element[] elements, int start_pivot, int stop_pivot, int start, int stop)
     {
         int border =start;
         for (int i = start; i <= stop; i++)
@@ -383,7 +456,7 @@ public class PivotPartitioning implements PlacementAlgorithm
         Arrays.sort(elements, start, border, new HammingDistanceComparator());
         Arrays.sort(elements, border, stop+1, new HammingDistanceComparator());
         return border;
-    }
+    } */
     
     private void computeDistance(OptimumEmbedding embedder, int[] elements, double[] min_hamming_distance, int start_pivot, int stop_pivot, int start, int stop)
     {
@@ -408,7 +481,7 @@ public class PivotPartitioning implements PlacementAlgorithm
         
     }
     
-    private void computeDistance(OptimumEmbedding embedder,Element[] elements, int start_pivot, int stop_pivot, int start, int stop)
+    /*private void computeDistance(OptimumEmbedding embedder,Element[] elements, int start_pivot, int stop_pivot, int start, int stop)
     {
         double distance_start;
         double distance_stop;
@@ -439,7 +512,7 @@ public class PivotPartitioning implements PlacementAlgorithm
         Element temp = elements[from_index];
         elements[from_index] = elements[to_index];
         elements[to_index] = temp;
-    }
+    }*/
     
     private void maxMinHammingDistancePivots(OptimumEmbedding embedder, int[] elements, int start_pivot, int stop_pivot, int step)
     {
@@ -447,7 +520,7 @@ public class PivotPartitioning implements PlacementAlgorithm
         Integer[] max_distance_pivots = new Integer[2];
         for (int e1 = start_pivot; e1 <= stop_pivot; e1++)
         {
-            for (int e2 = start_pivot; e2 <= stop_pivot; e2++)
+            for (int e2 = start_pivot + step; e2 <= stop_pivot - step; e2++)
             {
                 if (e1 == e2)
                 {
@@ -471,7 +544,7 @@ public class PivotPartitioning implements PlacementAlgorithm
             throw new NullPointerException("No pivots have been found!");
     }
     
-    private class Element
+   /* private class Element
     {
         int id;
         int number_of_embeddings;
@@ -499,6 +572,6 @@ public class PivotPartitioning implements PlacementAlgorithm
         {
             return (((Double) e1.min_hamming_distance).compareTo( e2.min_hamming_distance));
         }
-    }
+    }*/
 }
 
