@@ -275,6 +275,88 @@ public class SimpleChip extends Chip
 	}
 
 	/**
+	 * Create a random set of probes and a random layout for this chip. This
+	 * method is an alternative to reading a layout from an input stream
+	 * ({@link #readLayout(Reader)}), and is specially useful for evaluating
+	 * algorithms.
+	 * 
+	 * <P>The current implementation generates random embeddings by shuffling a
+	 * binary permutation consisting of <CODE>p</CODE> ones and
+	 * <CODE>(d - p)</CODE> zeros, where <CODE>p</CODE> is the length of probes
+	 * ({@link Chip#probe_len}) and <CODE>d</CODE> is the length of the
+	 * deposition sequence ({@link Chip#dep_seq}). The random probes are placed
+	 * on spots sequentially, top to bottom, left to right. Thus, in case the
+	 * number of probes is less than the number of spots, empty spots will be
+	 * concentrated in the lower part of the chip.</P>  
+	 */
+	@Override
+	public void createRandomLayout ()
+	{
+		byte rnd_embed[], tmp;
+		char embed_str[], probe_str[];
+		int	i, pos, base, p;
+
+		// check if chip spec has already been input
+		if (input_done)
+			throw new IllegalStateException
+				("Layout specification has already been loaded.");
+
+		embed_str = new char[this.embed_len];
+		probe_str = new char[this.probe_len];
+
+		rnd_embed = new byte[this.embed_len];
+		for (i = 0;  i < probe_len; i++)
+			rnd_embed[i] = 1;
+		for (;  i < embed_len; i++)
+			rnd_embed[i] = 0;
+
+		// generate random embeddings
+		for (p = 0; p < num_probes; p++)
+		{
+			// randomize embedding
+			for (base = probe_len - 1, i = embed_len - 1; i >= 0; i--)
+			{
+				pos = (int) ((i + 1) * Math.random());
+				tmp = rnd_embed[i];
+				rnd_embed[i] = rnd_embed[pos];
+				rnd_embed[pos] = tmp;
+				
+				// update probe and embedding strings
+				if (rnd_embed[i] == 1)
+				{
+					embed_str[i] = this.dep_seq[i];
+					probe_str[base--] = this.dep_seq[i];
+				}
+				else
+				{
+					embed_str[i] = ' ';
+				}
+			}
+			
+			// enconde random embedding
+			encodeEmbedding(new String(probe_str), new String(embed_str), p);
+		}
+		
+		// assign embeddings to spots in sequence
+		p = 0;
+		for (int r = 0; r < this.num_rows; r++)
+			for (int c = 0; c < this.num_cols; c++)
+				if (p < num_probes)
+					this.spot[r][c] = p++;
+				else
+					this.spot[r][c] = EMPTY_SPOT;
+
+		// TODO randomize allocation of empty spots
+		
+		// TODO take the number of fixed spots as an argument?
+		
+		// create an empty list of fixed spots
+		this.fixed_probe = new int [0];
+
+		input_done = true;
+	}
+
+	/**
 	 * Returns a list of non-fixed probe IDs. These are the probes not located
 	 * on fixed spots and which, therefore, can be relocated by a
 	 * {@linkplain PlacementAlgorithm}.

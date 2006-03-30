@@ -451,6 +451,18 @@ public class AffymetrixChip extends Chip
 		// reading successful
 		input_done = true;
 	}
+	
+	/**
+	 * Create a random set of probe pairs and a random layout for this chip.
+	 * This method is an alternative to reading a layout from an input stream
+	 * ({@link #readLayout(Reader)}), and is specially useful for evaluating
+	 * algorithms.
+	 */
+	@Override
+	public void createRandomLayout ()
+	{
+		// TODO implement this
+	}
 
 	/**
 	 * Checks that the embeddings of a pair of probes are valid, i.e. the

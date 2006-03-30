@@ -495,6 +495,15 @@ public abstract class Chip implements Cloneable
 		throws IOException;
 
 	/**
+	 * Create a random set of probes and a random layout for this chip. This
+	 * method is an alternative to reading a layout from an input stream
+	 * ({@link #readLayout(Reader)}), and is specially useful for evaluating
+	 * algorithms. This method must be provided by sub-classes according to
+	 * their specific implementation details.
+	 */
+	public abstract void createRandomLayout ();
+	
+	/**
 	 * This method stores a probe sequence as a binary string encoded in
 	 * integers representing its embedding into the deposition sequnece. The
 	 * input consists of the probe's ID and the embedding specified as a string
