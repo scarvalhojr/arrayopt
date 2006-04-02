@@ -34,9 +34,9 @@
  * Universitaet Bielefeld         http://www.uni-bielefeld.de
  *
  */
-
+    
 package arrayopt.layout;
-
+import java.util.Vector;
 /**
  * please document this
  */
@@ -62,6 +62,9 @@ public class PivotPartitioning implements PlacementAlgorithm
     private static final double DIV_RATE_PIVOT = .2;
     private static final double DIV_RATE_NON_PIVOT = .2;
     
+    private Chip chip;
+    private OptimumEmbedding embedder;
+    private int[] id;
     /**
 	 * please document this
 	 */
@@ -85,8 +88,8 @@ public class PivotPartitioning implements PlacementAlgorithm
 	// to do: proceed recursively
     public int makeLayout (Chip chip)
     {
-        // <new version>
-        int     id[] = chip.getMovableProbes();
+        this.chip = chip;
+        id = chip.getMovableProbes();
         int     rows_per_probe;
         final boolean horizontal = true;
         if (chip instanceof AffymetrixChip)
@@ -100,57 +103,12 @@ public class PivotPartitioning implements PlacementAlgorithm
         chip.resetLayout();
         
         // sorting array in order to number of embeddings of probes 
-        int pivot_margin = pivotMergeSort(chip, id, 0.05);
-        OptimumEmbedding embedder = OptimumEmbedding.createEmbedder(chip, OptimumEmbedding.MODE_CONFLICT_INDEX);
-        return partitioning(chip, chip.getChipRegion(),horizontal, id, embedder, rows_per_probe, 0, pivot_margin, pivot_margin + 1, id.length - 1);
+        int pivot_margin = pivotMergeSort(0.05);
+        this.embedder = OptimumEmbedding.createEmbedder(chip, OptimumEmbedding.MODE_CONFLICT_INDEX);
+        return partitioning(chip.getChipRegion(),horizontal, rows_per_probe, 0, pivot_margin, pivot_margin + 1, id.length - 1);
     }
         
-        //</new version>
-        
-        
-       /* old version
-        
-         Element     elements[];
-        
-        int     start_pivot = 0;
-        int     stop_pivot = 0;
-        int     start_non_pivot = 0;
-        int     stop_non_pivot = 0;
-        int     pivot_margin;
-        OptimumEmbedding embedder = OptimumEmbedding.createEmbedder(chip, OptimumEmbedding.MODE_CONFLICT_INDEX);
-        
-        
-
-        // reset current layout (if any)
-        chip.resetLayout();
-
-        // get list of movable probes
-        elements = getElements(chip);
-        
-        Arrays.sort(elements,new NumberOfEmbeddingsComparator());
-        pivot_margin = elements[0].number_of_embeddings;
-        for (int i = 1; i < elements.length; i++)
-        {
-            if (elements[i].number_of_embeddings == pivot_margin)
-            {
-                stop_pivot = i;
-            }
-            else 
-            {
-                break;
-            }
-        }
-        start_non_pivot = stop_pivot + 1;
-        stop_non_pivot = elements.length -1;
-        
-        processing(embedder, elements, start_pivot, stop_pivot, start_non_pivot, stop_non_pivot);
-       
-        
-		// should return the number of unplaced probes (if any)
-		return 0;
-	}*/
-         
-    protected int pivotMergeSort(Chip chip, int[] id, double pivot_treshold)
+    protected int pivotMergeSort(double pivot_treshold)
     {
         int pivot_margin = 0;
         int pivot_property = 0;
@@ -161,7 +119,7 @@ public class PivotPartitioning implements PlacementAlgorithm
             number_of_embeddings[i] = PivotEmbedding.numberOfEmbeddings(chip, id[i]);
         }
         
-        synchronousMergeSort(number_of_embeddings, id, 0, id.length - 1);
+        synchronousMergeSort(number_of_embeddings, 0, id.length - 1);
         
         while (((pivot_margin + 1) / id.length) < PIVOT_THRESHOLD)
         {
@@ -181,18 +139,18 @@ public class PivotPartitioning implements PlacementAlgorithm
         return pivot_margin;
     }
     
-    protected void synchronousMergeSort(double[] property, int[] id, int start, int stop)
+    protected void synchronousMergeSort(double[] property, int start, int stop)
     {
         if (start < stop)
         {
             int partition = (int) Math.floor((start + stop)/2);
-            synchronousMergeSort(property, id, start, partition);
-            synchronousMergeSort(property, id, partition + 1 , stop);
-            synchronousMerge(property, id, start, partition, stop);
+            synchronousMergeSort(property, start, partition);
+            synchronousMergeSort(property, partition + 1 , stop);
+            synchronousMerge(property, start, partition, stop);
         }
     }
     
-    protected void synchronousMerge(double[] property,int[] id, int start, int partition, int stop)
+    protected void synchronousMerge(double[] property, int start, int partition, int stop)
     {
         int[] left = new int[partition - start + 1];
         int[] right = new int[stop - partition];
@@ -209,19 +167,19 @@ public class PivotPartitioning implements PlacementAlgorithm
             if (left [i] <= right[j])
             {
                 property[k] = left[i];
-                switchindex(id, i, k);
+                switchindex(i, k);
                 i++;
             }
             else
             {
                 property[k] = right[j];
-                switchindex(id, j + partition + 1, k);
+                switchindex(j + partition + 1, k);
                 j++;
             }
         }
     }
     
-    protected void switchindex(int[] id, int from_index, int to_index)
+    protected void switchindex(int from_index, int to_index)
     {
         int temp;
         temp = id[from_index];
@@ -229,7 +187,7 @@ public class PivotPartitioning implements PlacementAlgorithm
         id[to_index] = temp;
     }
     // boolean parameter horizontal indicates whether the region is partitioned horizontal or vertical
-    protected int partitioning(Chip chip, RectangularRegion region, boolean horizontal, int[] id, OptimumEmbedding embedder, int rows_per_probe, int start_pivot, int stop_pivot, int start_non_pivot, int stop_non_pivot)
+    protected int partitioning(RectangularRegion region, boolean horizontal, int rows_per_probe, int start_pivot, int stop_pivot, int start_non_pivot, int stop_non_pivot)
     {
         int         cut_pivot;
         int         cut_non_pivot;
@@ -243,6 +201,8 @@ public class PivotPartitioning implements PlacementAlgorithm
         int         cols_second_region;
         int         overflow;
         int         unplaced;
+        Vector      visited_first;
+        Vector      visited_second;
         
         // check whether there are enough pivots for further partinioning
         if (stop_pivot - start_pivot < 1)
@@ -265,8 +225,8 @@ public class PivotPartitioning implements PlacementAlgorithm
                 else
                 {
                     // region can still be vertically partitined
-                    return partitioning (chip, region, !horizontal, id, embedder, rows_per_probe, 
-                            start_pivot, stop_pivot, start_non_pivot, stop_non_pivot);
+                    return partitioning (region, !horizontal, rows_per_probe, start_pivot, stop_pivot, 
+                                            start_non_pivot, stop_non_pivot);
                 }
             }
         }
@@ -283,11 +243,12 @@ public class PivotPartitioning implements PlacementAlgorithm
             }
             else
             {
-                return partitioning(chip, region, horizontal, id, embedder, rows_per_probe, 
+                return partitioning(region, horizontal, rows_per_probe, 
                         start_pivot, stop_pivot, start_non_pivot, stop_non_pivot);
             }
         }
             
+        
         
         // processing and splitting array
         do
@@ -295,21 +256,20 @@ public class PivotPartitioning implements PlacementAlgorithm
             // find 2 suitable pivots for adjusting the rest of the probes  
             do
             {
-                maxMinHammingDistancePivots(embedder, id, start_pivot, stop_pivot, step);
+                maxMinHammingDistancePivots(start_pivot, stop_pivot, visited_first, visited_second);
                 cut_pivot = getBorder(min_hamming_distance, start_pivot +1, stop_pivot - 1);
                 div_rate_pivot = (cut_pivot - start_pivot) / (stop_pivot - start_pivot + 1);
-                step++;
             }
             while (div_rate_pivot < DIV_RATE_PIVOT);
             // compute hamming distance for non pivots and flag it to which pivot it belongs
-            computeDistance(embedder, id, min_hamming_distance, start_pivot, stop_pivot, start_non_pivot, stop_non_pivot);
+            computeDistance(min_hamming_distance, start_pivot, stop_pivot, start_non_pivot, stop_non_pivot);
             
             // compute hamming distance for non pivots and flag it to which pivot it belongs
-            computeDistance(embedder, id, min_hamming_distance, start_pivot, stop_pivot, start_pivot + 1, stop_pivot - 1);
+            computeDistance(min_hamming_distance, start_pivot, stop_pivot, start_pivot + 1, stop_pivot - 1);
             
-            synchronousMergeSort(min_hamming_distance, id, start_non_pivot, stop_non_pivot);
+            synchronousMergeSort(min_hamming_distance, start_non_pivot, stop_non_pivot);
             
-            synchronousMergeSort(min_hamming_distance, id, start_pivot +1, stop_pivot - 1);
+            synchronousMergeSort(min_hamming_distance, start_pivot +1, stop_pivot - 1);
             
             cut_non_pivot = getBorder(min_hamming_distance, start_non_pivot, stop_non_pivot);
             cut_pivot = getBorder(min_hamming_distance, start_pivot +1, stop_pivot - 1);
@@ -318,10 +278,10 @@ public class PivotPartitioning implements PlacementAlgorithm
         }
         while (div_rate_non_pivot < DIV_RATE_NON_PIVOT);
         
-        reverseArray(id, start_pivot + 1, cut_pivot);
-        reverseArray(id, cut_pivot + 1, stop_pivot - 1);
-        reverseArray(id, start_non_pivot, cut_non_pivot);
-        reverseArray(id, cut_non_pivot + 1, stop_non_pivot);
+        reverseArray(start_pivot + 1, cut_pivot);
+        reverseArray(cut_pivot + 1, stop_pivot - 1);
+        reverseArray(start_non_pivot, cut_non_pivot);
+        reverseArray(cut_non_pivot + 1, stop_non_pivot);
         
         int number_of_probes_first_region = (cut_pivot - start_pivot + cut_non_pivot - start_non_pivot + 2);
         int number_of_probes_second_region = (stop_pivot - cut_pivot + stop_non_pivot - cut_non_pivot);
@@ -359,8 +319,8 @@ public class PivotPartitioning implements PlacementAlgorithm
             RectangularRegion first_region = new RectangularRegion(region.first_row, row_div - 1, region.first_col, region.last_col);
             RectangularRegion second_region = new RectangularRegion(row_div, region.last_row, region.first_col, region.last_col);
             //  assign probes to regions 
-            unplaced = partitioning(chip, first_region, !horizontal, id, embedder, rows_per_probe, start_pivot, cut_pivot, start_non_pivot, cut_non_pivot);
-            unplaced += partitioning(chip, second_region, !horizontal, id, embedder, rows_per_probe, cut_pivot + 1, stop_pivot, cut_non_pivot + 1, stop_non_pivot);
+            unplaced = partitioning(first_region, !horizontal, rows_per_probe, start_pivot, cut_pivot, start_non_pivot, cut_non_pivot);
+            unplaced += partitioning(second_region, !horizontal, rows_per_probe, cut_pivot + 1, stop_pivot, cut_non_pivot + 1, stop_non_pivot);
         }
         else
         {
@@ -369,41 +329,12 @@ public class PivotPartitioning implements PlacementAlgorithm
             RectangularRegion first_region = new RectangularRegion(region.first_row, region.last_row, region.first_col, col_div - 1);
             RectangularRegion second_region = new RectangularRegion(region.first_row, region.last_row, col_div, region.last_col);
             // assign probes to regions 
-            unplaced = partitioning(chip, first_region, horizontal, id, embedder, rows_per_probe, start_pivot, cut_pivot, start_non_pivot, cut_non_pivot);
-            unplaced += partitioning(chip, second_region, horizontal, id, embedder, rows_per_probe, cut_pivot + 1, stop_pivot, cut_non_pivot + 1, stop_non_pivot);
+            unplaced = partitioning(first_region, horizontal, rows_per_probe, start_pivot, cut_pivot, start_non_pivot, cut_non_pivot);
+            unplaced += partitioning(second_region, horizontal, rows_per_probe, cut_pivot + 1, stop_pivot, cut_non_pivot + 1, stop_non_pivot);
         }
         
         return unplaced;
     }
-    
-    /* private Element[] getElements(Chip chip)
-    {
-        int [] ids = chip.getMovableProbes();
-        Element[] elements = new Element[ids.length-1];
-        for (int i = 0; i < ids.length; i++)
-        {
-            elements[i] = new Element(chip, ids[i]);
-        }
-        return elements;
-    }*/
-    
-   /* private int processing(OptimumEmbedding embedder, Element[] elements, int start_pivot, int stop_pivot, int start_non_pivot, int stop_non_pivot)
-    {
-        int cut_pivot;
-        int cut_non_pivot;
-        
-        Integer[] index = getMaxMinHammingDistancePivots(embedder, elements, start_pivot, stop_pivot);
-        switchindex(elements, index, start_pivot, stop_pivot);
-        computeDistance(embedder, elements, start_pivot, stop_pivot, start_pivot + 1, stop_pivot - 1);
-        computeDistance(embedder, elements, start_pivot, stop_pivot, start_non_pivot, stop_non_pivot);
-        cut_pivot = reorderToDistance(elements, start_pivot, stop_pivot, start_pivot + 1, stop_pivot - 1);
-        cut_non_pivot = reorderToDistance(elements, start_pivot, stop_pivot, start_non_pivot, stop_non_pivot);
-        
-        processing(embedder, elements, start_pivot, cut_pivot - 1, start_non_pivot, cut_non_pivot - 1);
-        processing(embedder, elements, cut_pivot, stop_pivot, cut_non_pivot, stop_non_pivot);
-        
-        return 0;
-    }*/
     
     private int getBorder(double[] property, int start, int stop)
     {
@@ -421,7 +352,7 @@ public class PivotPartitioning implements PlacementAlgorithm
         return border;
     }
     
-    private void reverseArray(int[] id, int start, int stop)
+    private void reverseArray(int start, int stop)
     {
         int left;
         int right;
@@ -436,29 +367,12 @@ public class PivotPartitioning implements PlacementAlgorithm
             }
             else
             {
-                switchindex(id, left, right);
+                switchindex(left, right);
             }
         }
     }
     
-    /*private int reorderToDistance(Element[] elements, int start_pivot, int stop_pivot, int start, int stop)
-    {
-        int border =start;
-        for (int i = start; i <= stop; i++)
-        {
-            if (elements[i].min_hamming_distance > 0)
-            {
-                border = i;
-                break;
-            }
-        }
-        
-        Arrays.sort(elements, start, border, new HammingDistanceComparator());
-        Arrays.sort(elements, border, stop+1, new HammingDistanceComparator());
-        return border;
-    } */
-    
-    private void computeDistance(OptimumEmbedding embedder, int[] elements, double[] min_hamming_distance, int start_pivot, int stop_pivot, int start, int stop)
+    private void computeDistance(double[] min_hamming_distance, int start_pivot, int stop_pivot, int start, int stop)
     {
         double distance_start_pivot;
         double distance_stop_pivot;
@@ -466,8 +380,8 @@ public class PivotPartitioning implements PlacementAlgorithm
         
         for (int i = start; i <= stop; i++)
             {
-                distance_start_pivot = embedder.minDistanceProbe(elements[i], elements[start_pivot]);
-                distance_stop_pivot = embedder.minDistanceProbe(elements[i], elements[stop_pivot]);
+                distance_start_pivot = embedder.minDistanceProbe(id[i], id[start_pivot]);
+                distance_stop_pivot = embedder.minDistanceProbe(id[i], id[stop_pivot]);
                 if (distance_start_pivot < distance_stop_pivot)
                 {
                     min_hamming_distance[i] = -distance_start_pivot;
@@ -481,40 +395,7 @@ public class PivotPartitioning implements PlacementAlgorithm
         
     }
     
-    /*private void computeDistance(OptimumEmbedding embedder,Element[] elements, int start_pivot, int stop_pivot, int start, int stop)
-    {
-        double distance_start;
-        double distance_stop;
-        for (int i = start; i <= stop; i++)
-        {
-            distance_start = embedder.minDistanceProbe(elements[i].id, elements[start_pivot].id);
-            distance_stop = embedder.minDistanceProbe(elements[i].id, elements[stop_pivot].id);
-            if (distance_start < distance_stop)
-            {
-                elements[i].min_hamming_distance = -distance_start;
-            }
-            else
-            {
-                elements[i].min_hamming_distance = distance_stop;
-            }
-        }
-        
-    }
-    
-    private void switchindex(Element[] elements, Integer[] index, int start, int stop)
-    {
-        switchindex(elements, index[0], start);
-        switchindex(elements, index[1], stop);
-    }
-    
-    private void switchindex(Element[] elements, int from_index, int to_index)
-    {
-        Element temp = elements[from_index];
-        elements[from_index] = elements[to_index];
-        elements[to_index] = temp;
-    }*/
-    
-    private void maxMinHammingDistancePivots(OptimumEmbedding embedder, int[] elements, int start_pivot, int stop_pivot, int step)
+    private void maxMinHammingDistancePivots(int start_pivot, int stop_pivot, int step)
     {
         double max_distance = -1;
         Integer[] max_distance_pivots = new Integer[2];
@@ -526,7 +407,7 @@ public class PivotPartitioning implements PlacementAlgorithm
                 {
                     continue;
                 }
-                double distance = embedder.minDistanceProbe(elements[e1], elements[e2]);
+                double distance = embedder.minDistanceProbe(id[e1], id[e2]);
                 if (max_distance < distance )
                 {
                     max_distance = distance;
@@ -537,41 +418,12 @@ public class PivotPartitioning implements PlacementAlgorithm
         }
         if (max_distance_pivots[0] != null && max_distance_pivots[1] != null)
         {
-            switchindex(elements, max_distance_pivots[0], start_pivot);
-            switchindex(elements, max_distance_pivots[1], stop_pivot);
+            switchindex(max_distance_pivots[0], start_pivot);
+            switchindex(max_distance_pivots[1], stop_pivot);
         }
         else 
             throw new NullPointerException("No pivots have been found!");
     }
-    
-   /* private class Element
-    {
-        int id;
-        int number_of_embeddings;
-        // used for holding the hamming distance to the pivots
-        double min_hamming_distance = 0;
-        
-        private Element(Chip chip, int id)
-        {
-            this.id = id;
-            number_of_embeddings = PivotEmbedding.numberOfEmbeddings(chip,id);
-        }
-    }
-    
-    private class NumberOfEmbeddingsComparator implements Comparator<Element>
-    {
-        public int compare(Element e1, Element e2)
-        {
-            return (((Integer) e2.number_of_embeddings).compareTo((Integer) e1.number_of_embeddings));
-        }
-    }
-    
-    private class HammingDistanceComparator implements Comparator<Element>
-    {
-        public int compare(Element e1, Element e2)
-        {
-            return (((Double) e1.min_hamming_distance).compareTo( e2.min_hamming_distance));
-        }
-    }*/
+     
 }
 
