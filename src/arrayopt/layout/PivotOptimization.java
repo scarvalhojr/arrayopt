@@ -143,7 +143,11 @@ public class PivotOptimization implements PostPlacementAlgorithm
                         {
                             break;
                         }
-                        this.queue.add(new Element(r, c));
+                        element = new Element(r, c);
+                        if (!this.queue.contains(element))
+                        {
+                            this.queue.add(element);
+                        }
                     }
                     
                 }
