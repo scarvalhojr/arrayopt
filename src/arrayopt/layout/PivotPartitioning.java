@@ -67,7 +67,7 @@ public class PivotPartitioning implements PlacementAlgorithm
      * Value indicates at which percentage of the total size of the to be sorted array merge sort will stop 
      * the division and insertion sort prepares the pieces of the array for further merging.
      */
-    private static final double SORTING_RATIO = 0.1;
+    private final double SORTING_LENGTH_BORDER = 20000;
     
     private Chip chip;
     private OptimumEmbedding embedder;
@@ -153,9 +153,10 @@ public class PivotPartitioning implements PlacementAlgorithm
         return pivot_margin;
     }
     
+    // divides
     protected void synchronousMergeSort(double[] property, int start, int stop)
     {
-        if (stop - start > SORTING_RATIO * property.length)
+        if (stop - start > SORTING_LENGTH_BORDER )
         {
             int partition = (int) Math.floor((start + stop)/2);
             synchronousMergeSort(property, start, partition);

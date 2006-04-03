@@ -44,13 +44,13 @@ import java.util.Stack;
 /**
  * PivotOptimization just reembedds the probes of a chip according to its pivots (normally probes with only 1 possible embedding).
  * If no real pivot can be found, the probes with a minimum of embeddings are handled as pivots.
- * Once the pivots are found, all neighbors around it will be reembedded according to it and after that alle neighbors of the already re
- * embedded probes will be reembedded according to the {@link OptimumEmbedding} and so forth.
+ * Once the pivots are found, all neighbors around it will be reembedded according to it and after that all neighbors of the already
+ * reembedded probes will be reembedded according to the {@link OptimumEmbedding} and so forth.
  * The probes will not change their spot on the chip.
  * 
  * <P>PivotOptimization is considered for use with simple chips and affymetrix chips.
- * Since it uses the {@link OptimumEmbedding} class for reembedding the probes you can also define which mode should be used for re
- * embedding the probes, i.e.{@link OptimumEmbedding#MODE_CONFLICT_INDEX} or {@link OptimumEmbedding#MODE_BORDER_LENGTH}. If no mode is given the
+ * Since it uses the {@link OptimumEmbedding} class for reembedding the probes you can also define which mode should be used for
+ * reembedding the probes, i.e.{@link OptimumEmbedding#MODE_CONFLICT_INDEX} or {@link OptimumEmbedding#MODE_BORDER_LENGTH}. If no mode is given the
  * {@link OptimumEmbedding#MODE_CONFLICT_INDEX} is used.</P>
  * 
  * @author Anna Domanski & Ronny Gaertner
@@ -66,6 +66,9 @@ public class PivotOptimization implements PostPlacementAlgorithm
     private PriorityQueue<Element> queue;
     
     /**
+     * Creates a new PivotOptimization instance with a given mode.
+     * There are only 2 modes available: @link OptimumEmbedding#MODE_CONFLICT_INDEX} and
+     * {@link OptimumEmbedding#MODE_BORDER_LENGTH}
      * @param chip chip instance 
      * @param mode reembedding mode (either optimization for conflict index or border length)
      */
@@ -81,14 +84,18 @@ public class PivotOptimization implements PostPlacementAlgorithm
         }
     }
     
-    
+    /**
+     * 
+     * @param chip chip instance
+     * @param mode embedding mode (border length or conflict index optimiyation)
+     */
     public void optimizeLayout (Chip chip, int mode)
     {
            embedding_mode = mode;
            optimizeLayout(chip);
     }
     /**
-     * @param
+     * @param chip chip instance
      */
     public void optimizeLayout (Chip chip)
     {
