@@ -166,13 +166,13 @@ public class PivotPartitioning implements PlacementAlgorithm
     
     protected void synchronousMerge(double[] property, int start, int partition, int stop)
     {
-        int[] left = new int[partition - start + 1];
-        int[] right = new int[stop - partition];
+        double[] left = new double[partition - start + 2];
+        double[] right = new double[stop - partition + 1];
         
-        System.arraycopy(property,0,left,0,left.length);
-        System.arraycopy(property,partition + 1 , right,0, right.length);
-        left[left.length] = Integer.MAX_VALUE;
-        right[right.length] = Integer.MAX_VALUE;
+        System.arraycopy(property, start, left, 0, left.length - 1);
+        System.arraycopy(property, partition + 1 , right, 0, right.length - 1);
+        left[left.length - 1] = Integer.MAX_VALUE;
+        right[right.length - 1] = Integer.MAX_VALUE;
         
         int i = 0;
         int j = 0;
