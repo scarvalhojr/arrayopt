@@ -177,6 +177,9 @@ public class ArrayOpt
 				
 			else if (algorithm.equalsIgnoreCase("PIVOT"))
 				placer = new ProbeSetEmbeddingWrapper(new PivotEmbedding());
+			
+			else if (algorithm.equalsIgnoreCase("PIVOTPART"))
+				placer = new PivotPartitioning(new GreedyFiller());
 
 			else if (algorithm.equalsIgnoreCase("SWIN-GRASPD"))
 				optimizer = new SlidingWindowOptimization (
