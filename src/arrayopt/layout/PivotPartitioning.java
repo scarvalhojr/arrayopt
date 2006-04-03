@@ -72,6 +72,7 @@ public class PivotPartitioning implements PlacementAlgorithm
     private Chip chip;
     private OptimumEmbedding embedder;
     private int[] id;
+    private int rows_per_probe;
     
     // each entry contains the sum of 2 pivots, it is most likely that these sum are unique,
     // though it is not a safe, but an easy way!
@@ -101,7 +102,6 @@ public class PivotPartitioning implements PlacementAlgorithm
     {
         this.chip = chip;
         id = chip.getMovableProbes();
-        int     rows_per_probe;
         final boolean horizontal = true;
         if (chip instanceof AffymetrixChip)
             rows_per_probe = 2;
@@ -117,7 +117,7 @@ public class PivotPartitioning implements PlacementAlgorithm
         int pivot_margin = pivotMergeSort(0.05);
         visited = new Vector<Integer>(pivot_margin + 1);
         this.embedder = OptimumEmbedding.createEmbedder(chip, OptimumEmbedding.MODE_CONFLICT_INDEX);
-        return partitioning(chip.getChipRegion(),horizontal, rows_per_probe, 0, pivot_margin, pivot_margin + 1, id.length - 1);
+        return partitioning(chip.getChipRegion(),horizontal, 0, pivot_margin, pivot_margin + 1, id.length - 1);
     }
         
     protected int pivotMergeSort(double pivot_treshold)
@@ -223,7 +223,7 @@ public class PivotPartitioning implements PlacementAlgorithm
         id[to_index] = temp;
     }
     // boolean parameter horizontal indicates whether the region is partitioned horizontal or vertical
-    protected int partitioning(RectangularRegion region, boolean horizontal, int rows_per_probe, int start_pivot, int stop_pivot, int start_non_pivot, int stop_non_pivot)
+    protected int partitioning(RectangularRegion region, boolean horizontal, int start_pivot, int stop_pivot, int start_non_pivot, int stop_non_pivot)
     {
         int         cut_pivot;
         int         cut_non_pivot;
@@ -259,7 +259,7 @@ public class PivotPartitioning implements PlacementAlgorithm
                 else
                 {
                     // region can still be vertically partitined
-                    return partitioning (region, !horizontal, rows_per_probe, start_pivot, stop_pivot, 
+                    return partitioning (region, !horizontal, start_pivot, stop_pivot, 
                                             start_non_pivot, stop_non_pivot);
                 }
             }
@@ -277,7 +277,7 @@ public class PivotPartitioning implements PlacementAlgorithm
             }
             else
             {
-                return partitioning(region, horizontal, rows_per_probe, 
+                return partitioning(region, horizontal, 
                         start_pivot, stop_pivot, start_non_pivot, stop_non_pivot);
             }
         }
@@ -347,8 +347,8 @@ public class PivotPartitioning implements PlacementAlgorithm
             RectangularRegion first_region = new RectangularRegion(region.first_row, row_div - 1, region.first_col, region.last_col);
             RectangularRegion second_region = new RectangularRegion(row_div, region.last_row, region.first_col, region.last_col);
             //  assign probes to regions 
-            unplaced = partitioning(first_region, !horizontal, rows_per_probe, start_pivot, cut_pivot, start_non_pivot, cut_non_pivot);
-            unplaced += partitioning(second_region, !horizontal, rows_per_probe, cut_pivot + 1, stop_pivot, cut_non_pivot + 1, stop_non_pivot);
+            unplaced = partitioning(first_region, !horizontal, start_pivot, cut_pivot, start_non_pivot, cut_non_pivot);
+            unplaced += partitioning(second_region, !horizontal, cut_pivot + 1, stop_pivot, cut_non_pivot + 1, stop_non_pivot);
         }
         else
         {
@@ -357,8 +357,8 @@ public class PivotPartitioning implements PlacementAlgorithm
             RectangularRegion first_region = new RectangularRegion(region.first_row, region.last_row, region.first_col, col_div - 1);
             RectangularRegion second_region = new RectangularRegion(region.first_row, region.last_row, col_div, region.last_col);
             // assign probes to regions 
-            unplaced = partitioning(first_region, horizontal, rows_per_probe, start_pivot, cut_pivot, start_non_pivot, cut_non_pivot);
-            unplaced += partitioning(second_region, horizontal, rows_per_probe, cut_pivot + 1, stop_pivot, cut_non_pivot + 1, stop_non_pivot);
+            unplaced = partitioning(first_region, horizontal, start_pivot, cut_pivot, start_non_pivot, cut_non_pivot);
+            unplaced += partitioning(second_region, horizontal, cut_pivot + 1, stop_pivot, cut_non_pivot + 1, stop_non_pivot);
         }
         
         return unplaced;
