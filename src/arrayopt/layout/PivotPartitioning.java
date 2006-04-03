@@ -15,7 +15,7 @@
  * Software Foundation; either version 2 of the License, or (at your option)
  * any later version.
  *
- * ÂrrayOpt is distributed in the hope that it will be useful, but WITHOUT ANY
+ * ?rrayOpt is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
  * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
  * details.
@@ -59,10 +59,10 @@ public class PivotPartitioning implements PlacementAlgorithm
 	 */
 	private int stop_dimension;
 
-    private static final double PIVOT_THRESHOLD = 0.2;
+    private final double PIVOT_THRESHOLD = 0.15;
     
-    private static final double DIV_RATE_PIVOT = .2;
-    private static final double DIV_RATE_NON_PIVOT = .2;
+    private final double DIV_RATE_PIVOT = .2;
+    private final double DIV_RATE_NON_PIVOT = .2;
     /**
      * Value indicates at which percentage of the total size of the to be sorted array merge sort will stop 
      * the division and insertion sort prepares the pieces of the array for further merging.
@@ -123,7 +123,8 @@ public class PivotPartitioning implements PlacementAlgorithm
     protected int pivotMergeSort(double pivot_treshold)
     {
         int pivot_margin = 0;
-        int pivot_property = 0;
+        int pivot_property;
+
         double[] number_of_embeddings = new double[id.length];
         
         for (int i = 0; i < id.length; i++)
@@ -133,9 +134,10 @@ public class PivotPartitioning implements PlacementAlgorithm
         
         synchronousMergeSort(number_of_embeddings, 0, id.length - 1);
         
-        while (((pivot_margin + 1) / id.length) < PIVOT_THRESHOLD)
+        pivot_property = (int) Math.ceil(number_of_embeddings[0]);
+        while (((( (double) pivot_margin + 1) / id.length)) < PIVOT_THRESHOLD)
         {
-            pivot_property++;
+            pivot_property = (int) Math.ceil(number_of_embeddings[pivot_margin + 1]);
             for (int i = pivot_margin; i < id.length; i++)
             {
                 if (number_of_embeddings[i] <= pivot_property)
