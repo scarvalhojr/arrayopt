@@ -37,6 +37,8 @@
     
 package arrayopt.layout;
 import java.util.Vector;
+
+
 /**
  * please document this
  */
@@ -61,10 +63,19 @@ public class PivotPartitioning implements PlacementAlgorithm
     
     private static final double DIV_RATE_PIVOT = .2;
     private static final double DIV_RATE_NON_PIVOT = .2;
+    /**
+     * Value indicates at which percentage of the total size of the to be sorted array merge sort will stop 
+     * the division and insertion sort prepares the pieces of the array for further merging.
+     */
+    private static final double SORTING_RATIO = 0.1;
     
     private Chip chip;
     private OptimumEmbedding embedder;
     private int[] id;
+    
+    // each entry contains the sum of 2 pivots, it is most likely that these sum are unique,
+    // though it is not a safe, but an easy way!
+    private Vector<Integer> visited;
     /**
 	 * please document this
 	 */
@@ -104,6 +115,7 @@ public class PivotPartitioning implements PlacementAlgorithm
         
         // sorting array in order to number of embeddings of probes 
         int pivot_margin = pivotMergeSort(0.05);
+        visited = new Vector<Integer>(pivot_margin + 1);
         this.embedder = OptimumEmbedding.createEmbedder(chip, OptimumEmbedding.MODE_CONFLICT_INDEX);
         return partitioning(chip.getChipRegion(),horizontal, rows_per_probe, 0, pivot_margin, pivot_margin + 1, id.length - 1);
     }
@@ -141,11 +153,13 @@ public class PivotPartitioning implements PlacementAlgorithm
     
     protected void synchronousMergeSort(double[] property, int start, int stop)
     {
-        if (start < stop)
+        if (stop - start > SORTING_RATIO * property.length)
         {
             int partition = (int) Math.floor((start + stop)/2);
             synchronousMergeSort(property, start, partition);
             synchronousMergeSort(property, partition + 1 , stop);
+            synchronousInsertionSort(property, start, partition);
+            synchronousInsertionSort(property, partition + 1, stop);
             synchronousMerge(property, start, partition, stop);
         }
     }
@@ -179,6 +193,28 @@ public class PivotPartitioning implements PlacementAlgorithm
         }
     }
     
+    protected void synchronousInsertionSort(double[] property, int start, int stop)
+    {
+    	double property_temp;
+    	int id_temp;
+    	int i;
+    	
+    	for(int j = start + 1; j <= stop; j++)
+    	{
+    		property_temp = property[j];
+    		id_temp = id[j];
+    		i = j - 1;
+    		while(i >= start && property[i] > property_temp)
+    		{
+    			property[i + 1] = property[i];
+    			id[i+1] = id[i];
+    			i = i - 1;
+    		}
+    		property[i + 1] = property_temp;
+    		id[i + 1] = id_temp; 
+    	}
+    }
+    
     protected void switchindex(int from_index, int to_index)
     {
         int temp;
@@ -194,15 +230,13 @@ public class PivotPartitioning implements PlacementAlgorithm
         double[]    min_hamming_distance = new double[id.length];
         int         div_rate_non_pivot; 
         int         div_rate_pivot;
-        int         step = 0;
         int         rows_first_region;
         int         cols_first_region;
         int         rows_second_region;
         int         cols_second_region;
         int         overflow;
         int         unplaced;
-        Vector      visited_first;
-        Vector      visited_second;
+        
         
         // check whether there are enough pivots for further partinioning
         if (stop_pivot - start_pivot < 1)
@@ -256,24 +290,18 @@ public class PivotPartitioning implements PlacementAlgorithm
             // find 2 suitable pivots for adjusting the rest of the probes  
             do
             {
-                maxMinHammingDistancePivots(start_pivot, stop_pivot, visited_first, visited_second);
+                maxMinHammingDistancePivots(start_pivot, stop_pivot, visited);
+                // compute hamming distance for non pivots and flag it to which pivot it belongs
+                computeDistance(min_hamming_distance, start_pivot, stop_pivot, start_pivot + 1, stop_pivot - 1);
+                synchronousMergeSort(min_hamming_distance, start_pivot +1, stop_pivot - 1);
                 cut_pivot = getBorder(min_hamming_distance, start_pivot +1, stop_pivot - 1);
                 div_rate_pivot = (cut_pivot - start_pivot) / (stop_pivot - start_pivot + 1);
             }
             while (div_rate_pivot < DIV_RATE_PIVOT);
             // compute hamming distance for non pivots and flag it to which pivot it belongs
             computeDistance(min_hamming_distance, start_pivot, stop_pivot, start_non_pivot, stop_non_pivot);
-            
-            // compute hamming distance for non pivots and flag it to which pivot it belongs
-            computeDistance(min_hamming_distance, start_pivot, stop_pivot, start_pivot + 1, stop_pivot - 1);
-            
             synchronousMergeSort(min_hamming_distance, start_non_pivot, stop_non_pivot);
-            
-            synchronousMergeSort(min_hamming_distance, start_pivot +1, stop_pivot - 1);
-            
             cut_non_pivot = getBorder(min_hamming_distance, start_non_pivot, stop_non_pivot);
-            cut_pivot = getBorder(min_hamming_distance, start_pivot +1, stop_pivot - 1);
-            
             div_rate_non_pivot = (cut_non_pivot - start_non_pivot) / (stop_non_pivot - start_non_pivot + 1);
         }
         while (div_rate_non_pivot < DIV_RATE_NON_PIVOT);
@@ -395,18 +423,23 @@ public class PivotPartitioning implements PlacementAlgorithm
         
     }
     
-    private void maxMinHammingDistancePivots(int start_pivot, int stop_pivot, int step)
+    private void maxMinHammingDistancePivots(int start_pivot, int stop_pivot, Vector<Integer> visited)
     {
         double max_distance = -1;
         Integer[] max_distance_pivots = new Integer[2];
         for (int e1 = start_pivot; e1 <= stop_pivot; e1++)
         {
-            for (int e2 = start_pivot + step; e2 <= stop_pivot - step; e2++)
+            for (int e2 = start_pivot; e2 <= stop_pivot; e2++)
             {
                 if (e1 == e2)
                 {
                     continue;
                 }
+                if (visited.contains(e1 + e2))
+                {
+                	continue;
+                }
+                                
                 double distance = embedder.minDistanceProbe(id[e1], id[e2]);
                 if (max_distance < distance )
                 {
@@ -418,7 +451,12 @@ public class PivotPartitioning implements PlacementAlgorithm
         }
         if (max_distance_pivots[0] != null && max_distance_pivots[1] != null)
         {
-            switchindex(max_distance_pivots[0], start_pivot);
+            if(!visited.contains(max_distance_pivots[0] + max_distance_pivots[1]))
+            {
+            	visited.add(max_distance_pivots[0] + max_distance_pivots[1]);
+            }
+            
+        	switchindex(max_distance_pivots[0], start_pivot);
             switchindex(max_distance_pivots[1], stop_pivot);
         }
         else 
