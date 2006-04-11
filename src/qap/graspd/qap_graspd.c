@@ -39,9 +39,11 @@
  * This program provides an interface from ArrayOpt's API to an implementation
  * of the following QAP (Quadratic Assignment Problem) solver:
  *
- * Method: GRASP for dense QAP
- * Implementation: Fortran
- * Provided by: Mauricio G. C. Resende
+ * Method:       GRASP for dense QAP
+ * Language:     Fortran
+ * Authors:      M.G.C. Resende (AT&T Bell Laboratories)
+ *               Y. Li (Penn State University)
+ *               P.M. Pardalos (University of Florida)
  * Available at: http://www.research.att.com/~mgcr/
  *
  */
@@ -77,7 +79,7 @@ JNIEXPORT jlong JNICALL Java_arrayopt_qap_GraspDense_qap_1graspd
 		jint look4, jintArray dist, jintArray flow, jintArray sol,
 		jintArray in_out)
 {
-	int	n2, seed, bestv, iter;
+	int	i, n2, seed, bestv, iter;
 	int	*a, *b, *srtf, *srtif, *srtd, *srtid, *srtc, *srtic, *idxd, *idxf,
 		*cost, *fdind;
 
@@ -116,6 +118,11 @@ JNIEXPORT jlong JNICALL Java_arrayopt_qap_GraspDense_qap_1graspd
 	QAP_GRASP_DENSE (n,n2,niter,alpha,beta,look4,seed,f,d,a,b,
 						srtf,srtif,srtd,srtid,srtc,srtic,idxd,
 						idxf,cost,fdind,opta,bestv,iter);
+
+	// permutation returned starts with 1, but
+	// the Java code expects it to start with zero
+	for (i = 0; i < n; i++)
+		opta[i] -= 1;
 
 	// workaround: copy values returned by the Fortran subroutine back
 	// to the array passed by the Java call (passing a pointer doesn't work)
