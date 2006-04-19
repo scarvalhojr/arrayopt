@@ -40,121 +40,137 @@ package arrayopt.layout;
 import arrayopt.qap.*;
 
 /**
+ * This class models and solves the placement problem as an instance of a
+ * quadratic assignment problem (QAP). This class makes a parallel between the
+ * probe placement problem and a classic example of a QAP known as the facility
+ * location problem, which is the problem of assigning facilities to locations.
+ * The facility location problem has two components, a flow matrix (which stores
+ * the flow of materials between the facilities) and a distance matrix (which
+ * contains the distance between the locations). The flow of materials has a
+ * cost, and thus the problem is to find an assignment of facilities to
+ * locations with minimum cost.</P>
+ * 
+ * <P>This class can be combined with several QAP solvers available in the
+ * {@link arrayopt.qap} package to work as a {@link PlacementAlgorithm} or as a
+ * {@link FillingAlgorithm}, for instance. The placement problem is modelled as
+ * decribed in the paper:<BR>
+ * 
+ * TODO add reference to the paper with QAP modelling</P>
+ * 
+ * <P>Two matrices are created: the flow matrix and the distance matrix
+ * (mimicking the facility location). These matrices are then passed to the
+ * {@link arrayopt.qap.QAPSolverAlgorithm} that was given to the constructor of
+ * this class. The solution is a permutation that is mapped back to an
+ * assignment of probes to spots.</P>
+ * 
+ * <P>The matrices can be constructed to model the placement problem as to
+ * minimize the sum of border lengths ({@link #MODE_BORDER_LENGTH}) or conflict
+ * indices ({@link #MODE_CONFLICT_INDEX}). The public constants are used to
+ * configure the class behavior at instantiation time.</P> 
+ * 
+ * <P>Note that the QAP solvers, at the moment, only work with integer values.
+ * This is not a problem when the goal is to minimize the total border length.
+ * For conflict index minimization, however, it means that it is necessary to
+ * map the decimal numbers returned by {@link ConflictIndex} to integer numbers.
+ * This is done by multiplying the values by a constant and rounding to the
+ * nearest integer, which may impair the results.</P>
  *
- * in case of concurrent access callers should synchronize on this object
  */
-public class QAPOptimization implements IteractiveOptimizationAlgorithm,
-	FillingAlgorithm, PlacementAlgorithm
+public class QAPOptimization implements PlacementAlgorithm, FillingAlgorithm,
+	PostPlacementAlgorithm, IteractiveOptimizationAlgorithm
 {
+	// TODO rename class to QuadraticAssignment
+	
+	// TODO handle fixed spots
+	
+	// TODO swap the flow and distance matrix (to be consistent with the
+	// approach described in the paper)
+	
 	/**
-	 * TEMPORARY: FOR TESTING ONLY
-	 *
-	 * REMOVE THIS AND THE 'implements PlacementAlgorithm' above!
-	 */
-	public int makeLayout (Chip chip)
-	{
-		int		id[];
-
-		// reset current layout (if any)
-		chip.resetLayout();
-
-		// get list of movable probes
-		id = chip.getMovableProbes ();
-
-		return fillRegion (chip, chip.getChipRegion(), id, 0, id.length - 1);
-	}
-
-	/**
-	 * document this
-	 */
-	protected QAPSolverAlgorithm solver;
-
-	/**
-	 * document this
-	 */
-	protected int mode;
-
-	/**
-	 * document this
+	 * Constant to indicate that the goal is to reduce the sum of border
+	 * lengths. 
 	 */
 	public static final int MODE_BORDER_LENGTH = 0;
 
 	/**
-	 * document this
+	 * Constant to indicate that the goal is to reduce the sum of conflict
+	 * indices.
 	 */
 	public static final int MODE_CONFLICT_INDEX = 1;
 
 	/**
-	 * document this
+	 * An instance of a {@link QAPSolverAlgorithm} used to solve the resulting
+	 * QAP instances. 
 	 */
-	public static final int DEFAULT_MODE = MODE_CONFLICT_INDEX;
+	private QAPSolverAlgorithm solver;
 
 	/**
-	 * document this
+	 * Indicates whether the goal is to minimize the sum of border lengths or
+	 * conflict indices.
 	 */
-	protected int[] spot_dist;
+	private int mode;
 
 	/**
-	 * document this
+	 * Constant used to map double values to integers.
 	 */
-	protected int[] probe_dist;
+	private static final int DOUBLE2INT_MULT = 100;
 
 	/**
-	 * document this
+	 * Distance between the spots (flow matrix of QAP).
 	 */
-	protected int[] perm;
+	private int[] spot_dist;
 
 	/**
-	 * document this
+	 * Distance between the probes (distance matrix of QAP).
 	 */
-	protected int[] p_id;
+	private int[] probe_dist;
 
 	/**
-	 * document this
-	 *
-	 * dimension of current/last instance
+	 * Permutation representing the (optimal or approximate) solution to the
+	 * resulting QAP. 
 	 */
-	protected int dim;
+	private int[] perm;
 
 	/**
-	 * document this
+	 * IDs of probes that are to be assigned to spots.
 	 */
-	protected RectangularRegion region;
+	private int[] p_id;
 
 	/**
-	 * document this
-	 *
-	 * height of last rectangular region
+	 * Dimension of current or QAP instance being solved (or last solved
+	 * instance).
 	 */
-	protected int last_height;
+	private int dim;
 
 	/**
-	 * document this
-	 *
-	 * width of last rectangular region
+	 * Region of the chip where probes must be placed.
 	 */
-	protected int last_width;
+	private RectangularRegion region;
 
 	/**
-	 * document this
+	 * Height (number of rows) of the (rectangular) region related to the
+	 * current or last QAP instance.
 	 */
-	protected int rows_per_probe;
+	private int last_height;
 
 	/**
-	 * document this
+	 * Width (number of columns) of the (rectangular) region related to the
+	 * current or last QAP instance.
 	 */
-	protected int empty_dist;
+	private int last_width;
 
 	/**
-	 * document this
+	 * Number of rows taken by each probe of the chip, i.e. 1 in case of a
+	 * {@link SimpleChip} or 2 in case of a {@link AffymetrixChip}.
 	 */
-	public QAPOptimization (QAPSolverAlgorithm solver)
-	{
-		this (solver, DEFAULT_MODE);
-	}
+	private int rows_per_probe;
 
 	/**
-	 * document this
+	 * Creates an QAP placer using a given {@link QAPSolverAlgorithm} with the
+	 * desired minimization goal.
+	 *   
+	 * @param solver an instance of QAP solver algorithm
+	 * @param mode border length or conflict index minimization
 	 */
 	public QAPOptimization (QAPSolverAlgorithm solver, int mode)
 	{
@@ -177,92 +193,140 @@ public class QAPOptimization implements IteractiveOptimizationAlgorithm,
 	}
 
 	/**
-	 * document this
-	 *
-	 * should be synchronized
+	 * Returns the current minimization mode, i.e. border length
+	 * ({@link #MODE_BORDER_LENGTH}) or conflict index
+	 * ({@link #MODE_CONFLICT_INDEX}).
+	 * 
+	 * @return current minimization mode
 	 */
-	public float optimizeLayout (Chip chip, Region region)
+	public int getMode()
 	{
-		int		num_probes, unplaced;
-		long	curr_cost, sol_cost, new_cost;
+		return mode;
+	}
+
+	/**
+	 * Sets the minimization mode, i.e. border length
+	 * ({@link #MODE_BORDER_LENGTH}) or conflict index
+	 * ({@link #MODE_CONFLICT_INDEX}).
+	 * 
+	 * @param mode minimization mode
+	 */
+	public void setMode (int mode)
+	{
+		this.mode = mode;
+	}
+
+	/**
+	 * Creates the layout of a chip using the {@link QAPSolverAlgorithm} with
+	 * the aim of minimizing the sum of border lengths or conflict indices.
+	 * 
+	 * @param chip chip to be designed
+	 * @return number of unplaced probes
+	 */
+	public int makeLayout (Chip chip)
+	{
+		int		id[];
+
+		// reset current layout (if any)
+		chip.resetLayout();
+
+		// get list of all probes
+		id = chip.getAllProbes ();
 		
-		// prepare object to handle the
-		// current problem's dimension
-		configure (chip, region);
+		return fillRegion (chip, chip.getChipRegion(), id, 0, id.length - 1);
+	}
+	
+	/**
+	 * Optimizes the chip's current layout using the {@link QAPSolverAlgorithm}
+	 * with the aim of minimizing the sum of border lengths or conflict indices.
+	 * 
+	 * @param chip chip to be optimized 
+	 */
+	public void optimizeLayout (Chip chip)
+	{
+		optimizeLayout (chip, chip.getChipRegion());
+	}
+	
+	/**
+	 * Optimizes the layout of a region of the chip using the
+	 * {@link QAPSolverAlgorithm} with the aim of minimizing the sum of border
+	 * lengths or conflict indices.
+	 * 
+	 * @param chip a chip 
+	 * @param r region to be optimized
+	 * @return reduction in border length or conflict index 
+	 */
+	public float optimizeLayout (Chip chip, Region r)
+	{
+		int		num_probes, unplaced = 0;
+		long	curr_cost, sol_cost;
 		
-		// collect the probe IDs currently
-		// placed on the region
+		// prepare object to handle the current problem's dimension
+		configure (chip, r);
+		
+		// collect the probe IDs currently placed on the region
 		num_probes = collectProbeIDs (chip);
 		
 		computeProbeDistance (chip, this.p_id, 0, num_probes - 1);
-
-		// compute current cost
-		curr_cost = 0;
-		for (int i = 0; i < dim; i++)
-			for (int j = 0; j < dim; j++)
-				curr_cost += spot_dist[i * dim + j] * probe_dist[i * dim + j];
-
-		System.err.println ("current cost: " + curr_cost);
 		
-		// solve QAP
+		curr_cost = solver.computeCost (dim, spot_dist, probe_dist, perm);
+
 		sol_cost = solver.solve (dim, spot_dist, probe_dist, perm);
 		
-		System.err.println ("solution cost: " + sol_cost);
-
-		// compute new cost
-		new_cost = 0;
-		for (int i = 0; i < dim; i++)
-			for (int j = 0; j < dim; j++)
-				new_cost += spot_dist[i * dim + j] * probe_dist[(perm[i] - 1) * dim + (perm[j] - 1)];
-		
-		if (new_cost != sol_cost)
-			System.err.println ("CAREFUL: new cost is different: " + new_cost);
-		
-		if (sol_cost > curr_cost)
-		{
-			// current layout could not be improved
-			return 0;
-		}
-
 		// place probes according to the optimal permutation
-		unplaced = 0;
 		if (chip instanceof SimpleChip)
+		{
 			unplaced += applyPermutation ((SimpleChip) chip, this.p_id,
 											0, num_probes - 1);
+		}
 		else
+		{
 			unplaced += applyPermutation ((AffymetrixChip) chip, this.p_id,
 											0, num_probes - 1);
+		}
+		
 		if (unplaced > 0)
-			System.err.println (unplaced + " probes lost in the relocation");
+			throw new IllegalStateException (unplaced +
+					" probes lost in the optimization.");
 			
 		// return the improvement rate
 		return (curr_cost - sol_cost) / (float) curr_cost;
 	}
 
 	/**
-	 * document this
+	 * Fills a given region of a chip with a set of probes using the
+	 * {@link QAPSolverAlgorithm} with the aim of minimizing the sum of border
+	 * lengths or conflict indices.
+	 * 
+	 * @param chip a chip
+	 * @param r region where probes must be placed
+	 * @param probe_id set of probe IDs
+	 * @return number of unplaced probes
 	 */
-	public int fillRegion (Chip chip, Region region, int probe_id[])
+	public int fillRegion (Chip chip, Region r, int probe_id[])
 	{
-		return fillRegion (chip, region, probe_id, 0, probe_id.length - 1);
+		return fillRegion (chip, r, probe_id, 0, probe_id.length - 1);
 	}
 
 	/**
-	 * document this
-	 *
-	 * should be synchronized
+	 * Fills a given region of a chip with a set of probes using the
+	 * {@link QAPSolverAlgorithm} with the aim of minimizing the sum of border
+	 * lengths or conflict indices.
+	 * 
+	 * @param chip a chip
+	 * @param r region where probes must be placed
+	 * @param probe_id array containing the probe IDs
+	 * @param start first element of the array to be placed
+	 * @param end last element of the array to be placed
+	 * @return number of unplaced probes
 	 */
-	public int fillRegion (Chip chip, Region region, int probe_id[], int start,
+	public int fillRegion (Chip chip, Region r, int probe_id[], int start,
 		int end)
 	{
-		int		num_probes, unplaced;
-		long	curr_cost, sol_cost, comp_cost;
+		int num_probes, unplaced;
 		
-		System.err.println("fillRegion; region = " + region);
-		
-		// prepare object to handle the
-		// current problem's dimension
-		configure (chip, region);
+		// prepare internal structures
+		configure (chip, r);
 		
 		// check if number of probes fit in the region
 		if ((num_probes = end - start + 1) > dim)
@@ -277,64 +341,54 @@ public class QAPOptimization implements IteractiveOptimizationAlgorithm,
 			unplaced = 0;
 		}
 		
+		// create initial permutation
+		for (int i = 0; i < dim; i++)
+			this.perm[i] = i;
+		
 		// compute probe distance matrix
 		computeProbeDistance (chip, probe_id, start, end);
 
-		// REMOVE THIS!
-		curr_cost = 0;
-		for (int i = 0; i < dim; i++)
-			for (int j = 0; j < dim; j++)
-				curr_cost += spot_dist[i * dim + j] * probe_dist[i * dim + j];
-
 		// solve QAP
-		sol_cost = solver.solve (dim, spot_dist, probe_dist, perm);
+		solver.solve (dim, spot_dist, probe_dist, perm);
 
 		// place probes according to the optimal permutation
 		if (chip instanceof SimpleChip)
+		{
 			unplaced += applyPermutation ((SimpleChip) chip, probe_id,
 											start, end);
+		}
 		else
+		{
 			unplaced += applyPermutation ((AffymetrixChip) chip, probe_id,
 											start, end);
+		}
 
 		return unplaced;
 	}
 
 	/**
-	 * document this
+	 * Prepare the internal data structures to handle the QAP instance to be
+	 * solved.
 	 */
-	protected void configure (Chip chip, Region r)
+	private void configure (Chip chip, Region r)
 	{
-		int	curr_height, curr_width, curr_dim;
-		int					num_probes, unplaced;
-		int					start, end;
-		long				curr_cost, sol_cost, new_cost;
+		int		curr_height, curr_width, curr_dim;
 		
 		if (!(r instanceof RectangularRegion))
 			throw new IllegalArgumentException
 				("Only rectangular regions are supported.");
 		
-		// save references to the problem's data
 		this.region = (RectangularRegion) r;
 
 		if (chip instanceof SimpleChip)
 		{
 			// simple chips use 1 row per probe
 			this.rows_per_probe = 1;
-
-			// distance from empty string to any probe
-			// equals probe length
-			this.empty_dist = chip.getProbeLength();
 		}
 		else if (chip instanceof AffymetrixChip)
 		{
 			// affymetrix chips use 2 rows per probe (pair)
 			this.rows_per_probe = 2;
-
-			// distance from empty string to any probe
-			// equals probe length + 1 since probes appear
-			// in pairs which differ in the middle base
-			this.empty_dist = chip.getProbeLength() + 1;
 		}
 		else
 			throw new IllegalArgumentException
@@ -343,11 +397,14 @@ public class QAPOptimization implements IteractiveOptimizationAlgorithm,
 		// problem's dimension (number of spots in region)
 		curr_height = (region.last_row - region.first_row + 1) / rows_per_probe;
 		curr_width = region.last_col - region.first_col + 1;
-		curr_dim = curr_height * curr_width;
 
-		// alocate new arrays if current dimension differs
-		// from the dimension of the last solved problem
-		if (curr_dim != this.dim)
+		if (curr_height == this.last_height && curr_width == this.last_width)
+			// region dimensions are the same as last time
+			return;
+		
+		// alocate new arrays if current problem's dimension
+		// is not equal to the last solved problem
+		if ((curr_dim = curr_height * curr_width) != this.dim)
 		{
 			this.dim = curr_dim;
 			this.spot_dist = new int [dim * dim];
@@ -356,35 +413,45 @@ public class QAPOptimization implements IteractiveOptimizationAlgorithm,
 			this.p_id = new int [dim];
 		}
 		
-		// check if need to recompute
-		// the spot distance matrix
-		if (this.last_height != curr_height || this.last_width != curr_width)
-		{
-			computeSpotDistance ();
+		// recompute spot distance matrix
+		computeSpotDistance ();
 			
-			// save dimensions to allow
-			// future reuse of the matrix
-			this.last_height = curr_height;
-			this.last_width = curr_width;
-		}
+		// save dimensions to allow future
+		// reuse of the spot distance matrix
+		this.last_height = curr_height;
+		this.last_width = curr_width;
 	}
 	
-	protected int collectProbeIDs (Chip chip)
+	/**
+	 * Collects the probe IDs currently placed on the chip.
+	 */
+	private int collectProbeIDs (Chip chip)
 	{
-		int r, c, i;
+		int r, c, n, last;
 		
-		i = 0;
+		n = 0;
 		r = region.first_row;
 		c = region.first_col;
+		last = dim - 1;
 
-		while (c <= region.last_col)
+		for (int s = 0; c <= region.last_col; s++)
 		{
-			// skip fixed and empty spots
-			if (!chip.isFixedSpot(r, c) && chip.spot[r][c] != chip.EMPTY_SPOT)
+			// cannot handle fixed spots at the moment
+			if (chip.isFixedSpot(r, c))
+				throw new IllegalArgumentException
+					("Current implementation cannot handle fixed spots.");
+
+			if (chip.spot[r][c] != Chip.EMPTY_SPOT)
 			{
-				this.p_id[i++] = chip.spot[r][c];
+				this.perm[s] = n;
+				this.p_id[n] = chip.spot[r][c];
+				n++;
 			}
-				
+			else
+			{
+				this.perm[s] = last--;
+			}
+			
 			r += rows_per_probe;
 
 			if (r > region.last_row)
@@ -394,15 +461,18 @@ public class QAPOptimization implements IteractiveOptimizationAlgorithm,
 			}
 		}
 		
-		return i;
+		// return number of probes found
+		return n;
 	}
 
 	/**
-	 * document this
+	 * Compute the distance between the spots (the flow matrix).
 	 */
-	protected void computeSpotDistance ()
+	private void computeSpotDistance ()
 	{
-		int		s1, s1_row, s1_col, s2, s2_row, s2_col, v_dist, h_dist, d;
+		int	ci_dim, s1, s1_row, s1_col, s2, s2_row, s2_col, v_dist, h_dist, d;
+		
+		ci_dim = ConflictIndex.dimConflictRegion();
 		
 		s1 = 0;
 		s1_row = region.first_row;
@@ -427,9 +497,11 @@ public class QAPOptimization implements IteractiveOptimizationAlgorithm,
 				}
 				else // mode == MODE_CONFLICT_INDEX
 				{
-					if (h_dist <= 3 && v_dist <= 3)
-						// we need integer values
-						d = (int) (1000 * LayoutEvaluation.WEIGHT_DIST[3 + v_dist][3 + h_dist]);
+					if (h_dist <= ci_dim && v_dist <= ci_dim)
+						// have to use integer values 
+						d = (int) Math.round(DOUBLE2INT_MULT *
+									ConflictIndex.distanceWeight(s1_row, s1_col,
+										s2_row, s2_col));
 				}
 
 				spot_dist[s1 * dim + s2] = d;
@@ -457,12 +529,25 @@ public class QAPOptimization implements IteractiveOptimizationAlgorithm,
 			s1++;
 		}
 	}
+	
+	/**
+	 * Compute the distance between the probe embeddings (the distance matrix).
+	 */
+	private void computeProbeDistance (Chip chip, int id[], int start,
+			int end)
+	{
+		if (mode == MODE_BORDER_LENGTH)
+			computeBorderLengthDistance (chip, id, start, end);
+		else // if (mode == MODE_CONFLICT_INDEX)
+			computeConflictIndexDistance (chip, id, start, end);
+	}
 
 	/**
-	 * document this
+	 * Compute the distance between the probe embeddings (the distance matrix)
+	 * according to the border length minimization model.
 	 */
-	protected void computeProbeDistance (Chip chip, int id[],
-		int start, int end)
+	private void computeBorderLengthDistance (Chip chip, int id[], int start,
+			int end)
 	{
 		int i, j, num_probes, dist, id_i;
 		
@@ -476,10 +561,8 @@ public class QAPOptimization implements IteractiveOptimizationAlgorithm,
 
 			for (j = i + 1; j < num_probes; j++)
 			{
-				// to do: DISTANCE MUST TAKE INTO ACCOUNT POSITION-DEPENDENT WEIGHTS
-				// dist = LayoutEvaluation.weightedDistance (chip, id_i, id[start + j]);
-
-				dist = LayoutEvaluation.hammingDistance (chip, id_i, id[start + j]);
+				dist = LayoutEvaluation.hammingDistance (chip, id_i,
+						id[start + j]);
 
 				probe_dist[i * dim + j] = dist;
 				probe_dist[j * dim + i] = dist;
@@ -487,27 +570,75 @@ public class QAPOptimization implements IteractiveOptimizationAlgorithm,
 
 			for (j = num_probes; j < dim; j++)
 			{
-				probe_dist[i * dim + j] = empty_dist;
-				probe_dist[j * dim + i] = empty_dist;
+				// distance to "empty" probes is always zero 
+				probe_dist[i * dim + j] = probe_dist[j * dim + i] = 0;
 			}
 		}
 
+		// distance between "empty" probes is always zero
 		for (i = num_probes; i < dim; i++)
 		{
 			probe_dist[i * dim + i] = 0;
 
 			for (j = i + 1; j < dim; j++)
-			{
-				probe_dist[i * dim + j] = 0;
-				probe_dist[j * dim + i] = 0;
-			}
+				probe_dist[i * dim + j] = probe_dist[j * dim + i] = 0;
 		}
 	}
 
 	/**
-	 * package access
+	 * Compute the distance between the probe embeddings (the distance matrix)
+	 * according to the conflict index minimization model.
 	 */
-	protected int applyPermutation (SimpleChip chip, int id[], int start,
+	private void computeConflictIndexDistance (Chip chip, int id[], int start,
+			int end)
+	{
+		int i, j, num_probes, id_i;
+		double d;
+		
+		num_probes = end - start + 1;
+
+		for (i = 0; i < num_probes; i++)
+		{
+			probe_dist[i * dim + i] = 0;
+
+			id_i = id[start + i];
+
+			for (j = i + 1; j < num_probes; j++)
+			{
+				d = LayoutEvaluation.weightedDistance (chip, id_i,
+						id[start + j]);
+				
+				// convert to integer
+				probe_dist[i * dim + j] = (int) Math.round(d * DOUBLE2INT_MULT);
+
+				d = LayoutEvaluation.weightedDistance (chip, id[start + j],
+						id_i);
+
+				// convert to integer
+				probe_dist[j * dim + i] = (int) Math.round(d * DOUBLE2INT_MULT);
+			}
+
+			for (j = num_probes; j < dim; j++)
+			{
+				// distance to "empty" probes is always zero
+				probe_dist[i * dim + j] = probe_dist[j * dim + i] = 0;
+			}
+		}
+
+		// distance between "empty" probes is always zero
+		for (i = num_probes; i < dim; i++)
+		{
+			probe_dist[i * dim + i] = 0;
+
+			for (j = i + 1; j < dim; j++)
+				probe_dist[i * dim + j] = probe_dist[j * dim + i] = 0;
+		}
+	}
+
+	/**
+	 * Use the QAP solution to assign probes to spots.
+	 */
+	private int applyPermutation (SimpleChip chip, int id[], int start,
 		int end)
 	{
 		int	r, c, num_probes, unplaced = 0;
@@ -518,27 +649,17 @@ public class QAPOptimization implements IteractiveOptimizationAlgorithm,
 
 		for (int i = 0; i < dim; i++)
 		{
-			if (chip.isFixedSpot(r, c))
+			if (perm[i] >= num_probes)
 			{
-				unplaced++;
+				// empty probe
+				chip.spot[r][c] = Chip.EMPTY_SPOT;
 			}
 			else
 			{
-				if (perm[i] > num_probes)
-				{
-					// empty probe
-					chip.spot[r][c] = chip.EMPTY_SPOT;
-				}
-				else
-				{
-					chip.spot[r][c] = id[start + perm[i] - 1];
-				}
+				chip.spot[r][c] = id[start + perm[i]];
 			}
 
-			// should be row-by-row, left to right
-			r ++;
-
-			if (r > region.last_row)
+			if (++r > region.last_row)
 			{
 				c ++;
 				r = region.first_row;
@@ -549,9 +670,9 @@ public class QAPOptimization implements IteractiveOptimizationAlgorithm,
 	}
 
 	/**
-	 * package access
+	 * Use the QAP solution to assign probes to spots.
 	 */
-	protected int applyPermutation (AffymetrixChip chip, int id[], int start,
+	private int applyPermutation (AffymetrixChip chip, int id[], int start,
 		int end)
 	{
 		int	r, c, num_probes, unplaced = 0;
@@ -568,23 +689,20 @@ public class QAPOptimization implements IteractiveOptimizationAlgorithm,
 			}
 			else
 			{
-				if (perm[i] > num_probes)
+				if (perm[i] >= num_probes)
 				{
 					// empty probe
-					chip.spot[r][c] = chip.EMPTY_SPOT;
-					chip.spot[r + 1][c] = chip.EMPTY_SPOT;
+					chip.spot[r][c] = Chip.EMPTY_SPOT;
+					chip.spot[r + 1][c] = Chip.EMPTY_SPOT;
 				}
 				else
 				{
-					chip.spot[r][c] = id[start + perm[i] - 1];
-					chip.spot[r + 1][c] = id[start + perm[i] - 1] + 1;
+					chip.spot[r][c] = id[start + perm[i]];
+					chip.spot[r + 1][c] = id[start + perm[i]] + 1;
 				}
 			}
 
-			// should be row-by-row, left to right
-			r += 2;
-
-			if (r > region.last_row)
+			if ((r += 2) > region.last_row)
 			{
 				c ++;
 				r = region.first_row;
