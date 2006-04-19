@@ -72,11 +72,11 @@ public class GraspSparse extends QAPSolverAlgorithm
 
 	protected int in_out[];
 
-	public static final int DEFAULT_MAX_ITERACTIONS = 100;
+	public static final int DEFAULT_MAX_ITERACTIONS = 32;
 
-	public static final float DEFAULT_ALPHA = .25f;
+	public static final float DEFAULT_ALPHA = .1f;
 
-	public static final float DEFAULT_BETA = .5f;
+	public static final float DEFAULT_BETA = .4f;
 
 	public static final int DEFAULT_SEED = 270001;
 
@@ -103,13 +103,14 @@ public class GraspSparse extends QAPSolverAlgorithm
 	 * Native method (in C) that calls the Fortran implementation.
 	 */
 	private native long qap_grasps (int dim, int niter, float alpha_,
-		float beta_, int look4, int dist[], int flow[], int sol[], int in_out_[]);
+		float beta_, int look4, int dist[], int flow[], int sol[],
+		int in_out_[]);
 
 	/**
 	 *
 	 */
 	@Override
-	public long solve (int dim, int dist[], int flow[], int sol[])
+	long solveQAP (int dim, int dist[], int flow[], int sol[])
 	{
 		long cost;
 		int look4 = -1;
@@ -125,10 +126,9 @@ public class GraspSparse extends QAPSolverAlgorithm
 		return cost;
 	}
 
-	public void setPhase1Parameters (float alpha, float beta)
+	public void setAlpha (float alpha)
 	{
 		this.alpha = alpha;
-		this.beta = beta;
 	}
 
 	public float getAlpha ()
@@ -136,6 +136,11 @@ public class GraspSparse extends QAPSolverAlgorithm
 		return this.alpha;
 	}
 
+	public void setBeta (float beta)
+	{
+		this.beta = beta;
+	}
+	
 	public float getBeta ()
 	{
 		return this.beta;

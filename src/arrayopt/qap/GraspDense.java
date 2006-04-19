@@ -72,11 +72,11 @@ public class GraspDense extends QAPSolverAlgorithm
 
 	protected int in_out[];
 
-	public static final int DEFAULT_MAX_ITERACTIONS = 100;
+	public static final int DEFAULT_MAX_ITERACTIONS = 32;
 
-	public static final float DEFAULT_ALPHA = .25f;
+	public static final float DEFAULT_ALPHA = .1f;
 
-	public static final float DEFAULT_BETA = .5f;
+	public static final float DEFAULT_BETA = .4f;
 
 	public static final int DEFAULT_SEED = 270001;
 
@@ -85,9 +85,9 @@ public class GraspDense extends QAPSolverAlgorithm
 		this (DEFAULT_MAX_ITERACTIONS, DEFAULT_ALPHA, DEFAULT_BETA, DEFAULT_SEED);
 	}
 
-	public GraspDense (int max_iteractions)
+	public GraspDense (int max_iter)
 	{
-		this (max_iteractions, DEFAULT_ALPHA, DEFAULT_BETA, DEFAULT_SEED);
+		this (max_iter, DEFAULT_ALPHA, DEFAULT_BETA, DEFAULT_SEED);
 	}
 
 	public GraspDense (int max_iter, float alpha, float beta, int seed)
@@ -103,13 +103,12 @@ public class GraspDense extends QAPSolverAlgorithm
 	 * Native method (C->Fortran).
 	 */
 	private native long qap_graspd (int dim, int niter, float alpha_,
-		float beta_, int look4, int dist[], int flow[], int sol[], int in_out_[]);
+		float beta_, int look4, int dist[], int flow[], int sol[],
+		int in_out_[]);
+	// TODO remove runs parameter (not used)
 
-	/**
-	 *
-	 */
 	@Override
-	public long solve (int dim, int dist[], int flow[], int sol[])
+	long solveQAP (int dim, int dist[], int flow[], int sol[])
 	{
 		long cost;
 		int look4 = -1;
@@ -118,22 +117,26 @@ public class GraspDense extends QAPSolverAlgorithm
 
 		cost = qap_graspd (dim, max_iter, alpha, beta, look4,
 							dist, flow, sol, in_out);
-
+		
 		this.seed = in_out[0];
 		this.last_num_iter = in_out[1];
 
 		return cost;
 	}
 
-	public void setPhase1Parameters (float alpha, float beta)
+	public void setAlpha (float alpha)
 	{
 		this.alpha = alpha;
-		this.beta = beta;
 	}
 
 	public float getAlpha ()
 	{
 		return this.alpha;
+	}
+
+	public void setBeta (float beta)
+	{
+		this.beta = beta;
 	}
 
 	public float getBeta ()

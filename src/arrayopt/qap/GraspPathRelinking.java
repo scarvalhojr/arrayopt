@@ -82,7 +82,7 @@ public class GraspPathRelinking extends QAPSolverAlgorithm
 
 	public static final float DEFAULT_ALPHA = .1f;
 
-	public static final float DEFAULT_BETA = .5f;
+	public static final float DEFAULT_BETA = .4f;
 	
 	public static final int DEFAULT_ELITE_SIZE = 10;
 
@@ -105,7 +105,11 @@ public class GraspPathRelinking extends QAPSolverAlgorithm
 		this.max_iter = max_iter;
 		this.alpha = alpha;
 		this.beta = beta;
-		this.seed = seed;
+		
+		// TODO use random seed?
+		// this.seed = (int) (Short.MAX_VALUE * Math.random());
+		this.seed = DEFAULT_SEED;
+		
 		this.elite_size = elite_size;
 		this.in_out = new int [2];
 	}
@@ -121,20 +125,23 @@ public class GraspPathRelinking extends QAPSolverAlgorithm
 	 *
 	 */
 	@Override
-	public long solve (int dim, int dist[], int flow[], int sol[])
+	long solveQAP (int dim, int dist[], int flow[], int sol[])
 	{
 		long cost;
 		int look4 = -1;
 		int max_time = 0;
 
+		// TODO remove this as the C code does not return an updated seed
 		this.in_out[0] = seed;
 
 		cost = qap_grasppr (dim, flow, dist, sol, alpha, beta, runs, max_iter,
 							look4, elite_size, max_time, in_out);
 
-		this.seed = in_out[0];
+		// TODO generate a new seed for the next call?
+		// this.seed = (int) (Short.MAX_VALUE * Math.random());
+		
 		this.last_num_iter = in_out[1];
-
+		
 		return cost;
 	}
 
