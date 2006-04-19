@@ -118,7 +118,7 @@ public class GreedyFiller implements PlacementAlgorithm, FillingAlgorithm
 	protected int fillRegion (SimpleChip chip, RectangularRegion region,
 		int probe_id[], int start, int end)
 	{
-		// TODO implement
+		// TODO implement this
 		return 0;
 	}
 
@@ -193,14 +193,14 @@ public class GreedyFiller implements PlacementAlgorithm, FillingAlgorithm
 				end = start + window_size - 1;
 		}
 
-		min_conflict = LayoutEvaluation.spotConflict(chip, row, col,
+		min_conflict = LayoutEvaluation.conflictIndex(chip, row, col,
 						probe_id[start]);
 
 		best_probe = start;
 
 		for (int i = start + 1; i <= end; i++)
 		{
-			conflict = LayoutEvaluation.spotConflict(chip, row, col,
+			conflict = LayoutEvaluation.conflictIndex(chip, row, col,
 						probe_id[i]);
 
 			if (conflict < min_conflict)
