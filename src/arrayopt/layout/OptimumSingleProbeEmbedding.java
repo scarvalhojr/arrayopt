@@ -61,12 +61,12 @@ package arrayopt.layout;
  * distance that any embedding of a probe can have to the current embedding of
  * another probe. (The distance depends on the chosen quality measure and whether
  * the location of the probes on the chip is taken into account.) This is
- * accomplished by the {@link minDistanceProbe} and {@link minDistanceSpot}
+ * accomplished by the {@link #minDistanceProbe} and {@link #minDistanceSpot}
  * methods (the first only considers the embeddings, while the latter also
  * considers the location of the probes on the chip).</P>
  * 
  * <P>The other main feature of this class is provided by the
- * {@link reembedProbe} and {@link reembedSpot} methods, which re-embeds a
+ * {@link #reembedProbe} and {@link #reembedSpot} methods, which re-embeds a
  * probe with the minimum distance.</P>
  *
  * <P>In fact, these methods have several signatures that allow the computed
@@ -86,7 +86,8 @@ package arrayopt.layout;
  * Instead, the {@link #createEmbedder} factory method should be called with a
  * chip instance and the desired type of minimization (either
  * {@link #BORDER_LENGTH_MIN} or {@link #CONFLICT_INDEX_MIN}) passed as
- * arguments. The returned object will provide the functionality specified
+ * arguments (see {@link ConflictIndex} for the exact definition of conflict
+ * index). The returned object will provide the functionality specified
  * here.</P>
  *
  * <P>This class is intended for use by other classes inside the layout package
@@ -131,7 +132,7 @@ public abstract class OptimumSingleProbeEmbedding
 	 * method.
 	 * 
 	 * <P>Border length minimization means that only immediate neighbors of a
-	 * spot are considered when {@link minDistanceSpot} or {@link reembedSpot}
+	 * spot are considered when {@link #minDistanceSpot} or {@link #reembedSpot}
 	 * are called. Also, any conflicts between the probes have the same
 	 * weight.</P>
 	 */
@@ -145,19 +146,18 @@ public abstract class OptimumSingleProbeEmbedding
 	 * 
 	 * <P>Conflict index minimization means that not only immediate neighbors
 	 * but also neighbors "close to" the spot are considered when
-	 * {@link minDistanceSpot} or {@link reembedSpot} are called. Also, the
+	 * {@link #minDistanceSpot} or {@link #reembedSpot} are called. Also, the
 	 * conflicts between the probes are weighted according to the position of
 	 * the base in the probe sequence which could be damaged by the conflict.
-	 * The exact values such weights are defined by the
-	 * {@linkplain LayoutEvaluation} class.
+	 * The exact values such weights are defined by the current definition of
+	 * conflict index (see {@link ConflictIndex}.</P>
 	 */
 	public static final int CONFLICT_INDEX_MIN = 1;
 	
 	/**
 	 * This constructor can only be accessed internally. For instantiating
-	 * objects of this class and sub-classes, use {@link createEmbedder}.  
+	 * objects of this class and sub-classes, use {@link #createEmbedder}.  
 	 * @param chip a chip instance
-	 * @param probe_len the length of the probes 
 	 */
 	protected OptimumSingleProbeEmbedding (Chip chip)
 	{
@@ -172,7 +172,6 @@ public abstract class OptimumSingleProbeEmbedding
 	 * ({@link #BORDER_LENGTH_MIN}).
 	 * 
 	 * @param c a chip instance  
-	 * @param mode type of the desired distance measure
 	 * @return an instance of an OptimumSingleProbeEmbedding for the type of
 	 * chip and the selected mode 
 	 */
@@ -187,7 +186,7 @@ public abstract class OptimumSingleProbeEmbedding
 	 * ({@link #BORDER_LENGTH_MIN} or {@link #CONFLICT_INDEX_MIN}).
 	 * 
 	 * @param c a chip instance  
-	 * @param mode type of the desired distance measure
+	 * @param mode desired conflict minimization function
 	 * @return an instance of an OptimumSingleProbeEmbedding for the type of
 	 * chip and the selected mode 
 	 */
@@ -200,19 +199,19 @@ public abstract class OptimumSingleProbeEmbedding
 		if (c instanceof SimpleChip)
 		{
 			if (mode == BORDER_LENGTH_MIN)
-				return new Simple.BorderLength ((SimpleChip) c);
+				return new Simple.BorderLengthMin ((SimpleChip) c);
 			
 			// else: CONFLICT_INDEX_MIN
-				return new Simple.ConflictIndex ((SimpleChip) c);
+				return new Simple.ConflictIndexMin ((SimpleChip) c);
 		}
 		
 		if (c instanceof AffymetrixChip)
 		{
 			if (mode == BORDER_LENGTH_MIN)
-				return new Affymetrix.BorderLength ((AffymetrixChip) c);
+				return new Affymetrix.BorderLengthMin ((AffymetrixChip) c);
 			
 			// else: CONFLICT_INDEX_MIN
-				return new Affymetrix.ConflictIndex ((AffymetrixChip) c);
+				return new Affymetrix.ConflictIndexMin ((AffymetrixChip) c);
 		}
 		
 		// else
@@ -378,8 +377,8 @@ public abstract class OptimumSingleProbeEmbedding
 		return reembedOptimally (id);
 	}
 
+	// TODO move this function to another class?
 	/**
-	 * TODO: move this function to another class.
 	 * Computes the number of ways in which a probe can be embedded into the
 	 * deposition sequence. 
 	 * @param id probe ID
@@ -527,9 +526,9 @@ public abstract class OptimumSingleProbeEmbedding
 		
 		protected abstract void encodeEmbedding (int id);
 
-		private static class BorderLength extends Simple
+		private static class BorderLengthMin extends Simple
 		{
-			public BorderLength (SimpleChip chip)
+			public BorderLengthMin (SimpleChip chip)
 			{
 				super (chip);
 			}
@@ -675,19 +674,18 @@ public abstract class OptimumSingleProbeEmbedding
 			}
 		}
 		
-		private static class ConflictIndex extends Simple
+		private static class ConflictIndexMin extends Simple
 		{
 			private double pos_mult[];
 			
-			protected ConflictIndex (SimpleChip chip)
+			protected ConflictIndexMin (SimpleChip chip)
 			{
 				super (chip);
 				
 				this.pos_mult = new double [probe_len + 1];
 				
 				for (int b = 0; b <= probe_len; b++)
-					pos_mult[b] = LayoutEvaluation.positionMultiplier (
-															probe_len, b);
+					pos_mult[b] = ConflictIndex.positionWeight(b, probe_len);
 			}
 			
 			@Override
@@ -709,7 +707,7 @@ public abstract class OptimumSingleProbeEmbedding
 				int		r, c, id, dim, r_min, c_min, r_max, c_max;
 				double	mask_w, unmask_w;
 				
-				dim = LayoutEvaluation.DIM_CONFLICT_REGION;
+				dim = ConflictIndex.dimConflictRegion();
 				
 				r_min = Math.max(row - dim, chip_region.first_row);
 				c_min = Math.max(col - dim, chip_region.first_col);
@@ -725,11 +723,9 @@ public abstract class OptimumSingleProbeEmbedding
 						if ((id = chip.spot[r][c]) == Chip.EMPTY_SPOT)
 							continue;
 						
-						mask_w = LayoutEvaluation.WEIGHT_DIST
-									[dim + r - row][dim + c - col];
+						mask_w = ConflictIndex.distanceWeight(row, col, r, c);
 						
-						unmask_w = LayoutEvaluation.WEIGHT_DIST
-									[dim + row - r][dim + col - c];
+						unmask_w = ConflictIndex.distanceWeight(r, c, row, col);
 						
 						if (mask_w > 0 || unmask_w > 0)
 							addSingleProbeCost (id, mask_w, unmask_w);
@@ -758,7 +754,7 @@ public abstract class OptimumSingleProbeEmbedding
 					}
 					else
 						unmask_cost[pos] += unmask_weight *
-							LayoutEvaluation.positionMultiplier(probe_len, b);
+									ConflictIndex.positionWeight(b, probe_len);
 				}
 			}
 			
@@ -979,9 +975,9 @@ public abstract class OptimumSingleProbeEmbedding
 		protected abstract void encodeEmbedding (int id_1, int id_2,
 				double matrix[][]);
 		
-		private static class BorderLength extends Affymetrix
+		private static class BorderLengthMin extends Affymetrix
 		{
-			protected BorderLength (AffymetrixChip chip)
+			protected BorderLengthMin (AffymetrixChip chip)
 			{
 				super (chip);
 			}
@@ -1228,11 +1224,11 @@ public abstract class OptimumSingleProbeEmbedding
 			}
 		}
 		
-		private static class ConflictIndex extends Affymetrix
+		private static class ConflictIndexMin extends Affymetrix
 		{
 			private double pos_mult[];
 			
-			protected ConflictIndex (AffymetrixChip chip)
+			protected ConflictIndexMin (AffymetrixChip chip)
 			{
 				super (chip);
 				
@@ -1242,18 +1238,15 @@ public abstract class OptimumSingleProbeEmbedding
 				
 				// first, bases up to (but not including) the middle base
 				for (b = 0; b < AffymetrixChip.AFFY_MIDDLE_BASE; b++)
-					pos_mult[b] = LayoutEvaluation.positionMultiplier (
-															probe_len, b);
+					pos_mult[b] = ConflictIndex.positionWeight(b, probe_len);
 				
 				// then, the middle bases (the combined probe has two) 
-				pos_mult[b] = LayoutEvaluation.positionMultiplier (
-															probe_len, b);
+				pos_mult[b] = ConflictIndex.positionWeight(b, probe_len);
 				pos_mult[b + 1] = pos_mult[b]; 
 				
 				// finally, the remaining bases
 				for (b += 2; b <= probe_len + 1; b++)
-					pos_mult[b] = LayoutEvaluation.positionMultiplier (
-														probe_len, b - 1);
+					pos_mult[b] = ConflictIndex.positionWeight(b -1, probe_len);
 			}			
 		
 			@Override
@@ -1297,8 +1290,7 @@ public abstract class OptimumSingleProbeEmbedding
 					}
 					else
 					{
-						pos_mul = LayoutEvaluation.positionMultiplier(probe_len,
-									base);
+						pos_mul = ConflictIndex.positionWeight(base, probe_len);
 						unmask_cost_pm[pos] += pos_mul;
 						unmask_cost_mm[pos] += pos_mul;
 					}
@@ -1330,7 +1322,7 @@ public abstract class OptimumSingleProbeEmbedding
 					pm_row = row - 1;
 				}
 
-				dim = LayoutEvaluation.DIM_CONFLICT_REGION;
+				dim = ConflictIndex.dimConflictRegion();
 				r_min = Math.max(pm_row - dim, chip_region.first_row);
 				r_max = Math.min(mm_row + dim, chip_region.last_row);
 				c_min = Math.max(col - dim, chip_region.first_col);
@@ -1350,11 +1342,11 @@ public abstract class OptimumSingleProbeEmbedding
 						
 						if (r <= pm_row + dim)
 						{
-							mask_pm = LayoutEvaluation.WEIGHT_DIST
-										[dim + r - pm_row][dim + c - col];
+							mask_pm = ConflictIndex.distanceWeight(pm_row, col,
+										r, c);
 						
-							unmask_pm = LayoutEvaluation.WEIGHT_DIST
-										[dim + pm_row - r][dim + col - c];
+							unmask_pm = ConflictIndex.distanceWeight(r,c,
+										pm_row, col); 
 							
 							if (mask_pm > 0 || unmask_pm > 0)
 								zero = false;
@@ -1364,11 +1356,11 @@ public abstract class OptimumSingleProbeEmbedding
 
 						if (r >= mm_row - dim)
 						{
-							mask_mm = LayoutEvaluation.WEIGHT_DIST
-										[dim + r - mm_row][dim + c - col];
+							mask_mm = ConflictIndex.distanceWeight(mm_row, col,
+										r, c);
 
-							unmask_mm = LayoutEvaluation.WEIGHT_DIST
-										[dim + mm_row - r][dim + col - c];
+							unmask_mm = ConflictIndex.distanceWeight(r,c,
+										mm_row, col);
 							
 							if (mask_mm > 0 || unmask_mm > 0)
 								zero = false;
@@ -1406,7 +1398,7 @@ public abstract class OptimumSingleProbeEmbedding
 					}
 					else
 					{
-						m = LayoutEvaluation.positionMultiplier (probe_len, b);
+						m = ConflictIndex.positionWeight(b, probe_len);
 						unmask_cost_pm[pos] += unmask_pm * m;
 						unmask_cost_mm[pos] += unmask_mm * m;							
 					}
