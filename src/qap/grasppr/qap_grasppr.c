@@ -1,9 +1,9 @@
 /*
- * qap_graspdpr.c
+ * qap_grasppr.c
  *
- * $$
+ * $Revision$
  *
- * $$
+ * $Date$
  *
  * Copyright 2005 Sergio Anibal de Carvalho Junior
  *
