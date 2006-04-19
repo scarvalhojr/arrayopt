@@ -43,7 +43,7 @@ package arrayopt.qap;
 public class BranchAndBound extends QAPSolverAlgorithm
 {
 	@Override
-	public long solve (int dim, int dist[], int flow[], int sol[])
+	public long solveQAP (int dim, int dist[], int flow[], int sol[])
 	{
 		return 0;
 	}
