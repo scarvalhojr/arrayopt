@@ -44,12 +44,13 @@ import java.util.*;
  * optimization.
  * 
  * <P>The algorithm is in many ways similiar to the
- * {@link SequentialReembedding}: every probe of the chip is examined and
+ * {@linkplain SequentialReembedding}: every probe of the chip is examined and
  * optimally re-embedded in regards to its neighbors using the Optimum
  * Single-Probe Embedding (OSPE) algorithm (implemented by
  * {@linkplain OptimumSingleProbeEmbedding}). The desired conflict minimization
  * function (whether border length or conflict index minimization) must also be
- * specified at instantiation time (to the constructor).<P>  
+ * specified at instantiation time (to the constructor). See
+ * {@link ConflictIndex} for the exact definition of conflict index).</P>  
  * 
  * <P>However, instead of scanning the chip top to bottom, left to right, this
  * algorithm can examine the spots according to one of three pre-defined orders
@@ -64,13 +65,13 @@ import java.util.*;
  * <P>Three pre-defined priorities are available:
  *
  * <UL>
- * <LI>{@link PRIORITY_NUM_OF_EMBEDDINGS}: probes with a lesser number of
+ * <LI>{@link #PRIORITY_NUM_OF_EMBEDDINGS}: probes with a lesser number of
  * embeddings are re-embedded first; in case of ties, probes with a greater
  * number of re-embedded neighbors are re-embedded first 
- * <LI>{@link PRIORITY_NUM_OF_EMBEDDINGS}: probes with a greater number of
+ * <LI>{@link #PRIORITY_NUM_OF_EMBEDDINGS}: probes with a greater number of
  * re-embedded neighbors are re-embedded first; in case of ties, probes with a
  * lesser number of embeddings are re-embedded first;
- * <LI>{@link PRIORITY_BALANCED}: a single condition that is a combination of
+ * <LI>{@link #PRIORITY_BALANCED}: a single condition that is a combination of
  * the number of embeddings and number of re-embedded neighbors (the numbers are
  * brought to a similar scale with the log function)
  * </UL>
@@ -139,8 +140,8 @@ public class PriorityReembedding implements PostPlacementAlgorithm
 	 * <P>Mode of operation can be border length
 	 * (@link OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN) or conflict index
 	 * (@link OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN) minimization. The
-	 * priority can be either {@link PRIORITY_NUM_OF_EMBEDDINGS},
-	 * {@link PRIORITY_NUM_OF_NEIGHBORS} or {@link PRIORITY_BALANCED}.</P>
+	 * priority can be either {@link #PRIORITY_NUM_OF_EMBEDDINGS},
+	 * {@link #PRIORITY_NUM_OF_NEIGHBORS} or {@link #PRIORITY_BALANCED}.</P>
 	 * 
 	 * @param mode conflict minimization mode
 	 * @param priority pre-defined spot priority
@@ -157,8 +158,8 @@ public class PriorityReembedding implements PostPlacementAlgorithm
 	 * <P>Mode of operation can be border length
 	 * (@link OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN) or conflict index
 	 * (@link OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN) minimization. The
-	 * priority can be either {@link PRIORITY_NUM_OF_EMBEDDINGS},
-	 * {@link PRIORITY_NUM_OF_NEIGHBORS} or {@link PRIORITY_BALANCED}. The
+	 * priority can be either {@link #PRIORITY_NUM_OF_EMBEDDINGS},
+	 * {@link #PRIORITY_NUM_OF_NEIGHBORS} or {@link #PRIORITY_BALANCED}. The
 	 * "reset first" feature allows the first pass to re-embed the probes
 	 * considering only those that have already been re-embedded.</P>
 	 * 
@@ -180,8 +181,8 @@ public class PriorityReembedding implements PostPlacementAlgorithm
 	 * <P>Mode of operation can be border length
 	 * (@link OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN) or conflict index
 	 * (@link OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN) minimization. The
-	 * priority can be either {@link PRIORITY_NUM_OF_EMBEDDINGS},
-	 * {@link PRIORITY_NUM_OF_NEIGHBORS} or {@link PRIORITY_BALANCED}. The
+	 * priority can be either {@link #PRIORITY_NUM_OF_EMBEDDINGS},
+	 * {@link #PRIORITY_NUM_OF_NEIGHBORS} or {@link #PRIORITY_BALANCED}. The
 	 * "reset first" feature allows the first pass to re-embed the probes
 	 * considering only those that have already been re-embedded. The threshold
 	 * sets a limit on the minimum reduction of conflicts that must be achieved
@@ -756,7 +757,7 @@ public class PriorityReembedding implements PostPlacementAlgorithm
 		int dim;
 		double n = 0;
 		
-		dim = LayoutEvaluation.DIM_CONFLICT_REGION;
+		dim = ConflictIndex.dimConflictRegion();
 		
 		int min_row = Math.max (row - dim, 0);
 		int max_row = Math.min (row + dim, chip.getNumberOfRows() - 1);
@@ -775,8 +776,8 @@ public class PriorityReembedding implements PostPlacementAlgorithm
 			if (r == row && c == col)
 				continue;
 
-			n += LayoutEvaluation.WEIGHT_DIST[dim + row - r][dim + col - c];
-			n += LayoutEvaluation.WEIGHT_DIST[dim + r - row][dim + c - col];
+			n += ConflictIndex.distanceWeight(row, col, r, c);
+			n += ConflictIndex.distanceWeight(r, c, row, col);
 		}
 		
 		return n;
@@ -784,12 +785,12 @@ public class PriorityReembedding implements PostPlacementAlgorithm
 
 	private double countRegionNeighbors (AffymetrixChip chip, int row, int col)
 	{
-		int dim, dr, dc, r_pm, r_mm;
+		int dim, r_pm, r_mm;
 		double n = 0;
 		
 		r_pm = row;
 		r_mm = row + 1;
-		dim = LayoutEvaluation.DIM_CONFLICT_REGION;
+		dim = ConflictIndex.dimConflictRegion();
 		
 		int min_row = Math.max (r_pm - dim, 0);
 		int max_row = Math.min (r_mm + dim, chip.getNumberOfRows() - 1);
@@ -808,20 +809,16 @@ public class PriorityReembedding implements PostPlacementAlgorithm
 			if ((r == r_pm && c == col) || (r == r_mm && c == col))
 				continue;
 			
-			dc = col - c;
-			
-			dr = r_pm - r;
-			if (dr >= - dim && dr <= dim)
+			if (r_pm >= r - dim && r_pm <= r + dim)
 			{
-				n += LayoutEvaluation.WEIGHT_DIST[dim + dr][dim + dc];
-				n += LayoutEvaluation.WEIGHT_DIST[dim - dr][dim - dc];
+				n += ConflictIndex.distanceWeight(r_pm, col, r, c);
+				n += ConflictIndex.distanceWeight(r, c, r_pm, col);
 			}
 			
-			dr = r_mm - r;
-			if (dr >= - dim && dr <= dim)
+			if (r_mm >= r - dim && r_mm <= r + dim)
 			{
-				n += LayoutEvaluation.WEIGHT_DIST[dim + dr][dim + dc];
-				n += LayoutEvaluation.WEIGHT_DIST[dim - dr][dim - dc];
+				n += ConflictIndex.distanceWeight(r_mm, col, r, c);
+				n += ConflictIndex.distanceWeight(r, c, r_mm, col);
 			}
 		}
 		
@@ -903,18 +900,19 @@ public class PriorityReembedding implements PostPlacementAlgorithm
 
 	private static abstract class ConflictIndexSpot extends PendingSpot
 	{
-		protected final int DIM = LayoutEvaluation.DIM_CONFLICT_REGION;
+		protected int ci_dim;
 		
 		private ConflictIndexSpot (int row, int col, int embeds,
 				double neighbors)
 		{
-			super (row, col, Math.log(embeds), neighbors);
-			
 			// the number of embeddings is scaled down to a number closer
 			// to the number of embeddings so that they can be better
 			// combined in case of PRIORITY_BALANCED; log (base e) is used
 			// since the number of neighbors here is greater than in the
 			// case of BorderLengthSpot
+			super (row, col, Math.log(embeds), neighbors);			
+			
+			ci_dim = ConflictIndex.dimConflictRegion();
 		}		
 	}
 	
@@ -965,19 +963,16 @@ public class PriorityReembedding implements PostPlacementAlgorithm
 		@Override
 		boolean addNeighbor (int r, int c)
 		{
-			int		dr, dc;
 			double	add = 0;
 			
-			dr = this.row - r;
-			if (dr < - DIM || dr > DIM)
+			if (this.row  < r - ci_dim || this.row > r + ci_dim)
 				return false;
 			
-			dc = this.col - c;
-			if (dc < - DIM || dc > DIM)
+			if (this.col < c - ci_dim || this.col > c + ci_dim)
 				return false;
 			
-			add += LayoutEvaluation.WEIGHT_DIST[DIM + dr][DIM + dc];
-			add += LayoutEvaluation.WEIGHT_DIST[DIM - dr][DIM - dc];
+			add += ConflictIndex.distanceWeight(this.row, this.col, r, c);
+			add += ConflictIndex.distanceWeight(r, c, this.row, this.col);
 			
 			if (add > 0)
 			{
@@ -1045,28 +1040,25 @@ public class PriorityReembedding implements PostPlacementAlgorithm
 		private boolean addNeighborSingleProbe (int r, int c)
 		{
 
-			int		r_pm, r_mm, dr, dc;
+			int		r_pm, r_mm;
 			double	add = 0;
 			
 			r_pm = this.row;
 			r_mm = r_pm + 1;
 			
-			dc = this.col - c;
-			if (dc < - DIM || dc > DIM)
+			if (this.col < c - ci_dim || this.col > c + ci_dim)
 				return false;
 			
-			dr = r_pm - r;
-			if (dr >= -DIM && dr <= DIM)
+			if (r_pm >= r - ci_dim && r_pm <= r + ci_dim)
 			{
-				add += LayoutEvaluation.WEIGHT_DIST[DIM + dr][DIM + dc];
-				add += LayoutEvaluation.WEIGHT_DIST[DIM - dr][DIM - dc];
+				add += ConflictIndex.distanceWeight(r_pm, this.col, r, c);
+				add += ConflictIndex.distanceWeight(r, c, r_pm, this.col);
 			}
 			
-			dr = r_mm - r;
-			if (dr >= -DIM && dr <= DIM)
+			if (r_mm >= r - ci_dim && r_mm <= r + ci_dim)
 			{
-				add += LayoutEvaluation.WEIGHT_DIST[DIM + dr][DIM + dc];
-				add += LayoutEvaluation.WEIGHT_DIST[DIM - dr][DIM - dc];
+				add += ConflictIndex.distanceWeight(r_mm, this.col, r, c);
+				add += ConflictIndex.distanceWeight(r, c, r_mm, this.col);
 			}
 			
 			if (add > 0)
