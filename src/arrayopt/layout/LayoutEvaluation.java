@@ -42,38 +42,17 @@ package arrayopt.layout;
  */
 public class LayoutEvaluation
 {
-	// TODO Separate the layout evaluation functions from the definition of
-	// conflict index
-	
-	static final int DIM_CONFLICT_REGION = 3;
-	
-	// package access
-	// distance-based weighting function
-	static final double WEIGHT_DIST[][] = {
-				{	0,		0,		0.1,	0.1111,	0.1,	0,		0		},
-				{	0,		0.125,	0.2,	0.25,	0.2,	0.125,	0		},
-				{	0.1,	0.2,	0.5,	1,		0.5,	0.2,	0.1		},
-				{	0.1111,	0.25,	1,		0,		1,		0.25,	0.1111	},
-				{	0.1,	0.2,	0.5,	1,		0.5,	0.2,	0.1		},
-				{	0,		0.125,	0.2,	0.25,	0.2,	0.125,	0		},
-				{	0,		0,		0.1,	0.1111,	0.1,	0,		0		}};
-
-	// compute position multiplier: conflicts
-	// are more harmful in the middle of a probe
-	static double positionMultiplier (int probe_len, int base)
-	{
-		if (base < 0 || base > probe_len)
-			throw new IllegalArgumentException
-				("Invalid base number when computing a position multiplier.");
-
-		// 1 + log10 ( min (base + 1, probe_len - base + 1) )
-		return 1 + Math.log10 ((base <= probe_len - base) ? (base + 1) :
-								(probe_len - base + 1));
-	}
-	
-	// package access
-	// compute the hamming distance between two probes' embeddings
-	static int hammingDistance (Chip chip, int id_1, int id_2)
+	/**
+	 * Computes the Hamming distance between the embeddings of two probes. The
+	 * Hamming distance gives the number of masking steps that the two
+	 * embeddings differ.
+	 * 
+	 * @param chip the chip containing the probes
+	 * @param id_1 ID of first probe
+	 * @param id_2 ID of second probe 
+	 * @return the Hamming distance between their embeddings 
+	 */
+	public static int hammingDistance (Chip chip, int id_1, int id_2)
 	{
 		if (chip instanceof SimpleChip)
 			return hammingDistance ((SimpleChip) chip, id_1, id_2);
@@ -84,11 +63,83 @@ public class LayoutEvaluation
 		else
 			throw new IllegalArgumentException ("Unsupported chip type.");
 	}
+	
+	private static int hammingDistance (SimpleChip chip, int id_1, int id_2)
+	{
+		// TODO implement a new function using Integer.bitCount
+		// (use the old one for comparing the results before dropping it)
+		
+		return hammingDistance_old (chip, id_1, id_2);
+	}
 
-	// package access
-	// compute the distance between two probes' embeddings with
-	// distance-dependent weights (as defined for the conflict index)
-	static double weightedDistance (Chip chip, int id_1, int id_2)
+	private static int hammingDistance_old (SimpleChip chip, int id_1, int id_2)
+	{
+		int  bits = 0, hd = 0, mask = 0, w, pos;
+
+		for (w = -1, pos = 0; pos < chip.getEmbeddingLength(); pos++)
+		{
+			if (pos % Integer.SIZE == 0)
+			{
+				// next 4-byte word
+				w++;
+
+				// xor
+				bits = chip.embed[id_1][w] ^ chip.embed[id_2][w];
+
+				// turn on very last bit of mask only
+				mask = 0x01 << (Integer.SIZE - 1);
+			}
+
+			if ((mask & bits) != 0) hd++;
+
+			// shift interrogating bit to the right
+			// ('>>>' means a unsigned shift)
+			mask >>>= 1;
+		}
+
+		return hd;
+	}
+
+	private static int hammingDistance (AffymetrixChip chip, int id_1, int id_2)
+	{
+		int  bits = 0, hd = 0, mask = 0, w, pos;
+
+		for (w = -1, pos = 0; pos < chip.getEmbeddingLength(); pos++)
+		{
+			if (pos % Integer.SIZE == 0)
+			{
+				// next 4-byte word
+				w++;
+
+				// xor
+				bits = chip.embed[id_1][w] | chip.embed[id_1 + 1][w];
+				bits = bits ^ (chip.embed[id_2][w] | chip.embed[id_2 + 1][w]);
+
+				// turn on very last bit of mask only
+				mask = 0x01 << (Integer.SIZE - 1);
+			}
+
+			if ((mask & bits) != 0) hd++;
+
+			// shift interrogating bit to the right
+			// ('>>>' means a unsigned shift)
+			mask >>>= 1;
+		}
+
+		return hd;
+	}
+
+	/**
+	 * Computes the distance between the embeddings of two probes using the
+	 * distance-dependent weights given by the current definition of conflict
+	 * index (see {@link ConflictIndex}).
+	 * 
+	 * @param chip chip containing the probes
+	 * @param id_1 ID of first probe
+	 * @param id_2 ID of second probe
+	 * @return the weighted distance between their embeddings
+	 */
+	public static double weightedDistance (Chip chip, int id_1, int id_2)
 	{
 		if (chip instanceof SimpleChip)
 			return weightedDistance ((SimpleChip) chip, id_1, id_2);
@@ -98,6 +149,52 @@ public class LayoutEvaluation
 
 		else
 			throw new IllegalArgumentException ("Unsupported chip type.");
+	}
+	
+	private static double weightedDistance (SimpleChip chip, int id_1,
+			int id_2)
+	{
+		int base = 0, bitmask = 0, w, pos, probe_len;
+		double dist = 0;
+		
+		probe_len = chip.getProbeLength();
+
+		for (w = -1, pos = 0; pos < chip.getEmbeddingLength(); pos++)
+		{
+			if (pos % Integer.SIZE == 0)
+			{
+				// next 4-byte word
+				w++;
+
+				// turn on very last bit of mask only
+				bitmask = 0x01 << (Integer.SIZE - 1);
+			}
+			
+			if ((bitmask & chip.embed[id_1][w]) != 0)
+			{
+				// probe id_1 is unmasked: no conflict comming from id_2
+				base++;
+			}
+			else if ((bitmask & chip.embed[id_2][w]) != 0)
+			{
+				// probe id_2 is unmasked: there is a conflict!
+				dist += ConflictIndex.positionWeight(base, probe_len);
+			}
+
+			// shift interrogating bit to the right
+			// ('>>>' means a unsigned shift)
+			bitmask >>>= 1;
+		}
+
+		return dist;
+	}
+
+	private static double weightedDistance (AffymetrixChip chip, int id_1,
+			int id_2)
+	{
+		// TODO implement this
+
+		return hammingDistance(chip, id_1, id_2);
 	}
 	
 	public static double analyzeBorderLength (Chip chip)
@@ -161,38 +258,113 @@ public class LayoutEvaluation
 			total_bl += border[step];
 			total_norm_bl += norm_bl[step]; 
 			
-			//System.err.println("Step " + step + " => border length: " +
-			//		border[step] + " (normalized: " + norm_bl[step] +
-			//		")");
+			System.err.println("Step " + step + " => border length: " +
+					border[step] + " (normalized: " + norm_bl[step] +
+					")");
 		}
 		
-		//System.err.println("Total border length: " + total_bl +
-		//		" (normalized: " + total_norm_bl + ")");
+		System.err.println("Total border length: " + total_bl +
+				" (normalized: " + total_norm_bl + ")");
 		
 		return total_norm_bl;
+	}
+
+	public static double borderLength (Chip chip)
+	{
+		return borderLength (chip, false);
+	}
+
+	public static double borderLength (Chip chip, boolean norm)
+	{
+		RectangularRegion region;
+		int embed_len, r, c, id1, id2, step, word, bitmask = 0;
+		int total_bl = 0;
+		
+		region = chip.getChipRegion();
+		embed_len = chip.getEmbeddingLength();
+		
+		for (word = -1, step = 0; step < embed_len; step++)
+		{
+			if (step % Integer.SIZE == 0)
+			{
+				word++;
+				bitmask = 0x01 << (Integer.SIZE - 1);
+			}
+			else
+				bitmask >>>= 1;
+			
+			// first, conflicts in the vertical borders between spots
+			for (r = region.first_row; r <= region.last_row; r ++)
+				for (c = region.first_col; c < region.last_col; c++)
+				{
+					if ((id1 = chip.spot[r][c]) == Chip.EMPTY_SPOT)
+						continue;
+					
+					if ((id2 = chip.spot[r][c + 1]) == Chip.EMPTY_SPOT)
+						continue;
+					
+					if (((chip.embed[id1][word] ^ chip.embed[id2][word])
+							& bitmask) != 0)
+						total_bl++;
+				}
+
+			// now, conflicts in the horizontal borders between spots
+			for (c = region.first_col; c <= region.last_col; c ++)
+				for (r = region.first_row; r < region.last_row; r++)
+				{
+					if ((id1 = chip.spot[r][c]) == Chip.EMPTY_SPOT)
+						continue;
+					
+					if ((id2 = chip.spot[r + 1][c]) == Chip.EMPTY_SPOT)
+						continue;
+					
+					if (((chip.embed[id1][word] ^ chip.embed[id2][word])
+							& bitmask) != 0)
+						total_bl++;
+				}
+		}
+		
+		if (norm)
+			return total_bl / chip.getNumberOfProbes();
+		// else
+			return total_bl;
+	}
+
+	public static double borderLength (Chip chip, boolean norm,
+			RectangularRegion region)
+	{
+		// TODO implement this
+		
+		return -1;
+	}
+
+	public static double borderLength (Chip chip, boolean norm, int row,
+			int col)
+	{
+		// TODO implement this
+		
+		return -1;
 	}
 
 	public static double analyzeConflictIndex (Chip chip)
 	{
 		RectangularRegion region;
-		int id, num_probes; // min_row, max_row, min_col, max_col;
-		double	conf, avg_conf; //min_conf, max_conf;
+		double	conf, avg_conf, min_conf, max_conf;
+		int		id, num_probes, min_row, max_row, min_col, max_col;
+		
+		min_conf = Double.POSITIVE_INFINITY;
+		avg_conf = max_conf = 0;
+		min_row = max_row = min_col = max_col = -1;
 		
 		region = chip.getChipRegion();
 		num_probes = chip.getNumberOfProbes();
-		
-		avg_conf = 0;
-		// min_conf = Double.POSITIVE_INFINITY;
-		// max_conf = Double.NEGATIVE_INFINITY;
-		// min_row = max_row = min_col = max_col = -1;
 		
 		for (int r = region.first_row; r <= region.last_row; r++)
 			for (int c = region.first_col; c <= region.last_col; c++)
 				if ((id = chip.spot[r][c]) != Chip.EMPTY_SPOT)
 				{
-					conf = spotConflict(chip, r, c, id);
+					conf = conflictIndex(chip, r, c, id);
 					
-					/*
 					if (conf < min_conf)
 					{
 						min_conf = conf;
@@ -205,134 +377,92 @@ public class LayoutEvaluation
 						max_row = r;
 						max_col = c;
 					}
-					//*/
 					
 					avg_conf += conf / num_probes; 
 				}
 		
-		//System.err.println("Min conflict: " + min_conf + "(" + min_row + "," +
-		//		min_col + ")");
-		//System.err.println("Avg conflict: " + avg_conf);
-		//System.err.println("Max conflict: " + max_conf + "(" + max_row + "," +
-		//		max_col + ")");
+		System.err.println("Min conflict: " + min_conf + "(" + min_row + "," +
+				min_col + ")");
+		System.err.println("Avg conflict: " + avg_conf);
+		System.err.println("Max conflict: " + max_conf + "(" + max_row + "," +
+				max_col + ")");
 		
 		return avg_conf;
 	}
 
-	protected static int hammingDistance (SimpleChip chip, int id_1, int id_2)
+	public static double averageConflictIndex (Chip chip,
+			RectangularRegion region)
 	{
-		// TODO implement a new function using Integer.bitCount
-		// and use the old one for comparing the results; then drop
-		// the old code
-		return hammingDistance_old (chip, id_1, id_2);
+		// TODO implement this
+		
+		return -1;
+	}
+
+	public static double averageConflictIndex (Chip chip)
+	{
+		RectangularRegion region;
+		double	conf = 0;
+		int		id, num_probes;
+		
+		region = chip.getChipRegion();
+		num_probes = chip.getNumberOfProbes();
+		
+		for (int r = region.first_row; r <= region.last_row; r++)
+			for (int c = region.first_col; c <= region.last_col; c++)
+				if ((id = chip.spot[r][c]) != Chip.EMPTY_SPOT)
+					conf += conflictIndex(chip, r, c, id) / num_probes;
+		
+		return conf;
 	}
 
 	/**
-	 * TODO: use Integer.bitCount(int i) instead of this ugly bit shifting stuff
+	 * Computes the conflict index of a spot. If the spot is empty, its confict
+	 * index is zero. Otherwise, this method calls the
+	 * {@link #conflictIndex(Chip, int, int, int)} method.
+	 * 
+	 * @param chip chip containing the spot
+	 * @param row row coordinate of the spot
+	 * @param col column coordinate of the spot
+	 * @return conflict index of the spot
 	 */
-	protected static int hammingDistance_old (SimpleChip chip, int id_1, int id_2)
-	{
-		int  bits = 0, hd = 0, mask = 0, w, pos;
-
-		for (w = -1, pos = 0; pos < chip.getEmbeddingLength(); pos++)
-		{
-			if (pos % Integer.SIZE == 0)
-			{
-				// next 4-byte word
-				w++;
-
-				// xor
-				bits = chip.embed[id_1][w] ^ chip.embed[id_2][w];
-
-				// turn on very last bit of mask only
-				mask = 0x01 << (Integer.SIZE - 1);
-			}
-
-			if ((mask & bits) != 0) hd++;
-
-			// shift interrogating bit to the right
-			// ('>>>' means a unsigned shift)
-			mask >>>= 1;
-		}
-
-		return hd;
-	}
-
-	/**
-	 * TODO: use Integer.bitCount(int i) instead of this ugly bit shifting stuff
-	 */
-	protected static int hammingDistance (AffymetrixChip chip, int id_1, int id_2)
-	{
-		int  bits = 0, hd = 0, mask = 0, w, pos;
-
-		for (w = -1, pos = 0; pos < chip.getEmbeddingLength(); pos++)
-		{
-			if (pos % Integer.SIZE == 0)
-			{
-				// next 4-byte word
-				w++;
-
-				// xor
-				bits = chip.embed[id_1][w] | chip.embed[id_1 + 1][w];
-				bits = bits ^ (chip.embed[id_2][w] | chip.embed[id_2 + 1][w]);
-
-				// turn on very last bit of mask only
-				mask = 0x01 << (Integer.SIZE - 1);
-			}
-
-			if ((mask & bits) != 0) hd++;
-
-			// shift interrogating bit to the right
-			// ('>>>' means a unsigned shift)
-			mask >>>= 1;
-		}
-
-		return hd;
-	}
-
-	protected static double weightedDistance (SimpleChip chip, int id_1, int id_2)
-	{
-		// to do
-
-		return 0;
-	}
-
-	protected static double weightedDistance (AffymetrixChip chip, int id_1, int id_2)
-	{
-		// to do
-
-		return 0;
-	}
-
-	protected static double spotConflict (Chip chip, int row, int col)
+	public static double conflictIndex (Chip chip, int row, int col)
 	{
 		if (chip.spot[row][col] == Chip.EMPTY_SPOT)
 			return 0;
 
-		return spotConflict (chip, row, col, chip.spot[row][col]);
+		return conflictIndex (chip, row, col, chip.spot[row][col]);
 	}
 
-	protected static double spotConflict (Chip chip, int row, int col, int pid)
+	/**
+	 * Computes the conflict index of probe when it is placed on a given spot.
+	 * This method analyzes the probes in the region around the spot and uses
+	 * the current definition of conflict index (see {@link ConflictIndex}).
+	 * 
+	 * @param chip chip containing the spot
+	 * @param row row coordinate of the spot
+	 * @param col column coordinate of the spot
+	 * @param pid probe ID 
+	 * @return conflict index of the spot
+	 */
+	public static double conflictIndex (Chip chip, int row, int col, int pid)
 	{
 		RectangularRegion	region;
-		double	conflict, pos_mult;
-		int		embed_len, probe_len, r, c, step, word, base, bitmask = 0;
+		double	conf, posw;
+		int		ci_dim, embed_len, probe_len, r, c, step;
+		int		word, base, bitmask = 0;
 
+		ci_dim = ConflictIndex.dimConflictRegion();
 		region = chip.getChipRegion();
 		embed_len = chip.getEmbeddingLength();
 		probe_len = chip.getProbeLength();
-		
-		int min_row = Math.max(row - DIM_CONFLICT_REGION, region.first_row);
-		int max_row = Math.min(row + DIM_CONFLICT_REGION, region.last_row);
-		int min_col = Math.max(col - DIM_CONFLICT_REGION, region.first_col);
-		int max_col = Math.min(col + DIM_CONFLICT_REGION, region.last_col);
-		
-		// from now on, row and col will only be used to index
-		// the right element at the weighted distance matrix
-		row -= DIM_CONFLICT_REGION;
-		col -= DIM_CONFLICT_REGION;
 
-		conflict = 0;
+		// define region around the spot that needs to be examined
+		int min_row = Math.max(row - ci_dim, region.first_row);
+		int max_row = Math.min(row + ci_dim, region.last_row);
+		int min_col = Math.max(col - ci_dim, region.first_col);
+		int max_col = Math.min(col + ci_dim, region.last_col);
+		
+		conf = 0;
 
 		for (base = 0, step = 0, word = - 1; step < embed_len; step++)
 		{
@@ -361,7 +491,7 @@ public class LayoutEvaluation
 
 			// masked step: compute position multiplier (a conflict
 			// would harm the next nucleotide to be synthesized)
-			pos_mult = positionMultiplier (probe_len, base);
+			posw = ConflictIndex.positionWeight (base, probe_len);
 
 			for (r = min_row; r <= max_row; r++)
 			{
@@ -375,11 +505,11 @@ public class LayoutEvaluation
 					if ((chip.embed[chip.spot[r][c]][word] & bitmask) == 0)
 						continue;
 
-					conflict += pos_mult * WEIGHT_DIST[r - row][c - col];
+					conf += posw * ConflictIndex.distanceWeight(r,c, row, col);
 				}
 			}
 		}
 
-		return conflict;
+		return conf;
 	}
 }
