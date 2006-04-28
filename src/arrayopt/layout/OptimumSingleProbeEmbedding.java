@@ -384,7 +384,7 @@ public abstract class OptimumSingleProbeEmbedding
 	 * @param id probe ID
 	 * @return the number of different embeddings the probe can have
 	 */
-	abstract int numberOfEmbeddings (int id);
+	abstract long numberOfEmbeddings (int id);
 	
 	/**
 	 * Reset cost arrays before a new distance is computed.
@@ -403,9 +403,10 @@ public abstract class OptimumSingleProbeEmbedding
 	
 	protected abstract double reembedOptimally (int id);
 
-	protected int numberOfEmbeddings (char probe[], char dep_seq[], int m[])
+	protected long numberOfEmbeddings (char probe[], char dep_seq[], long m[])
 	{
-		int r, c, top, last_row, tmp;
+		int	r, c, last_row;
+		long top, tmp;
 		
 		for (r = 0; r < probe.length; r++)
 			m[r] = 0;
@@ -433,6 +434,9 @@ public abstract class OptimumSingleProbeEmbedding
 					last_row++;
 		}
 		
+		if (m[probe.length - 1] < 0)
+			throw new IllegalStateException ("Integer overflow.");
+		
 		return m[probe.length - 1];
 	}
 
@@ -448,7 +452,7 @@ public abstract class OptimumSingleProbeEmbedding
 		
 		protected double unmask_cost[];
 		
-		protected int num_embed[];
+		protected long num_embed[];
 		
 		protected Simple (SimpleChip chip)
 		{
@@ -458,7 +462,7 @@ public abstract class OptimumSingleProbeEmbedding
 			this.matrix = new double [probe_len + 1][embed_len + 1];
 			
 			this.probe = new char [probe_len];
-			this.num_embed = new int [probe_len];
+			this.num_embed = new long [probe_len];
 			
 			this.mask_cost = new double [embed_len];
 			this.unmask_cost = new double [embed_len];
@@ -496,7 +500,7 @@ public abstract class OptimumSingleProbeEmbedding
 		}
 
 		@Override
-		int numberOfEmbeddings (int id)
+		long numberOfEmbeddings (int id)
 		{
 			decodeEmbedding (id);
 			
@@ -845,7 +849,7 @@ public abstract class OptimumSingleProbeEmbedding
 		
 		protected double unmask_cost_mm[];
 		
-		private int num_embed[];
+		private long num_embed[];
 		
 		protected Affymetrix (AffymetrixChip chip)
 		{
@@ -870,7 +874,7 @@ public abstract class OptimumSingleProbeEmbedding
 			this.unmask_cost_pm = new double [embed_len];
 			this.unmask_cost_mm = new double [embed_len];
 
-			this.num_embed = new int [probe_len + 1];
+			this.num_embed = new long [probe_len + 1];
 		}
 		
 		@Override
@@ -925,7 +929,7 @@ public abstract class OptimumSingleProbeEmbedding
 		}
 		
 		@Override
-		int numberOfEmbeddings (int id)
+		long numberOfEmbeddings (int id)
 		{
 			decodeEmbedding (id);
 			
