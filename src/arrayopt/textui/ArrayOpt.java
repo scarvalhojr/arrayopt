@@ -46,9 +46,13 @@ import java.io.*;
  */
 public class ArrayOpt
 {
-	private static final String DEFAULT_DEP_SEQ = "TGCATGCATGCATGCATGCATGCA" +
+	private static final String AFFY_DEP_SEQ = "TGCATGCATGCATGCATGCATGCA" +
 						"TGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATG";
-	
+
+	private static final String SYNC_DEP_SEQ = "ACGTACGTACGTACGTACGTACGTACGT" +
+						"ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT" +
+						"ACGTACGTACGTACGTACGT";
+
 	public static void main (String args[])
 	{
 		Chip					chip, copy;
@@ -67,7 +71,8 @@ public class ArrayOpt
 			cols      = Integer.parseInt(args[4]);
 			probes    = Integer.parseInt(args[5]);
 			probe_len = Integer.parseInt(args[6]);
-			algorithm = args[7];
+			dep_seq	  = args[7];
+			algorithm = args[8];
 		}
 		catch (Exception e)
 		{
@@ -92,15 +97,11 @@ public class ArrayOpt
 			return;
 		}
 
-		try
-		{
-			// get optional command-line arguments
-			dep_seq = args[8];
-		}
-		catch (ArrayIndexOutOfBoundsException e)
-		{
-			dep_seq = DEFAULT_DEP_SEQ;
-		}
+		// standard deposition sequences
+		if (dep_seq.equalsIgnoreCase("AFFY"))
+			dep_seq = AFFY_DEP_SEQ;
+		else if (dep_seq.equalsIgnoreCase("SYNC"))
+			dep_seq = SYNC_DEP_SEQ;		
 		
 		try
 		{
@@ -112,15 +113,16 @@ public class ArrayOpt
 			else if (algorithm.equalsIgnoreCase("SEQUENTIAL"))
 				placer = new SequentialFiller();
 
-			else if (algorithm.equalsIgnoreCase("GREEDY10"))
-				placer = new GreedyFiller(10);
-			else if (algorithm.equalsIgnoreCase("GREEDY100"))
-				placer = new GreedyFiller(100);
+			else if (algorithm.equalsIgnoreCase("GREEDY100-BL"))
+				placer = new GreedyFiller(GreedyFiller.MODE_BORDER_LENGTH,
+											100, false);
+			
+			else if (algorithm.equalsIgnoreCase("GREEDY20K-BL"))
+				placer = new GreedyFiller(GreedyFiller.MODE_BORDER_LENGTH,
+											20000, false);
 
-			else if (algorithm.equalsIgnoreCase("GREEDY10R"))
-				placer = new GreedyFiller(10, true);
-			else if (algorithm.equalsIgnoreCase("GREEDY100R"))
-				placer = new GreedyFiller(100, true);
+			else if (algorithm.equalsIgnoreCase("REPTX20K-BL"))
+				placer = new RowEpitaxial(20000, false);
 
 			else if (algorithm.equalsIgnoreCase("2D1-SEQ"))
 				placer = new TwoDimensionalPartitioning(new SequentialFiller(), 1);
@@ -154,6 +156,21 @@ public class ArrayOpt
 				
 			else if (algorithm.equalsIgnoreCase("PIVOT"))
 				placer = new ProbeSetEmbeddingWrapper(new PivotEmbedding());
+
+			else if (algorithm.equalsIgnoreCase("PIVOTPART"))
+				placer = new PivotPartitioning(new SequentialFiller());
+
+			else if (algorithm.equalsIgnoreCase("PIVOTPART1+REPTX20K-BL"))
+				placer = new PivotPartitioning(new RowEpitaxial(20000), 1);
+
+			else if (algorithm.equalsIgnoreCase("PIVOTPART2+REPTX20K-BL"))
+				placer = new PivotPartitioning(new RowEpitaxial(20000), 2);
+
+			else if (algorithm.equalsIgnoreCase("PIVOTPART3+REPTX20K-BL"))
+				placer = new PivotPartitioning(new RowEpitaxial(20000), 3);
+
+			else if (algorithm.equalsIgnoreCase("PIVOTPART4+REPTX20K-BL"))
+				placer = new PivotPartitioning(new RowEpitaxial(20000), 4);
 
 			else if (algorithm.equalsIgnoreCase("PRIORITY-BL-E-INC"))
 				optimizer = new PriorityReembedding(
@@ -427,7 +444,7 @@ public class ArrayOpt
 				return;
 			}
 		}
-		
+
 		// make a copy of the chip before modifying its layout
 		if (chip instanceof SimpleChip)
 		{
@@ -462,6 +479,12 @@ public class ArrayOpt
 			System.err.println("Elapsed time: " + (end - start)/Math.pow(10,9) + " sec");
 		}
 
+		// TODO remove this
+		if (algorithm.endsWith("BL"))
+			System.err.println("Border length after: " + LayoutEvaluation.borderLength(chip));
+		else if (algorithm.endsWith("CI"))
+			System.err.println("Average conflict index after: " + LayoutEvaluation.averageConflictIndex(chip));
+
 		if (chip.equals(copy))
 			System.err.println("WARNING: new layout is equal to the original specification.");
 		else
@@ -490,8 +513,12 @@ public class ArrayOpt
 	private static void usage ()
 	{
 		System.err.println (
-			"Usage: ArrayOpt [affy | simple] [fix | nofix] <input file> " +
-				"<# of rows> <# of columns> <# of probes> <probe length> " +
-				"<placement algorithm> [<deposition sequence>]");
+			"Usage: ArrayOpt [affy | simple] [fix | nofix] <input> <rows> " +
+				"<columns> <probes> <probe length> <dep seq> <algo>");
+		System.err.println (
+			"where: <input> is a file name or 'RANDOM' for a randomly " +
+			"generated chip\n" +
+			"       <dep seq> is a deposition sequence or AFFY for " +
+			"Affymetrix's sequence or SYNC for a 100-step 'ACGT' repetition");
 	}
 }
