@@ -129,7 +129,7 @@ public class PriorityReembedding implements PostPlacementAlgorithm
 	
 	private int num_probes;
 	
-	private int num_embed[];
+	private long num_embed[];
 	
 	private final int ADD_REGION_DIM = 1;
 
@@ -241,7 +241,7 @@ public class PriorityReembedding implements PostPlacementAlgorithm
 		else
 			this.spot_copy = null;
 		
-		this.num_embed = new int [chip.getNumberOfProbes()];
+		this.num_embed = new long [chip.getNumberOfProbes()];
 		
 		// create the priority queue with an initial
 		// capacity of 20% of the number of probes
@@ -264,7 +264,7 @@ public class PriorityReembedding implements PostPlacementAlgorithm
 	
 	private void optimize (SimpleChip chip)
 	{
-		int pivot_threshold;
+		long pivot_threshold;
 		double last_conf, curr_conf, impr = 1;
 		boolean reset = this.reset_first;
 		
@@ -301,7 +301,7 @@ public class PriorityReembedding implements PostPlacementAlgorithm
 
 	private void optimize (AffymetrixChip chip)
 	{
-		int pivot_threshold;
+		long pivot_threshold;
 		double last_conf, curr_conf, impr = 1;
 		boolean reset = this.reset_first;
 		
@@ -336,7 +336,7 @@ public class PriorityReembedding implements PostPlacementAlgorithm
 		}
 	}
 
-	private void fixPivots (SimpleChip chip, int limit, boolean reset)
+	private void fixPivots (SimpleChip chip, long limit, boolean reset)
 	{
 		int id, r, c;
 		
@@ -371,7 +371,7 @@ public class PriorityReembedding implements PostPlacementAlgorithm
 					addNeighbors (chip, r, c);
 	}
 
-	private void fixPivots (AffymetrixChip chip, int limit, boolean reset)
+	private void fixPivots (AffymetrixChip chip, long limit, boolean reset)
 	{
 		int id, r, c;
 		
@@ -412,9 +412,9 @@ public class PriorityReembedding implements PostPlacementAlgorithm
 						addNeighbors (chip, r, c);
 	}
 
-	private int analyzeProbes ()
+	private long analyzeProbes ()
 	{
-		int min = Integer.MAX_VALUE;
+		long min = Long.MAX_VALUE;
 		
 		for (int p = 0; p < num_probes; p++)
 			if ((num_embed[p] = embedder.numberOfEmbeddings(p)) < min)
@@ -423,9 +423,9 @@ public class PriorityReembedding implements PostPlacementAlgorithm
 		return min;
 	}
 
-	private int analyzeProbes (AffymetrixChip chip)
+	private long analyzeProbes (AffymetrixChip chip)
 	{
-		int min = Integer.MAX_VALUE;
+		long min = Long.MAX_VALUE;
 		
 		for (int p = 0; p < num_probes; p++)
 			if (chip.isPMProbe(p))
@@ -887,7 +887,7 @@ public class PriorityReembedding implements PostPlacementAlgorithm
 	
 	private static abstract class BorderLengthSpot extends PendingSpot
 	{
-		private BorderLengthSpot (int row, int col, int embeds,
+		private BorderLengthSpot (int row, int col, long embeds,
 				double neighbors)
 		{
 			super (row, col, Math.log10(embeds), neighbors);
@@ -902,7 +902,7 @@ public class PriorityReembedding implements PostPlacementAlgorithm
 	{
 		protected int ci_dim;
 		
-		private ConflictIndexSpot (int row, int col, int embeds,
+		private ConflictIndexSpot (int row, int col, long embeds,
 				double neighbors)
 		{
 			// the number of embeddings is scaled down to a number closer
@@ -918,7 +918,7 @@ public class PriorityReembedding implements PostPlacementAlgorithm
 	
 	private static class SimpleBL extends BorderLengthSpot
 	{
-		SimpleBL (int row, int col, int embeds, int neighbors)
+		SimpleBL (int row, int col, long embeds, int neighbors)
 		{
 			super (row, col, embeds, neighbors);
 		}
@@ -955,7 +955,7 @@ public class PriorityReembedding implements PostPlacementAlgorithm
 
 	private static class SimpleCI extends ConflictIndexSpot
 	{
-		SimpleCI (int row, int col, int embeds, double neighbors)
+		SimpleCI (int row, int col, long embeds, double neighbors)
 		{
 			super (row, col, embeds, neighbors);
 		}
@@ -986,7 +986,7 @@ public class PriorityReembedding implements PostPlacementAlgorithm
 
 	private static class AffyBL extends BorderLengthSpot
 	{
-		AffyBL (int row, int col, int embeds, int neighbors)
+		AffyBL (int row, int col, long embeds, int neighbors)
 		{
 			super (row, col, embeds, neighbors);
 		}
@@ -1025,7 +1025,7 @@ public class PriorityReembedding implements PostPlacementAlgorithm
 
 	private static class AffyCI extends ConflictIndexSpot
 	{
-		AffyCI (int row, int col, int embeds, double neighbors)
+		AffyCI (int row, int col, long embeds, double neighbors)
 		{
 			super (row, col, embeds, neighbors);						
 		}
