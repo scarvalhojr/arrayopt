@@ -43,23 +43,44 @@ package arrayopt.layout;
 public class GreedyFiller implements PlacementAlgorithm, FillingAlgorithm
 {
 	private int window_size;
-
+	
+	private int mode;
+	
+	public static final int MODE_BORDER_LENGTH = 0;
+	
+	public static final int MODE_CONFLICT_INDEX = 1;
+	
 	private boolean randomize_first;
-
-	public static boolean DEFAULT_RANDOMIZE_FIRST = false;
 
 	public GreedyFiller ()
 	{
-		this(0, DEFAULT_RANDOMIZE_FIRST);
+		this(MODE_BORDER_LENGTH);
 	}
 
-	public GreedyFiller (int window_size)
+	public GreedyFiller (int mode)
 	{
-		this(window_size, DEFAULT_RANDOMIZE_FIRST);
+		this(mode, 0);
 	}
 
-	public GreedyFiller (int window_size, boolean randomize_first)
+	public GreedyFiller (int mode, int window_size)
 	{
+		this(mode, window_size, false);
+	}
+
+	public GreedyFiller (int mode, int window_size, boolean randomize_first)
+	{
+		switch (mode)
+		{
+			case MODE_BORDER_LENGTH:
+			case MODE_CONFLICT_INDEX:
+				this.mode = mode;
+				break;
+				
+			default:
+				throw new IllegalArgumentException
+					("Illegal value for argument 'mode'.");
+		}
+		
 		this.window_size = window_size;
 		this.randomize_first = randomize_first;
 	}
@@ -115,36 +136,60 @@ public class GreedyFiller implements PlacementAlgorithm, FillingAlgorithm
 	/**
 	 *
 	 */
-	protected int fillRegion (SimpleChip chip, RectangularRegion region,
+	private int fillRegion (SimpleChip chip, RectangularRegion region,
 		int probe_id[], int start, int end)
 	{
-		// TODO implement this
-		return 0;
+		int s, tmp;
+		
+		if (randomize_first) randomizeProbes (probe_id, start, end);
+
+		for (int r = region.first_row; r <= region.last_row; r ++)
+		{
+			for (int c = region.first_col; c <= region.last_col; c++)
+			{
+				// skip spot if not empty
+				if (chip.spot[r][c] != Chip.EMPTY_SPOT)
+					continue;
+
+				// skip fixed spot
+				if (chip.isFixedSpot(r, c))
+					continue;
+
+				// find probe with minimum cost
+				if (mode == MODE_BORDER_LENGTH)
+					s = findMinBorderLength (chip, r, c, probe_id, start, end);
+				else // (mode == MODE_CONFLICT_INDEX)
+					s = findMinConflictIndex (chip, r, c, probe_id, start, end);
+
+				// move selected probe to the front of the list
+				tmp = probe_id[start];
+				probe_id[start] = probe_id[s];
+				probe_id[s] = tmp;
+				
+				// place selected probe
+				chip.spot[r][c] = probe_id[start];
+
+				start ++;
+
+				if (start > end)
+					// all probes were placed
+					return 0;
+			}
+		}
+
+		// some probe could not be placed
+		return (end - start + 1);
 	}
 
 	/**
 	 *
 	 */
-	protected int fillRegion (AffymetrixChip chip, RectangularRegion region,
+	private int fillRegion (AffymetrixChip chip, RectangularRegion region,
 		int probe_id[], int start, int end)
 	{
-		int rand, tmp;
-
-		if (randomize_first)
-		{
-			// randomize the list first
-			for (int i = start; i < end; i++)
-			{
-				// select a random element of the list
-				rand = start + (int) ((end - start + 1) * Math.random());
-
-				// swap the selected element with
-				// the one at the current position
-				tmp = probe_id[rand];
-				probe_id[i] = probe_id[rand];
-				probe_id[rand] = tmp;
-			}
-		}
+		int s, tmp;
+		
+		if (randomize_first) randomizeProbes (probe_id, start, end);
 
 		for (int r = region.first_row; r < region.last_row; r ++)
 		{
@@ -159,10 +204,18 @@ public class GreedyFiller implements PlacementAlgorithm, FillingAlgorithm
 				if (chip.isFixedSpot(r, c) || chip.isFixedSpot(r+1, c))
 					continue;
 
-				// select probe pair which minimizes conflict
-				// (and move it to position 'start' in the list)
-				selectNextPair (chip, r, c, probe_id, start, end);
+				// find probe pair with minimum cost
+				if (mode == MODE_BORDER_LENGTH)
+					s = findMinBorderLength (chip, r, c, probe_id, start, end);
+				else // (mode == MODE_CONFLICT_INDEX)
+					s = findMinConflictIndex (chip, r, c, probe_id, start, end);
 
+				// move selected probe pair to the front of the list
+				tmp = probe_id[start];
+				probe_id[start] = probe_id[s];
+				probe_id[s] = tmp;
+				
+				// place selected probe pair
 				chip.spot[r][c] = probe_id[start];
 				chip.spot[r+1][c] = probe_id[start] + 1;
 
@@ -178,41 +231,148 @@ public class GreedyFiller implements PlacementAlgorithm, FillingAlgorithm
 		return 2 * (end - start + 1);
 	}
 
-	protected void selectNextPair (AffymetrixChip chip, int row, int col,
+	private int findMinBorderLength (SimpleChip chip, int row, int col,
 		int probe_id[], int start, int end)
 	{
-		double	conflict, min_conflict;
-		int		best_probe, tmp;
+		long	cost, min;
+		int		best;
 
 		// if window size is limited
 		if (window_size > 0)
 		{
-			// check if probe list is larger than window
-			if (end - start + 1 > window_size)
-				// yes: limit search space
-				end = start + window_size - 1;
+			// limit search space if probe list is larger than window
+			end = end - start + 1 > window_size ? start + window_size - 1 : end;  
 		}
 
-		min_conflict = LayoutEvaluation.conflictIndex(chip, row, col,
-						probe_id[start]);
-
-		best_probe = start;
+		min = LayoutEvaluation.borderLength (chip, row, col,probe_id[start]);
+		if (min == 0) return start;
+		
+		best = start;
 
 		for (int i = start + 1; i <= end; i++)
 		{
-			conflict = LayoutEvaluation.conflictIndex(chip, row, col,
-						probe_id[i]);
-
-			if (conflict < min_conflict)
+			cost = LayoutEvaluation.borderLength (chip, row, col, probe_id[i]);
+			
+			if (cost < min)
 			{
-				min_conflict = conflict;
-				best_probe = i;
+				min = cost;
+				best = i;
 			}
 		}
+		
+		return best;
+	}
 
-		// move best probe ID to the front of the list
-		tmp = probe_id[start];
-		probe_id[start] = probe_id[best_probe];
-		probe_id[best_probe] = tmp;
+	private int findMinConflictIndex (SimpleChip chip, int row, int col,
+			int probe_id[], int start, int end)
+	{
+		double	cost, min;
+		int		best;
+
+		// if window size is limited
+		if (window_size > 0)
+		{
+			// limit search space if probe list is larger than window
+			end = end - start + 1 > window_size ? start + window_size - 1 : end;  
+		}
+
+		min = LayoutEvaluation.conflictIndex (chip, row, col,probe_id[start]);
+		if (min == 0) return start;
+		
+		best = start;
+
+		for (int i = start + 1; i <= end; i++)
+		{
+			cost = LayoutEvaluation.conflictIndex(chip, row, col, probe_id[i]);
+
+			if (cost < min)
+			{
+				min = cost;
+				best = i;
+			}
+		}
+		
+		return best;
+	}
+
+	private int findMinBorderLength (AffymetrixChip chip, int row, int col,
+			int probe_id[], int start, int end)
+	{
+		long	cost, min;
+		int		best;
+
+		// if window size is limited
+		if (window_size > 0)
+		{
+			// limit search space if probe list is larger than window
+			end = end - start + 1 > window_size ? start + window_size - 1 : end;  
+		}
+
+		min = LayoutEvaluation.borderLength (chip, row, col,probe_id[start]);
+		if (min == 0) return start;
+		
+		best = start;
+
+		for (int i = start + 1; i <= end; i++)
+		{
+			cost = LayoutEvaluation.borderLength (chip, row, col, probe_id[i]);
+			
+			if (cost < min)
+			{
+				min = cost;
+				best = i;
+			}
+		}
+		
+		return best;
+	}
+
+	private int findMinConflictIndex (AffymetrixChip chip, int row, int col,
+			int probe_id[], int start, int end)
+	{
+		double	cost, min;
+		int		best;
+
+		// if window size is limited
+		if (window_size > 0)
+		{
+			// limit search space if probe list is larger than window
+			end = end - start + 1 > window_size ? start + window_size - 1 : end;  
+		}
+
+		min = LayoutEvaluation.conflictIndex (chip, row, col,probe_id[start]);
+		if (min == 0) return start;
+		
+		best = start;
+
+		for (int i = start + 1; i <= end; i++)
+		{
+			cost = LayoutEvaluation.conflictIndex(chip, row, col, probe_id[i]);
+
+			if (cost < min)
+			{
+				min = cost;
+				best = i;
+			}
+		}
+		
+		return best;
+	}
+	
+	private void randomizeProbes (int probe_id[], int start, int end)
+	{
+		int tmp, rand;
+		
+		for (int i = start; i < end; i++)
+		{
+			// select a random element of the list
+			rand = start + (int) ((end - start + 1) * Math.random());
+
+			// swap the selected element with
+			// the one at the current position
+			tmp = probe_id[rand];
+			probe_id[i] = probe_id[rand];
+			probe_id[rand] = tmp;
+		}		
 	}
 }
