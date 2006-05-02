@@ -42,7 +42,7 @@ package arrayopt.layout;
  * optimization. The alorithm is described in:
  * 
  * <P>"Evaluation of placement techniques for DNA probe array", A. Kahng,
- * I. M¢andoiu, S. Reda, X. Xu, and A. Zelikovsky. In Proc. IEEE/ACM
+ * I. Mandoiu, S. Reda, X. Xu, and A. Zelikovsky. In Proc. IEEE/ACM
  * Int. Conference on Computer-Aided Design (ICCAD 2003), pp. 262–269.</P>
  * 
  * <P>The algorithm scans the chip top to bottom, left to right, and, for each
@@ -188,9 +188,9 @@ public class SequentialReembedding implements PostPlacementAlgorithm
 		boolean	reset;
 		
 		if (mode == OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN)
-			curr_conf = LayoutEvaluation.analyzeBorderLength(chip);
+			curr_conf = LayoutEvaluation.borderLength(chip);
 		else // CONFLICT_INDEX_MIN
-			curr_conf = LayoutEvaluation.analyzeConflictIndex(chip);
+			curr_conf = LayoutEvaluation.averageConflictIndex(chip);
 		
 		reset = this.reset_first;
 		
@@ -209,9 +209,9 @@ public class SequentialReembedding implements PostPlacementAlgorithm
 			last_conf = curr_conf;
 			
 			if (mode == OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN)
-				curr_conf = LayoutEvaluation.analyzeBorderLength(chip);
+				curr_conf = LayoutEvaluation.borderLength(chip);
 			else // CONFLICT_INDEX_MIN
-				curr_conf = LayoutEvaluation.analyzeConflictIndex(chip);
+				curr_conf = LayoutEvaluation.averageConflictIndex(chip);
 			
 		} while ((last_conf - curr_conf) / last_conf > threshold);
 	}
@@ -222,9 +222,9 @@ public class SequentialReembedding implements PostPlacementAlgorithm
 		boolean	reset;
 		
 		if (mode == OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN)
-			curr_conf = LayoutEvaluation.analyzeBorderLength(chip);
+			curr_conf = LayoutEvaluation.borderLength(chip);
 		else // CONFLICT_INDEX_MIN
-			curr_conf = LayoutEvaluation.analyzeConflictIndex(chip);
+			curr_conf = LayoutEvaluation.averageConflictIndex(chip);
 		
 		reset = this.reset_first;
 		
@@ -243,9 +243,9 @@ public class SequentialReembedding implements PostPlacementAlgorithm
 			last_conf = curr_conf;
 			
 			if (mode == OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN)
-				curr_conf = LayoutEvaluation.analyzeBorderLength(chip);
+				curr_conf = LayoutEvaluation.borderLength(chip);
 			else // CONFLICT_INDEX_MIN
-				curr_conf = LayoutEvaluation.analyzeConflictIndex(chip);
+				curr_conf = LayoutEvaluation.averageConflictIndex(chip);
 			
 		} while ((last_conf - curr_conf) / last_conf > threshold);
 	}
