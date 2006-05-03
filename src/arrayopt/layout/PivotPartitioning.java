@@ -37,8 +37,6 @@
 
 package arrayopt.layout;
 
-import arrayopt.util.*;
-
 /**
  * TODO document this
  * 
@@ -108,16 +106,6 @@ public class PivotPartitioning implements PlacementAlgorithm
 	/**
 	 * TODO document this
 	 */
-	private ProbeRanking probe_rank;
-	
-	/**
-	 * TODO document this
-	 */
-	private double dist1[];
-	
-	/**
-	 * TODO document this
-	 */
 	private int rows_per_probe;
 
 	/**
@@ -164,11 +152,7 @@ public class PivotPartitioning implements PlacementAlgorithm
 
 		// select probes which will serve as pivots
 		pivots = selectPivots ();
-
-		// compute ranking for non-pivots
-		// so that they can be lexigraphically sorted
-		probe_rank = new ProbeRanking (c, pid, pivots);
-						
+		
 		return horizontalDivide (1, chip.getChipRegion(), 0, pivots - 1, pivots,
 				pid.length - 1);
 	}
@@ -561,41 +545,13 @@ public class PivotPartitioning implements PlacementAlgorithm
 
 	private int divideProbes (int p1, int p2, int first, int last)
 	{
-		int		i, num_probes, count1 = 0, count2 = 0, tmp;
-		double	d1, d2;
-		
-		// TODO remove this
-		// int dwin1 = 0, win1 = 0, draw = 0, win2 = 0, dwin2 = 0;
-		double start_time = System.nanoTime();
-		
-		if ((num_probes = last - first + 1) <= 0)
-			// must have at least 1 probe
-			return first;
-		
-		// sort probes lexicographically
-		QuickSort.sort(probe_rank, first, num_probes);
-		
-		// if needed, create array for storing distance to p1
-		if (dist1 == null)
-			dist1 = new double[num_probes];
-		else if (num_probes > dist1.length)
-			dist1 = new double[num_probes];
-		
-		// for all probes, compute and store minimum distance to p1 
-		dist1[0] = ospe.minDistanceProbe(pid[first], p1);
-		for (i = first + 1; i <= last; i++)
-			dist1[i - first] = ospe.minDistanceProbe(pid[i]);
-		
-		// setup OSPE to compute min distance to p2
-		ospe.minDistanceProbe(pid[first], p2);
+		int		i, count1 = 0, count2 = 0, tmp;
+		double	dist1, dist2;
 		
 		for (i = first; i <= last;)
 		{
-			// get distance to p1
-			d1 = dist1[i - first];
-			
-			// compute distance to p2
-			d2 = ospe.minDistanceProbe(pid[i]);
+			dist1 = ospe.minDistanceProbe(pid[i], p1);
+			dist2 = ospe.minDistanceProbe(pid[i], p2);
 			
 			/*
 			// TODO remove this
@@ -613,8 +569,7 @@ public class PivotPartitioning implements PlacementAlgorithm
 				throw new IllegalStateException ("What??");
 			//*/
 
-
-			if ((d1 < d2) || (d1 == d2 && count1 < count2))
+			if ((dist1 < dist2) || (dist1 == dist2 && count1 < count2))
 			{
 				// assign probe to p1
 				i++;
@@ -626,16 +581,10 @@ public class PivotPartitioning implements PlacementAlgorithm
 				tmp = pid[i];
 				pid[i] = pid[last];
 				pid[last] = tmp;
-				
-				dist1[i - first] = dist1[last - first];
-				
 				last--;
 				count2++;
 			}
 		}
-		
-		double elapsed_time = (System.nanoTime() - start_time) / 1000000000d;
-		System.err.println(elapsed_time + " seconds of probe partitioning");
 		
 		// TODO remove this
 		/*
@@ -713,126 +662,5 @@ public class PivotPartitioning implements PlacementAlgorithm
 		}
 		
 		System.exit(1);
-	}
-	
-	private class ProbeRanking implements ArrayIndexedCollection
-	{
-		private int id[];
-		
-		private long rank[];
-		
-		private int offset;
-		
-		private long pivot;
-		
-		private ProbeRanking (Chip chip, int id[], int offset)
-		{
-			this.id = id;
-			this.offset = offset;
-			
-			this.rank = new long[id.length - offset + 1];
-			
-			for (int i = offset; i < id.length; i++)
-				rank[i - offset] = getRank(chip, id[i]);
-		}
-		
-		private long getRank (Chip c, int probe_id)
-		{
-			int  w, pos, bitmask = 0;
-			long A_mask = 0x00, C_mask = 0x01, G_mask = 0x02, T_mask = 0x03;
-			long rnk = 0;
-			
-			for (w = -1, pos = 0; pos < c.embed_len; pos++)
-			{
-				if (pos % Integer.SIZE == 0)
-				{
-					bitmask = 0x01 << (Integer.SIZE - 1);
-					w++;
-				}
-				else
-					bitmask >>>= 1;
-
-				if ((bitmask & c.embed[probe_id][w]) != 0)
-				{
-					rnk <<= 2;
-					
-					switch (c.dep_seq[pos])
-					{
-						case 'A':
-							rnk |= A_mask;
-							break;
-							
-						case 'C':
-							rnk |= C_mask;
-							break;
-
-						case 'G':
-							rnk |= G_mask;
-							break;
-							
-						case 'T':
-							rnk |= T_mask;
-							break;
-						
-						default:
-							throw new IllegalArgumentException
-								("Illegal deposition sequence.");
-					}
-				}
-			}
-			
-			return rnk;
-		}
-		
-		public int length ()
-		{
-			return rank.length;
-		}
-
-		public int compare (int a, int b)
-		{
-			a -= offset;
-			b -= offset;
-			
-			return rank[a] < rank[b] ? -1 :
-					rank[a] > rank[b] ? +1 : 0;
-		}
-
-		public void swap (int a, int b)
-		{
-			int t2 = id[a];
-			id[a] = id[b];
-			id[b] = t2;
-			
-			a -= offset;
-			b -= offset;
-
-			long t1 = rank[a];
-			rank[a] = rank[b];
-			rank[b] = t1;
-
-		}
-
-		public void setPivot (int a)
-		{
-			this.pivot = rank[a - offset];
-		}
-		
-		public int compareToPivot (int a)
-		{
-			a -= offset;
-			return rank[a] < this.pivot ? -1 :
-					rank[a] > this.pivot ? +1 : 0;
-		}
-		
-		public int medianOfThree (int a, int b, int c)
-		{
-			a -= offset;
-			b -= offset;
-			c -= offset;
-			return offset + (rank[a] < rank[b] ?
-					(rank[b] < rank[c] ? b : rank[a] < rank[c] ? c : a) :
-					(rank[b] > rank[c] ? b : rank[a] > rank[c] ? c : a));
-		}
 	}
 }
