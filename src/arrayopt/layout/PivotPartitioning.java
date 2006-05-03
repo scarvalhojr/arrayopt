@@ -37,6 +37,8 @@
 
 package arrayopt.layout;
 
+import arrayopt.util.*;
+
 /**
  * TODO document this
  * 
@@ -106,6 +108,16 @@ public class PivotPartitioning implements PlacementAlgorithm
 	/**
 	 * TODO document this
 	 */
+	private ProbeRanking probe_rank;
+	
+	/**
+	 * TODO document this
+	 */
+	private double dist1[];
+	
+	/**
+	 * TODO document this
+	 */
 	private int rows_per_probe;
 
 	/**
@@ -150,8 +162,13 @@ public class PivotPartitioning implements PlacementAlgorithm
 			throw new IllegalStateException
 				("No probes available for placing.");
 
+		// select probes which will serve as pivots
 		pivots = selectPivots ();
-		
+
+		// compute ranking for non-pivots
+		// so that they can be lexigraphically sorted
+		probe_rank = new ProbeRanking (c, pid, pivots);
+						
 		return horizontalDivide (1, chip.getChipRegion(), 0, pivots - 1, pivots,
 				pid.length - 1);
 	}
@@ -302,6 +319,9 @@ public class PivotPartitioning implements PlacementAlgorithm
 		
 		rows_2 = num_rows - rows_1;
 		
+		// TODO remove this
+		// System.err.println("Partitioning: " + (100 * rows_1 / num_rows) + " x " + (100 * rows_2 / num_rows));
+		
 		// check how many spots each region has
 		spots_1 = num_cols * rows_1 / rows_per_probe;
 		spots_2 = num_cols * rows_2 / rows_per_probe;
@@ -410,6 +430,9 @@ public class PivotPartitioning implements PlacementAlgorithm
 		
 		cols_2 = num_cols - cols_1;
 		
+		// TODO remove this
+		// System.err.println("Partitioning: " + (100 * cols_1 / num_cols) + " x " + (100 * cols_2 / num_cols));
+		
 		// check how many spots each region has
 		spots_1 = cols_1 * num_rows / rows_per_probe;
 		spots_2 = cols_2 * num_rows / rows_per_probe;
@@ -491,30 +514,31 @@ public class PivotPartitioning implements PlacementAlgorithm
 		p1 = pid[first];
 		p2 = pid[last];
 		
-		first++; last--;
+		// TODO remove this
+		System.err.println("Pivot IDs: " + p1 + ", " + p2);
 		
 		// partition the remaining pivots into two groups
 		// according to whether they are closer to p1 or p2
 		int dist1, dist2, count1 = 0, count2 = 0; 
 		
-		while (first <= last)
+		for (i = first + 1, j = last - 1; i <= j;)
 		{
-			dist1 = LayoutEvaluation.hammingDistance(chip, pid[first], p1);
-			dist2 = LayoutEvaluation.hammingDistance(chip, pid[first], p2);
+			dist1 = LayoutEvaluation.hammingDistance(chip, pid[i], p1);
+			dist2 = LayoutEvaluation.hammingDistance(chip, pid[i], p2);
 			
 			if ((dist1 < dist2) || (dist1 == dist2 && count1 < count2))
 			{
 				// assign pivot to p1
-				first++;
+				i++;
 				count1++;
 			}
 			else
 			{
 				// assign pivot to p2
-				tmp = pid[first];
-				pid[first] = pid[last];
-				pid[last] = tmp;
-				last--;
+				tmp = pid[i];
+				pid[i] = pid[j];
+				pid[j] = tmp;
+				j--;
 				count2++;
 			}
 		}
@@ -523,53 +547,122 @@ public class PivotPartitioning implements PlacementAlgorithm
 		System.err.println(count1 + " pivots to p1");
 		System.err.println(count2 + " pivots to p2");
 		//*/
+		
+		// TODO remove this
+		if (pid[last] != p2)
+			throw new IllegalStateException ("Impossible");
+			
+		// move p2 to the beginning of its own list
+		pid[last] = pid[i];
+		pid[i] = p2;
 
-		return first;
+		return i;
 	}
 
 	private int divideProbes (int p1, int p2, int first, int last)
 	{
-		int		count1 = 0, count2 = 0, tmp;
-		double	dist1, dist2;
+		int		i, num_probes, count1 = 0, count2 = 0, tmp;
+		double	d1, d2;
 		
-		while (first <= last)
+		// TODO remove this
+		// int dwin1 = 0, win1 = 0, draw = 0, win2 = 0, dwin2 = 0;
+		double start_time = System.nanoTime();
+		
+		if ((num_probes = last - first + 1) <= 0)
+			// must have at least 1 probe
+			return first;
+		
+		// sort probes lexicographically
+		QuickSort.sort(probe_rank, first, num_probes);
+		
+		// if needed, create array for storing distance to p1
+		if (dist1 == null)
+			dist1 = new double[num_probes];
+		else if (num_probes > dist1.length)
+			dist1 = new double[num_probes];
+		
+		// for all probes, compute and store minimum distance to p1 
+		dist1[0] = ospe.minDistanceProbe(pid[first], p1);
+		for (i = first + 1; i <= last; i++)
+			dist1[i - first] = ospe.minDistanceProbe(pid[i]);
+		
+		// setup OSPE to compute min distance to p2
+		ospe.minDistanceProbe(pid[first], p2);
+		
+		for (i = first; i <= last;)
 		{
-			dist1 = ospe.minDistanceProbe(pid[first], p1);
-			dist2 = ospe.minDistanceProbe(pid[first], p2);
+			// get distance to p1
+			d1 = dist1[i - first];
 			
-			if ((dist1 < dist2) || (dist1 == dist2 && count1 < count2))
+			// compute distance to p2
+			d2 = ospe.minDistanceProbe(pid[i]);
+			
+			/*
+			// TODO remove this
+			if (d1 + 4 < d2)
+				dwin1++;
+			else if (d1 < d2)
+				win1++;
+			else if (d1 == d2)
+				draw++;
+			else if (d1 > d2 + 4)
+				dwin2++;
+			else if (d1 > d2)
+				win2++;
+			else
+				throw new IllegalStateException ("What??");
+			//*/
+
+
+			if ((d1 < d2) || (d1 == d2 && count1 < count2))
 			{
 				// assign probe to p1
-				first++;
+				i++;
 				count1++;
 			}
 			else
 			{
 				// assign probe to p2
-				tmp = pid[first];
-				pid[first] = pid[last];
+				tmp = pid[i];
+				pid[i] = pid[last];
 				pid[last] = tmp;
+				
+				dist1[i - first] = dist1[last - first];
+				
 				last--;
 				count2++;
 			}
 		}
 		
+		double elapsed_time = (System.nanoTime() - start_time) / 1000000000d;
+		System.err.println(elapsed_time + " seconds of probe partitioning");
+		
+		// TODO remove this
 		/*
-		System.err.println(count1 + " probes to p1");
-		System.err.println(count2 + " probes to p2");
+		System.err.println(dwin1 + "," + win1 + "," + draw + "," + win2 + "," + dwin2);
+		System.err.println(count1 + " probes to p1, " + count2 + " probes to p2");
 		//*/
 		
-		return first;
+		return i;
 	}
 
 	private int fillRegion (RectangularRegion region, int f_pivot, int l_pivot,
 			int f_probe, int l_probe)
 	{
-		int unplaced;
+		int i, pivot_id, unplaced;
+
+		// ID of main pivot
+		pivot_id = pid[f_pivot];
 		
-		// reembed probes optimally in regards to pivots
-		for (int i = f_probe; i <= l_probe; i++)
-			ospe.reembedProbe(pid[i], pid, f_pivot, l_pivot);
+		// reembed pivots optimally in regards to the main pivot
+		for (i = f_pivot + 1; i <= l_pivot; i++)
+			ospe.reembedProbe(pid[i], pivot_id);
+
+		// reembed probes optimally in regards to the main pivot
+		for (i = f_probe; i <= l_probe; i++)
+			ospe.reembedProbe(pid[i], pivot_id);
+			// TODO remove this
+			//               (pid[i], pid, f_pivot, l_pivot);
 		
 		// place pivots
 		unplaced = filler.fillRegion(chip, region, pid, f_pivot, l_pivot);
@@ -620,5 +713,126 @@ public class PivotPartitioning implements PlacementAlgorithm
 		}
 		
 		System.exit(1);
+	}
+	
+	private class ProbeRanking implements ArrayIndexedCollection
+	{
+		private int id[];
+		
+		private long rank[];
+		
+		private int offset;
+		
+		private long pivot;
+		
+		private ProbeRanking (Chip chip, int id[], int offset)
+		{
+			this.id = id;
+			this.offset = offset;
+			
+			this.rank = new long[id.length - offset + 1];
+			
+			for (int i = offset; i < id.length; i++)
+				rank[i - offset] = getRank(chip, id[i]);
+		}
+		
+		private long getRank (Chip c, int probe_id)
+		{
+			int  w, pos, bitmask = 0;
+			long A_mask = 0x00, C_mask = 0x01, G_mask = 0x02, T_mask = 0x03;
+			long rnk = 0;
+			
+			for (w = -1, pos = 0; pos < c.embed_len; pos++)
+			{
+				if (pos % Integer.SIZE == 0)
+				{
+					bitmask = 0x01 << (Integer.SIZE - 1);
+					w++;
+				}
+				else
+					bitmask >>>= 1;
+
+				if ((bitmask & c.embed[probe_id][w]) != 0)
+				{
+					rnk <<= 2;
+					
+					switch (c.dep_seq[pos])
+					{
+						case 'A':
+							rnk |= A_mask;
+							break;
+							
+						case 'C':
+							rnk |= C_mask;
+							break;
+
+						case 'G':
+							rnk |= G_mask;
+							break;
+							
+						case 'T':
+							rnk |= T_mask;
+							break;
+						
+						default:
+							throw new IllegalArgumentException
+								("Illegal deposition sequence.");
+					}
+				}
+			}
+			
+			return rnk;
+		}
+		
+		public int length ()
+		{
+			return rank.length;
+		}
+
+		public int compare (int a, int b)
+		{
+			a -= offset;
+			b -= offset;
+			
+			return rank[a] < rank[b] ? -1 :
+					rank[a] > rank[b] ? +1 : 0;
+		}
+
+		public void swap (int a, int b)
+		{
+			int t2 = id[a];
+			id[a] = id[b];
+			id[b] = t2;
+			
+			a -= offset;
+			b -= offset;
+
+			long t1 = rank[a];
+			rank[a] = rank[b];
+			rank[b] = t1;
+
+		}
+
+		public void setPivot (int a)
+		{
+			this.pivot = rank[a - offset];
+		}
+		
+		public int compareToPivot (int a)
+		{
+			a -= offset;
+			return rank[a] < this.pivot ? -1 :
+					rank[a] > this.pivot ? +1 : 0;
+		}
+		
+		public int medianOfThree (int a, int b, int c)
+		{
+			a -= offset;
+			b -= offset;
+			c -= offset;
+			return offset + (rank[a] < rank[b] ?
+					(rank[b] < rank[c] ? b : rank[a] < rank[c] ? c : a) :
+					(rank[b] > rank[c] ? b : rank[a] > rank[c] ? c : a));
+		}
 	}
 }
