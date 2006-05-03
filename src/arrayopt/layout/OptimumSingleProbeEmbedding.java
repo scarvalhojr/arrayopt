@@ -217,18 +217,6 @@ public abstract class OptimumSingleProbeEmbedding
 		// else
 		throw new IllegalArgumentException ("Unsupported chip type.");
 	}
-
-	/**
-	 * Computes the minimum distance between any valid embedding of a probe
-	 * (<CODE>id_1</CODE>) and the current embedding of the last probe or set of
-	 * probes for a distance has been computed.
-	 * @param id_1 the ID of the probe
-	 * @return the minimum distance of any embedding of id_1
-	 */
-	double minDistanceProbe (int id_1)
-	{
-		return computeMinDistance(id_1);
-	}
 	
 	/**
 	 * Computes the minimum distance between any valid embedding of a probe
@@ -458,8 +446,6 @@ public abstract class OptimumSingleProbeEmbedding
 
 		protected double matrix[][];
 		
-		protected int start_row;
-		
 		protected char probe[];
 
 		protected double mask_cost[];
@@ -485,8 +471,6 @@ public abstract class OptimumSingleProbeEmbedding
 		@Override
 		protected void resetCosts ()
 		{
-			start_row = 0;
-			
 			for (int i = 0; i < embed_len; i++)
 				mask_cost[i] = unmask_cost[i] = 0;
 		}
@@ -538,24 +522,7 @@ public abstract class OptimumSingleProbeEmbedding
 					bitmask >>>= 1;
 				
 				if ((chip.embed[id][word] & bitmask) != 0)
-				{
-					if (start_row <= i)
-					{
-						probe[i++] = chip.dep_seq[pos];
-					}
-					else
-					{
-						if (probe[i] == chip.dep_seq[pos])
-						{
-							i++;
-						}
-						else
-						{
-							start_row = i + 1;
-							probe[i++] = chip.dep_seq[pos];
-						}
-					}
-				}
+					probe[i++] = chip.dep_seq[pos];
 			}
 		}
 		
@@ -574,8 +541,6 @@ public abstract class OptimumSingleProbeEmbedding
 			protected void addProbeCost (int id)
 			{
 				int word, pos, bitmask = 0;
-				
-				start_row = 0;
 				
 				for (word = -1, pos = 0; pos < embed_len; pos++)
 				{
@@ -598,8 +563,6 @@ public abstract class OptimumSingleProbeEmbedding
 			protected void addProbeCost (int id[], int start, int end)
 			{
 				int i, word, pos, bitmask = 0;
-				
-				start_row = 0;
 				
 				for (word = -1, pos = 0; pos < embed_len; pos++)
 				{
@@ -625,8 +588,6 @@ public abstract class OptimumSingleProbeEmbedding
 			protected void addSpotCost (int row, int col)
 			{
 				int r, c, id;
-				
-				start_row = 0;
 				
 				// top
 				r = row - 1;
@@ -657,32 +618,17 @@ public abstract class OptimumSingleProbeEmbedding
 			protected double computeMatrix ()
 			{
 				double	mask, unmask;
-				int 	r, c, start_col = 1;
-
-				if (start_row == 0)
-				{
-					matrix[0][0] = 0;
-					for (c = 1; c <= embed_len; c++)
-						matrix[0][c] = matrix[0][c - 1] + mask_cost[c -1];
-					
-					start_row = 1;
-				}
-				else if (start_row > 1 && start_row <= probe_len)
-				{
-					// find first non-infinite number from right to left
-					for (c = embed_len; c >= start_row - 1; c--)
-						if (matrix[start_row -1][c] == Double.POSITIVE_INFINITY)
-							break;
-					
-					// set starting column
-					start_col = c + 2;
-				}
+				int 	r, c, start;
 				
-				for (r = start_row; r <= probe_len; r++, start_col++)
+				matrix[0][0] = 0;
+				for (c = (start = 1); c <= embed_len; c++)
+					matrix[0][c] = matrix[0][c - 1] + mask_cost[c -1];
+				
+				for (r = 1; r <= probe_len; r++, start++)
 				{
-					matrix[r][start_col - 1] = Double.POSITIVE_INFINITY;
+					matrix[r][start - 1] = Double.POSITIVE_INFINITY;
 					
-					for (c = start_col; c <= embed_len; c++)
+					for (c = start; c <= embed_len; c++)
 					{
 						mask = matrix[r][c - 1] + mask_cost[c -1];
 						
@@ -693,11 +639,9 @@ public abstract class OptimumSingleProbeEmbedding
 						
 						matrix[r][c] = Math.min(mask, unmask);
 						
-						if (Double.isInfinite(matrix[r][c])) start_col++;
+						if (Double.isInfinite(matrix[r][c])) start++;
 					}
 				}
-				
-				start_row = probe_len + 1;
 				
 				return matrix[probe_len][embed_len];
 			}
