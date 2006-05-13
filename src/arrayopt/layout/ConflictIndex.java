@@ -115,15 +115,19 @@ public abstract class ConflictIndex
 		{
 			case DEFAULT_DEFINITION:
 				loaded_def = new Default ();
+				break;
 			
 			case SIMPLIFIED_DEFINITION:
 				loaded_def = new Simplified ();
+				break;
 			
 			case BORDER_LENGTH_EQUIVALENT_DEFINITION:
 				loaded_def = new BorderLengthEquivalent ();
+				break;
 
 			case UNBALANCED_DEFINITION:
 				loaded_def = new Unbalanced ();
+				break;
 
 			default:
 				throw new IllegalArgumentException
