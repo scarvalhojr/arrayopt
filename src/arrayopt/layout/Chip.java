@@ -611,6 +611,36 @@ public abstract class Chip implements Cloneable
 	}
 
 	/**
+	 * Prints the stored embedding of a probe as a binary string on the standard
+	 * error output stream. This method serves for debugging purposes only.
+	 *
+	 * @param probe_id probe ID
+	 */
+	public void printBinaryEmbedding (int probe_id)
+	{
+		int mask = 0, w, pos;
+		
+		for (w = -1, pos = 0; pos < embed_len; pos++)
+		{
+			if (pos % Integer.SIZE == 0)
+			{
+				// use next 4-byte word
+				w++;
+
+				// turn on very first bit of mask only
+				mask = 0x01 << (Integer.SIZE - 1);
+			}
+
+			if ((mask & embed[probe_id][w]) == 0)
+				System.err.print ('0');
+			else
+				System.err.print ('1');
+
+			mask >>>= 1;
+		}
+	}
+
+	/**
 	 * Prints the stored probe sequence on the standard error output stream.
 	 * This method serves for debugging purposes only.
 	 *
