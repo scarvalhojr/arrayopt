@@ -96,8 +96,41 @@ public class RandomFiller implements PlacementAlgorithm, FillingAlgorithm
 	protected int fillRegion (SimpleChip chip, RectangularRegion region,
 		int probe_id[], int start, int end)
 	{
-		// TODO implement
-		return 0;
+		int rand, tmp;
+
+		for (int r = region.first_row; r <= region.last_row; r ++)
+		{
+			for (int c = region.first_col; c <= region.last_col; c++)
+			{
+				// skip spot if not empty
+				if (chip.spot[r][c] != Chip.EMPTY_SPOT)
+					continue;
+
+				// skip fixed spots
+				if (chip.isFixedSpot(r, c))
+					continue;
+
+				// select probe randomly
+				// (and move it to position 'start' in the list)
+				rand = start + (int) ((end - start + 1) * Math.random());
+
+				// move probe ID to the front of the list
+				tmp = probe_id[start];
+				probe_id[start] = probe_id[rand];
+				probe_id[rand] = tmp;
+
+				chip.spot[r][c] = probe_id[start];
+
+				start ++;
+
+				if (start > end)
+					// all probes were placed
+					return 0;
+			}
+		}
+
+		// some probes could not be placed
+		return 2 * (end - start + 1);
 	}
 
 	/**
