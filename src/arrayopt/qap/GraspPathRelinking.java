@@ -106,9 +106,11 @@ public class GraspPathRelinking extends QAPSolverAlgorithm
 		this.alpha = alpha;
 		this.beta = beta;
 		
-		// TODO use random seed?
-		// this.seed = (int) (Short.MAX_VALUE * Math.random());
-		this.seed = DEFAULT_SEED;
+		// use random seed 
+		this.seed = (int) (Short.MAX_VALUE * Math.random());
+		
+		// TODO start with default or random seed?
+		// this.seed = DEFAULT_SEED;
 		
 		this.elite_size = elite_size;
 		this.in_out = new int [2];
