@@ -88,6 +88,31 @@ public class LayoutEvaluation
 		return hd;
 	}
 
+	public static int hammingDistanceSpots (Chip chip, int id_1, int id_2)
+	{
+		int w, lastw, hd = 0, shift, bits;
+		
+		// index of the last word
+		lastw = chip.embed[id_1].length - 1;
+
+		// count the differences in the first words
+		for (w = 0; w < lastw; w++)
+			hd += Integer.bitCount(chip.embed[id_1][w] ^ chip.embed[id_2][w]);
+		
+		// bitwise xor of the last word
+		bits = chip.embed[id_1][lastw] ^ chip.embed[id_2][lastw];
+		
+		// clear any unused bits
+		shift = (1 + lastw) * Integer.SIZE - chip.embed_len;
+		bits >>>= shift;
+		bits <<= shift;
+
+		// count the differences in the last word
+		hd += Integer.bitCount(bits);
+
+		return hd;
+	}
+
 	public static int hammingDistance (AffymetrixChip chip, int id_1, int id_2)
 	{
 		int w, lastw, hd = 0, shift, bits;
@@ -280,7 +305,7 @@ public class LayoutEvaluation
 					continue;
 				if ((id2 = chip.spot[r][c + 1]) == Chip.EMPTY_SPOT)
 					continue;
-				border += hammingDistance(chip, id1, id2);
+				border += hammingDistanceSpots(chip, id1, id2);
 			}
 			
 		for (c = region.first_col; c <= region.last_col; c++)
@@ -290,7 +315,7 @@ public class LayoutEvaluation
 					continue;
 				if ((id2 = chip.spot[r + 1][c]) == Chip.EMPTY_SPOT)
 					continue;
-				border += hammingDistance(chip, id1, id2);
+				border += hammingDistanceSpots(chip, id1, id2);
 			}
 
 		return border;
