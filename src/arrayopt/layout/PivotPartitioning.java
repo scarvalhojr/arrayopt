@@ -37,6 +37,9 @@
 
 package arrayopt.layout;
 
+import arrayopt.util.ArrayIndexedCollection;
+import arrayopt.util.QuickSort;
+
 /**
  * TODO document this
  * 
@@ -54,7 +57,7 @@ package arrayopt.layout;
  * with the next minimum number of embeddings to pivots (as fake pivots). This
  * is repeated until the minimum number of pivots is reached.</P>
  * 
- * <P>The minimum number of pivots is usually 2 to the power of
+ * <P>The minimum number of pivots is usually 2 times 2 to the power of
  * {@link #max_depth}. This is the number of pivots needed to partition the
  * chip all the way down to the maximum partitioning depth. However, if the
  * {@link #max_depth} is set too high, this might force too many probes to
@@ -65,9 +68,18 @@ package arrayopt.layout;
  * exceed a percentage of the total number of probes defined by the
  * {@link #MIN_PERCENTAGE_PIVOTS} constant.</P>
  * 
+ * @author Anna Domanski
+ * @author Ronny Gaertner
+ * @author Sergio A. de Carvalho Jr.
  */
 public class PivotPartitioning implements PlacementAlgorithm
 {
+	private int mode;
+	
+	public static final int MODE_BORDER_LENGTH = 0;
+	
+	public static final int MODE_CONFLICT_INDEX = 1;
+
 	/**
 	 * TODO document this
 	 */
@@ -86,7 +98,7 @@ public class PivotPartitioning implements PlacementAlgorithm
 	/**
 	 * TODO document this
 	 */
-	public static final double MIN_PERCENTAGE_PIVOTS = 0.02;
+	public static final double MIN_PERCENTAGE_PIVOTS = 0.01;
 
 	/**
 	 * TODO document this
@@ -106,21 +118,78 @@ public class PivotPartitioning implements PlacementAlgorithm
 	/**
 	 * TODO document this
 	 */
-	private int rows_per_probe;
+	private boolean fake_pivots;
 
+	/**
+	 * TODO document this
+	 */
+	private long rank[];
+
+	/**
+	 * TODO use this to speed up the selection of pivots by computing the
+	 * number of embedding of every probe at once, storing the results on this
+	 * array sorting the probes by the number of embeddings
+	 */
+	private long num_embed[];
+
+	/**
+	 * TODO document this
+	 */
+	private double dist[];
+
+	/**
+	 * TODO document this
+	 */
+	private int offset;
+
+	/**
+	 * TODO document this
+	 */
+	private RankSorting rank_sort;
+
+	/**
+	 * TODO document this
+	 */
+	private DistanceSorting dist_sort;
+
+	/**
+	 * TODO document this
+	 */
+	private int rows_per_probe;
+	
 	/**
 	 * TODO document this
 	 */
 	public PivotPartitioning (FillingAlgorithm filler)
 	{
-		this(filler, DEFAULT_MAX_DEPTH);
+		this(filler, MODE_BORDER_LENGTH);
 	}
 
 	/**
 	 * TODO document this
 	 */
-	public PivotPartitioning (FillingAlgorithm filler, int max_depth)
+	public PivotPartitioning (FillingAlgorithm filler, int mode)
 	{
+		this(filler, mode, DEFAULT_MAX_DEPTH);
+	}
+
+	/**
+	 * TODO document this
+	 */
+	public PivotPartitioning (FillingAlgorithm filler, int mode, int max_depth)
+	{
+		switch (mode)
+		{
+			case MODE_BORDER_LENGTH:
+			case MODE_CONFLICT_INDEX:
+				this.mode = mode;
+				break;
+				
+			default:
+				throw new IllegalArgumentException
+					("Illegal value for argument 'mode': " + mode);
+		}
+		
 		this.filler = filler;
 		this.max_depth = (max_depth < 1) ? 1 : max_depth;
 	}
@@ -130,7 +199,7 @@ public class PivotPartitioning implements PlacementAlgorithm
 	 */
 	public int makeLayout (Chip c)
 	{
-		int pivots;
+		int pivots, nonpivots;
 		
 		if (c instanceof SimpleChip)
 			rows_per_probe = 1;
@@ -140,8 +209,8 @@ public class PivotPartitioning implements PlacementAlgorithm
 			throw new IllegalArgumentException ("Unsupported chip type.");
 		
 		this.chip = c;
-		this.ospe = OptimumSingleProbeEmbedding.createEmbedder(c);
-		
+		this.ospe = OptimumSingleProbeEmbedding.createEmbedder(c, mode);
+				
 		// reset current layout (if any)
 		chip.resetLayout();
 		
@@ -152,6 +221,19 @@ public class PivotPartitioning implements PlacementAlgorithm
 
 		// select probes which will serve as pivots
 		pivots = selectPivots ();
+		nonpivots = pid.length - pivots;
+		
+		// offset marks the index of the first non-pivot probe
+		this.offset = pivots;
+		
+		// create probe ranking array
+		rank = new long[nonpivots];
+		rank_sort = new RankSorting (pid, rank, pivots);
+		computeProbeRanks (pivots, pid.length - 1);
+		
+		// create probe distance array
+		dist = new double[nonpivots];
+		dist_sort = new DistanceSorting (pid, rank, dist, offset);
 		
 		return horizontalDivide (1, chip.getChipRegion(), 0, pivots - 1, pivots,
 				pid.length - 1);
@@ -160,26 +242,23 @@ public class PivotPartitioning implements PlacementAlgorithm
 	private int selectPivots ()
 	{
 		int min_pivots, num_pivots, end, start_fake;
-
-		// set the minimum number of pivots to as the minimum between:
-		// a) 2 ^ max_depth
-		// b) MIN_PERCENTAGE_PIVOTS * the total number of probes
-		min_pivots = Math.min(
-					(int) Math.pow(2, max_depth),
-					(int) (MIN_PERCENTAGE_PIVOTS * chip.getNumberOfProbes()));
 		
-		// first find probes with the minimum number of embeddings
+		// first select probes with the minimum number of embeddings
 		num_pivots = findPivots (0, end = pid.length - 1);
-		
-		// check if the minimum number of embeddins is greater than 2
+
+		// check whether selected pivots are 'real' or 'fake' pivots:
+		// 'real' pivots are those with only 1 possible embedding
+		// (or 2 in case of Affymetrix chips since the middle bases of PM/MM
+		// pairs usually have some degree of freedom); pivots with more than 2
+		// possible embeddings are considered 'fake' pivots
 		if (ospe.numberOfEmbeddings(pid[0]) > 2)
 		{
 			// yes: we call these probes as 'fake' pivots
 			start_fake = 0;
 			
 			// TODO remove this
-			long noe = ospe.numberOfEmbeddings(pid[0]);
-			System.err.println(num_pivots + " fake pivots selected => noe: " + noe);
+			// long noe = ospe.numberOfEmbeddings(pid[0]);
+			// System.err.println(num_pivots + " fake pivots selected => noe: " + noe);
 		}
 		else
 		{
@@ -188,9 +267,16 @@ public class PivotPartitioning implements PlacementAlgorithm
 			start_fake = num_pivots;
 			
 			// TODO remove this
-			long noe = ospe.numberOfEmbeddings(pid[0]);
-			System.err.println(num_pivots + " true pivots selected => noe: " + noe);
+			// long noe = ospe.numberOfEmbeddings(pid[0]);
+			// System.err.println(num_pivots + " true pivots selected => noe: " + noe);
 		}
+		
+		// set the minimum number of pivots as the maximum between:
+		// a) 2 * 2 ^ max_depth
+		// b) MIN_PERCENTAGE_PIVOTS * the total number of probes
+		min_pivots = Math.max(
+					2 * (int) Math.pow(2, max_depth),
+					(int) (MIN_PERCENTAGE_PIVOTS * chip.getNumberOfProbes()));
 		
 		while (num_pivots < min_pivots)
 		{
@@ -198,18 +284,33 @@ public class PivotPartitioning implements PlacementAlgorithm
 			num_pivots = findPivots (num_pivots, end);
 			
 			// TODO remove this
-			long noe = ospe.numberOfEmbeddings(pid[num_pivots - 1]);
-			System.err.println("pivot list extended to: " + num_pivots + " => noe: " + noe);
+			// long noe = ospe.numberOfEmbeddings(pid[num_pivots - 1]);
+			// System.err.println("Pivot list extended to " + num_pivots + " => noe: " + noe);
 		}
 		
 		if (start_fake < num_pivots)
 		{
+			// turn on the fake pivots flag
+			this.fake_pivots = true;
+			
+			// cut the excess of fake pivots
+			if (num_pivots > min_pivots)
+				num_pivots = min_pivots;
+			
+			// TODO remove this
+			// System.err.println("Pivot list trimmed to " + num_pivots);
+			
 			// TODO re-embed fake probes with the CenteredEmbedding algorithm
 			// or implement a different one that move unmasked steps to the
 			// extremities as far as possible
 		}
-				
-		return num_pivots;				
+		else
+		{
+			// turn off the fake pivots flag
+			this.fake_pivots = false;
+		}
+		
+		return num_pivots;
 	}
 	
 	private int findPivots (int start, int end)
@@ -252,9 +353,12 @@ public class PivotPartitioning implements PlacementAlgorithm
 		
 		/*
 		System.err.println("\nhorizontalDivide (depth " + depth + ")");
-		System.err.println("Region: " + r);
-		System.err.println("Pivots: " + f_pivot + " - " + l_pivot);
-		System.err.println("Probes: " + f_probe + " - " + l_probe);
+		System.err.println("Region: " + (r.last_row - r.first_row + 1) +
+				" x " + (r.last_col - r.first_col + 1) + " (" + r + ")");
+		System.err.println("Pivots: " + (l_pivot - f_pivot + 1) + " pivots (" +
+				f_pivot + " - " + l_pivot + ")");
+		System.err.println("Probes: " + (l_probe - f_probe + 1) + " probes (" +
+				f_probe + " - " + l_probe + ")");
 		//*/
 		
 		// stop partitioning if reached maximum depth or
@@ -304,7 +408,7 @@ public class PivotPartitioning implements PlacementAlgorithm
 		rows_2 = num_rows - rows_1;
 		
 		// TODO remove this
-		// System.err.println("Partitioning: " + (100 * rows_1 / num_rows) + " x " + (100 * rows_2 / num_rows));
+		// System.err.println("Partitioning (%): " + (100 * rows_1 / num_rows) + " x " + (100 * rows_2 / num_rows));
 		
 		// check how many spots each region has
 		spots_1 = num_cols * rows_1 / rows_per_probe;
@@ -363,9 +467,12 @@ public class PivotPartitioning implements PlacementAlgorithm
 		
 		/*
 		System.err.println("\nverticalDivide (depth " + depth + ")");
-		System.err.println("Region: " + r);
-		System.err.println("Pivots: " + f_pivot + " - " + l_pivot);
-		System.err.println("Probes: " + f_probe + " - " + l_probe);
+		System.err.println("Region: " + (r.last_row - r.first_row + 1) +
+				" x " + (r.last_col - r.first_col + 1) + " (" + r + ")");
+		System.err.println("Pivots: " + (l_pivot - f_pivot + 1) + " pivots (" +
+				f_pivot + " - " + l_pivot + ")");
+		System.err.println("Probes: " + (l_probe - f_probe + 1) + " probes (" +
+				f_probe + " - " + l_probe + ")");
 		//*/
 		
 		// stop partitioning if reached maximum depth or
@@ -415,7 +522,7 @@ public class PivotPartitioning implements PlacementAlgorithm
 		cols_2 = num_cols - cols_1;
 		
 		// TODO remove this
-		// System.err.println("Partitioning: " + (100 * cols_1 / num_cols) + " x " + (100 * cols_2 / num_cols));
+		// System.err.println("Partitioning (%): " + (100 * cols_1 / num_cols) + " x " + (100 * cols_2 / num_cols));
 		
 		// check how many spots each region has
 		spots_1 = cols_1 * num_rows / rows_per_probe;
@@ -466,7 +573,7 @@ public class PivotPartitioning implements PlacementAlgorithm
 	
 	private int choosePivotPair (int first, int last)
 	{
-		int i, j, p1, p2, dist, maxdist, tmp;
+		int i, j, p1, p2, d, maxdist, tmp;
 		
 		p1 = first;
 		p2 = last;
@@ -476,10 +583,10 @@ public class PivotPartitioning implements PlacementAlgorithm
 		for (i = first; i < last; i++)
 			for (j = i + 1; j <= last; j++)
 			{
-				dist = LayoutEvaluation.hammingDistance(chip, pid[i], pid[j]);
-				if (dist > maxdist)
+				d = LayoutEvaluation.hammingDistance(chip, pid[i], pid[j]);
+				if (d > maxdist)
 				{
-					maxdist = dist;
+					maxdist = d;
 					p1 = i;
 					p2 = j;
 				}
@@ -499,7 +606,7 @@ public class PivotPartitioning implements PlacementAlgorithm
 		p2 = pid[last];
 		
 		// TODO remove this
-		System.err.println("Pivot IDs: " + p1 + ", " + p2);
+		// System.err.println("Chosen pivot pair: " + p1 + " and " + p2+ " (distance: " + maxdist + ")");
 		
 		// partition the remaining pivots into two groups
 		// according to whether they are closer to p1 or p2
@@ -527,15 +634,6 @@ public class PivotPartitioning implements PlacementAlgorithm
 			}
 		}
 		
-		/*
-		System.err.println(count1 + " pivots to p1");
-		System.err.println(count2 + " pivots to p2");
-		//*/
-		
-		// TODO remove this
-		if (pid[last] != p2)
-			throw new IllegalStateException ("Impossible");
-			
 		// move p2 to the beginning of its own list
 		pid[last] = pid[i];
 		pid[i] = p2;
@@ -545,122 +643,285 @@ public class PivotPartitioning implements PlacementAlgorithm
 
 	private int divideProbes (int p1, int p2, int first, int last)
 	{
-		int		i, count1 = 0, count2 = 0, tmp;
-		double	dist1, dist2;
+		int i, total, count1 = 0, count2 = 0, count_any, delta;
+		double d;
 		
-		for (i = first; i <= last;)
+		total = last - first + 1;
+		
+		// sort probes lexicographically
+		QuickSort.sort(rank_sort, first, total);
+		
+		// compute and save the minimum distance of every probe to pivot p1
+		dist[first - offset] = ospe.minDistanceProbe(pid[first], p1);
+		for (i = first + 1; i <= last; i++)
+			dist[i - offset] = ospe.minDistanceProbe(pid[i]);
+		
+		// subtract the the min distance to p1 by the min distance to p2
+		d = dist[first - offset] -= ospe.minDistanceProbe(pid[first], p2);
+		if (d < 0) count1++; else if (d > 0) count2++;
+		for (i = first + 1; i <= last; i++)
 		{
-			dist1 = ospe.minDistanceProbe(pid[i], p1);
-			dist2 = ospe.minDistanceProbe(pid[i], p2);
-			
-			/*
-			// TODO remove this
-			if (d1 + 4 < d2)
-				dwin1++;
-			else if (d1 < d2)
-				win1++;
-			else if (d1 == d2)
-				draw++;
-			else if (d1 > d2 + 4)
-				dwin2++;
-			else if (d1 > d2)
-				win2++;
-			else
-				throw new IllegalStateException ("What??");
-			//*/
+			d = dist[i - offset] -= ospe.minDistanceProbe(pid[i]);
+			if (d < 0) count1++; else if (d > 0) count2++;
+		}
+		
+		// sort probes by the difference of the distances
+		QuickSort.sort(dist_sort, first, total);
+		
+		// count how many probes have the same minimum distance to p1 and p2
+		count_any = total - count1 - count2;
 
-			if ((dist1 < dist2) || (dist1 == dist2 && count1 < count2))
+		// divide the set of probes as evenly as possible
+		if ((delta = count1 - count2) < 0)
+		{
+			delta = -delta;
+			if (count_any >= delta)
 			{
-				// assign probe to p1
-				i++;
-				count1++;
+				count_any -= delta;
+				count1 += delta + count_any / 2;
 			}
 			else
 			{
-				// assign probe to p2
-				tmp = pid[i];
-				pid[i] = pid[last];
-				pid[last] = tmp;
-				last--;
-				count2++;
+				count1 += count_any;
+			}
+		}
+		else if (delta > 0)
+		{
+			if (count_any >= delta)
+			{
+				count_any -= delta;
+				count1 += count_any / 2;
 			}
 		}
 		
-		// TODO remove this
-		/*
-		System.err.println(dwin1 + "," + win1 + "," + draw + "," + win2 + "," + dwin2);
-		System.err.println(count1 + " probes to p1, " + count2 + " probes to p2");
-		//*/
+		// return the index of the first probe assigned to p2
+		return first + count1;
+	}
+	
+	private void computeProbeRanks (int start, int end)
+	{
+		int  i, word, step, bitmask = 0;
+		long base_mask;
 		
-		return i;
+		for (i = start; i <= end; i++)
+			rank[i - offset] = 0;
+		
+		for (word = -1, step = 0; step < chip.embed_len; step++)
+		{
+			if (step % Integer.SIZE == 0)
+			{
+				bitmask = 0x01 << (Integer.SIZE - 1);
+				word++;
+			}
+			else
+				bitmask >>>= 1;
+
+			switch (chip.dep_seq[step])
+			{
+				case 'A':
+					base_mask = 0x00;
+					break;
+					
+				case 'C':
+					base_mask = 0x01;
+					break;
+
+				case 'G':
+					base_mask = 0x02;
+					break;
+					
+				case 'T':
+					base_mask = 0x03;
+					break;
+				
+				default:
+					throw new IllegalArgumentException
+						("Illegal deposition sequence.");
+			}
+			
+			for (i = start; i <= end; i++)
+				if ((bitmask & chip.embed[pid[i]][word]) != 0)
+				{
+					rank[i - offset] <<= 2;
+					rank[i - offset] |= base_mask;
+				}
+		}
 	}
 
 	private int fillRegion (RectangularRegion region, int f_pivot, int l_pivot,
 			int f_probe, int l_probe)
 	{
-		int i, pivot_id, unplaced;
-
-		// ID of main pivot
-		pivot_id = pid[f_pivot];
+		int i, num_pivots, num_probes, all[];
 		
-		// reembed pivots optimally in regards to the main pivot
-		for (i = f_pivot + 1; i <= l_pivot; i++)
-			ospe.reembedProbe(pid[i], pivot_id);
-
-		// reembed probes optimally in regards to the main pivot
-		for (i = f_probe; i <= l_probe; i++)
-			ospe.reembedProbe(pid[i], pivot_id);
-			// TODO remove this
-			//               (pid[i], pid, f_pivot, l_pivot);
+		num_pivots = l_pivot - f_pivot + 1;
+		num_probes = l_probe - f_probe + 1;
 		
-		// place pivots
-		unplaced = filler.fillRegion(chip, region, pid, f_pivot, l_pivot);
+		if (fake_pivots)
+		{
+			// reembed fake pivots optimally in regards to the main pivot
+			if (f_pivot + 1 <= l_pivot)
+				ospe.reembedProbe(pid[f_pivot + 1], pid[f_pivot]);
+			for (i = f_pivot + 2; i <= l_pivot; i++)
+				ospe.reembedProbe(pid[i]);
+		}
 
-		// place non-pivots
-		unplaced += filler.fillRegion(chip, region, pid, f_probe, l_probe);
+		// sort probes lexicographically to speed up re-embeddings
+		QuickSort.sort(rank_sort, f_probe, l_probe - f_probe + 1);
 
-		return unplaced;
+		// reembed non-pivots optimally in regards to all pivots
+		if (f_probe <= l_probe)
+			ospe.reembedProbe(pid[f_probe], pid, f_pivot, l_pivot);
+		for (i = f_probe + 1; i <= l_probe; i++)
+			ospe.reembedProbe(pid[i]);
+
+		// create an array with all probe IDs (pivots and non-pivots)
+		all = new int [num_pivots + num_probes];
+		System.arraycopy(pid, f_pivot, all, 0, num_pivots);
+		System.arraycopy(pid, f_probe, all, num_pivots, num_probes);
+		
+		return filler.fillRegion(chip, region, all);
 	}
 
-	// TODO remove this
-	/* private */ void assignProbes (int pivots)
+	private class RankSorting implements ArrayIndexedCollection
 	{
-		int best, count[], assign[];
-		double dist, mindist;
+		private int probe_id[];
 		
-		System.err.println("Assigning probes to pivots...");
+		private long probe_rank[];
 		
-		count = new int[pivots];
-		assign = new int[pid.length - pivots];
+		private int off;
 		
-		for (int i = pivots; i < pid.length; i++)
+		private long pivot;
+		
+		RankSorting (int probe_id[], long probe_rank[], int offset)
 		{
-			if (i % 1000 == 0)
-				System.err.println(i);
-			
-			best = 0;
-			mindist = ospe.minDistanceProbe(pid[i], pid[best]);
-			
-			for (int j = 1; j < pivots; j++)
-			{
-				dist = ospe.minDistanceProbe(pid[i], pid[j]);
-				
-				if (dist > mindist)
-					continue;
-				
-				if (dist == mindist)
-					if (count[j] >= count[best])
-						continue;
-				
-				mindist = dist;
-				best = j;
-			}
-			
-			// assign pid i to best pivot
-			assign[i - pivots] = best;
-			count[best]++;
+			this.probe_id = probe_id;
+			this.probe_rank = probe_rank;
+			this.off = offset;
 		}
 		
-		System.exit(1);
+		public int compare (int i, int j)
+		{
+			i -= off;
+			j -= off;
+			
+			return probe_rank[i] < probe_rank[j] ? -1 :
+					probe_rank[i] == probe_rank[j] ? 0 : +1;
+		}
+		
+		public void swap (int i, int j)
+		{
+			int tmp1;
+			tmp1 = probe_id[i];
+			probe_id[i] = probe_id[j];
+			probe_id[j] = tmp1;
+			
+			i -= off;
+			j -= off;
+			
+			long tmp2;
+			tmp2 = probe_rank[i];
+			probe_rank[i] = probe_rank[j];
+			probe_rank[j] = tmp2;
+		}
+		
+		public void setPivot (int i)
+		{
+			this.pivot = probe_rank[i - off];
+		}
+		
+		public int compareToPivot (int i)
+		{
+			i -= off;
+			
+			return probe_rank[i] < pivot ? -1 :
+					probe_rank[i] == pivot ? 0 : +1;
+		}
+		
+		public int medianOfThree (int i, int j, int k)
+		{
+			long rank_i = probe_rank[i - off];
+			long rank_j = probe_rank[j - off];
+			long rank_k = probe_rank[k - off];
+
+			return rank_i < rank_j ?
+					(rank_j < rank_k ? j : (rank_i < rank_k ? k : i)) :
+					(rank_j > rank_k ? j : (rank_i > rank_k ? k : i));
+		}
+	}
+	
+	private class DistanceSorting implements ArrayIndexedCollection
+	{
+		private int probe_id[];
+		
+		private long probe_rank[];
+		
+		private double probe_dist[];
+		
+		private int off;
+		
+		private double pivot;
+		
+		DistanceSorting (int probe_id[], long probe_rank[], double probe_dist[],
+				int offset)
+		{
+			this.probe_id = probe_id;
+			this.probe_rank = probe_rank;
+			this.probe_dist = probe_dist;
+			this.off = offset;
+		}
+		
+		public int compare (int i, int j)
+		{
+			i -= off;
+			j -= off;
+			
+			return probe_dist[i] < probe_dist[j] ? -1 :
+					probe_dist[i] == probe_dist[j] ? 0 : +1;
+		}
+		
+		public void swap (int i, int j)
+		{
+			int tmp1;
+			tmp1 = probe_id[i];
+			probe_id[i] = probe_id[j];
+			probe_id[j] = tmp1;
+			
+			i -= off;
+			j -= off;
+			
+			long tmp2;
+			tmp2 = probe_rank[i];
+			probe_rank[i] = probe_rank[j];
+			probe_rank[j] = tmp2;
+			
+			double tmp3;
+			tmp3 = probe_dist[i];
+			probe_dist[i] = probe_dist[j];
+			probe_dist[j] = tmp3;
+		}
+		
+		public void setPivot (int i)
+		{
+			this.pivot = probe_dist[i - off];
+		}
+		
+		public int compareToPivot (int i)
+		{
+			i -= off;
+			
+			return probe_dist[i] < pivot ? -1 :
+					probe_dist[i] == pivot ? 0 : +1;
+		}
+		
+		public int medianOfThree (int i, int j, int k)
+		{
+			double dist_i = probe_dist[i - off];
+			double dist_j = probe_dist[j - off];
+			double dist_k = probe_dist[k - off];
+
+			return dist_i <= dist_j ?
+					(dist_j <= dist_k ? j : (dist_i <= dist_k ? k : i)) :
+					(dist_j >= dist_k ? j : (dist_i >= dist_k ? k : i));
+		}
 	}
 }
