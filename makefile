@@ -29,9 +29,9 @@ SOL_LIB = ./lib/solaris
 SOL_INC = -I$(INC_DIR) -I$(JDK_PATH)/include -I$(JDK_PATH)/include/solaris
 
 # source files and packages
-JAVA_SRC = $(SRC_DIR)/arrayopt/layout/*.java $(SRC_DIR)/arrayopt/qap/*.java $(SRC_DIR)/arrayopt/textui/*.java
-JAVA_BIN = $(BIN_DIR)/arrayopt/layout/*.class $(BIN_DIR)/arrayopt/qap/*.class $(BIN_DIR)/arrayopt/textui/*.class
-JAVA_PCK = arrayopt.layout arrayopt.qap arrayopt.textui
+JAVA_SRC = $(SRC_DIR)/arrayopt/layout/*.java $(SRC_DIR)/arrayopt/util/*.java $(SRC_DIR)/arrayopt/qap/*.java $(SRC_DIR)/arrayopt/textui/*.java
+JAVA_BIN = $(BIN_DIR)/arrayopt/layout/*.class $(BIN_DIR)/arrayopt/util/*.class $(BIN_DIR)/arrayopt/qap/*.class $(BIN_DIR)/arrayopt/textui/*.class
+JAVA_PCK = arrayopt.layout arrayopt.util arrayopt.qap arrayopt.textui
 JNI_CLS = arrayopt.qap.GraspPathRelinking arrayopt.qap.GraspDense arrayopt.qap.GraspSparse
 
 # phony targets (always execute)
