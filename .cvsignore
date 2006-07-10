@@ -1,9 +1,7 @@
 .classpath
 .project
+.settings
+.externalToolBuilders
 bin
 doc
 lib
-.settings
-.project
-.classpath
-.cvsignore
