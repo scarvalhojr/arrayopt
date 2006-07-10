@@ -53,7 +53,15 @@ public class GreedyFiller implements PlacementAlgorithm, FillingAlgorithm
 	
 	public static final int MODE_CONFLICT_INDEX = 1;
 	
-	private boolean randomize_first;
+	private static final int NO_PREPROCESSING = 0;
+	
+	public static final int SORT_EMBEDDINGS = 1;
+
+	public static final int RANDOMIZE_INPUT = 2;
+	
+	private boolean sort_embeddings;
+	
+	private boolean randomize_input;
 	
 	private RectangularRegion chip_region;
 	
@@ -79,10 +87,10 @@ public class GreedyFiller implements PlacementAlgorithm, FillingAlgorithm
 
 	public GreedyFiller (int mode, int window_size)
 	{
-		this(mode, window_size, false);
+		this(mode, window_size, NO_PREPROCESSING);
 	}
 
-	public GreedyFiller (int mode, int window_size, boolean randomize_first)
+	public GreedyFiller (int mode, int window_size, int options)
 	{
 		switch (mode)
 		{
@@ -95,9 +103,12 @@ public class GreedyFiller implements PlacementAlgorithm, FillingAlgorithm
 				throw new IllegalArgumentException
 					("Illegal value for argument 'mode'.");
 		}
-		
+
+		// set pre-processing options
+		sort_embeddings = (options == SORT_EMBEDDINGS ? true : false);
+		randomize_input = (options == RANDOMIZE_INPUT ? true : false);
+				
 		this.window_size = window_size;
-		this.randomize_first = randomize_first;
 	}
 
 	/**
@@ -138,9 +149,16 @@ public class GreedyFiller implements PlacementAlgorithm, FillingAlgorithm
 
 		r = (RectangularRegion) region;
 		
-		// TODO sorting probes should be configurable (by the constructors)
-		// sort embeddings lexicographically (as binary strings)
-		// QuickSort.sort(new EmbeddingSort(chip, probe_id), start,end - start +1);
+		if (sort_embeddings)
+		{
+			// sort embeddings lexicographically (as binary strings)
+			QuickSort.sort(new EmbeddingSort(chip, probe_id),
+							start, end - start +1);
+		}
+		else if (randomize_input)
+		{
+			randomizeInput (probe_id, start, end);
+		}
 
 		if (chip instanceof SimpleChip)
 		{
@@ -188,8 +206,6 @@ public class GreedyFiller implements PlacementAlgorithm, FillingAlgorithm
 	{
 		int s, tmp;
 		
-		if (randomize_first) randomizeProbes (probe_id, start, end);
-
 		for (int r = region.first_row; r <= region.last_row; r ++)
 		{
 			for (int c = region.first_col; c <= region.last_col; c++)
@@ -236,8 +252,6 @@ public class GreedyFiller implements PlacementAlgorithm, FillingAlgorithm
 	{
 		int s, tmp;
 		
-		if (randomize_first) randomizeProbes (probe_id, start, end);
-
 		for (int r = region.first_row; r < region.last_row; r ++)
 		{
 			for (int c = region.first_col; c <= region.last_col; c++)
@@ -504,11 +518,9 @@ public class GreedyFiller implements PlacementAlgorithm, FillingAlgorithm
 		return best;
 	}
 	
-	private void randomizeProbes (int probe_id[], int start, int end)
+	private void randomizeInput (int probe_id[], int start, int end)
 	{
 		int tmp, rand;
-		
-		// TODO test this
 		
 		for (int i = start; i < end; i++)
 		{
