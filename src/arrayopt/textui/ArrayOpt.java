@@ -191,57 +191,52 @@ public class ArrayOpt
 		else if (placement.equalsIgnoreCase("GREEDY-CI"))
 			placer = new GreedyFiller(GreedyFiller.MODE_CONFLICT_INDEX);
 
-		else if (placement.equalsIgnoreCase("GREEDY20K-BL"))
-			placer = new GreedyFiller(GreedyFiller.MODE_BORDER_LENGTH,
-										20000, false);
+		else if (placement.equalsIgnoreCase("GREEDY-BL-20K"))
+			placer = new GreedyFiller(GreedyFiller.MODE_BORDER_LENGTH, 20000);
 
-		else if (placement.equalsIgnoreCase("GREEDY10K-BL"))
-			placer = new GreedyFiller(GreedyFiller.MODE_BORDER_LENGTH,
-										10000, false);
+		else if (placement.equalsIgnoreCase("GREEDY-BL-10K"))
+			placer = new GreedyFiller(GreedyFiller.MODE_BORDER_LENGTH, 10000);
 
-		else if (placement.equalsIgnoreCase("GREEDY5K-BL"))
-			placer = new GreedyFiller(GreedyFiller.MODE_BORDER_LENGTH,
-										5000, false);
+		else if (placement.equalsIgnoreCase("GREEDY-BL-5K"))
+			placer = new GreedyFiller(GreedyFiller.MODE_BORDER_LENGTH, 5000);
 
-		else if (placement.equalsIgnoreCase("GREEDY2K-BL"))
-			placer = new GreedyFiller(GreedyFiller.MODE_BORDER_LENGTH,
-										2000, false);
+		else if (placement.equalsIgnoreCase("GREEDY-BL-2K"))
+			placer = new GreedyFiller(GreedyFiller.MODE_BORDER_LENGTH, 2000);
 
-		else if (placement.equalsIgnoreCase("GREEDY1K-BL"))
-			placer = new GreedyFiller(GreedyFiller.MODE_BORDER_LENGTH,
-										1000, false);
+		else if (placement.equalsIgnoreCase("GREEDY-BL-2K-S"))
+			placer = new GreedyFiller(GreedyFiller.MODE_BORDER_LENGTH, 2000,
+										GreedyFiller.SORT_EMBEDDINGS);
 
-		else if (placement.equalsIgnoreCase("GREEDY100-BL"))
-			placer = new GreedyFiller(GreedyFiller.MODE_BORDER_LENGTH,
-										100, false);		
+		else if (placement.equalsIgnoreCase("GREEDY-BL-2K-R"))
+			placer = new GreedyFiller(GreedyFiller.MODE_BORDER_LENGTH, 2000,
+										GreedyFiller.RANDOMIZE_INPUT);
 
-		else if (placement.equalsIgnoreCase("GREEDY50-BL"))
-			placer = new GreedyFiller(GreedyFiller.MODE_BORDER_LENGTH,
-										50, false);		
+		else if (placement.equalsIgnoreCase("GREEDY-BL-1K"))
+			placer = new GreedyFiller(GreedyFiller.MODE_BORDER_LENGTH, 1000);
 
-		else if (placement.equalsIgnoreCase("GREEDY10K-CI"))
-			placer = new GreedyFiller(GreedyFiller.MODE_CONFLICT_INDEX,
-										10000, false);
+		else if (placement.equalsIgnoreCase("GREEDY-BL-100"))
+			placer = new GreedyFiller(GreedyFiller.MODE_BORDER_LENGTH, 100);		
 
-		else if (placement.equalsIgnoreCase("GREEDY5K-CI"))
-			placer = new GreedyFiller(GreedyFiller.MODE_CONFLICT_INDEX,
-										5000, false);
+		else if (placement.equalsIgnoreCase("GREEDYBL-50"))
+			placer = new GreedyFiller(GreedyFiller.MODE_BORDER_LENGTH, 50);		
 
-		else if (placement.equalsIgnoreCase("GREEDY2K-CI"))
-			placer = new GreedyFiller(GreedyFiller.MODE_CONFLICT_INDEX,
-										2000, false);
+		else if (placement.equalsIgnoreCase("GREEDY-CI-10K"))
+			placer = new GreedyFiller(GreedyFiller.MODE_CONFLICT_INDEX, 10000);
+
+		else if (placement.equalsIgnoreCase("GREEDY-CI-5K"))
+			placer = new GreedyFiller(GreedyFiller.MODE_CONFLICT_INDEX, 5000);
+
+		else if (placement.equalsIgnoreCase("GREEDY-CI-2K"))
+			placer = new GreedyFiller(GreedyFiller.MODE_CONFLICT_INDEX, 2000);
 		
-		else if (placement.equalsIgnoreCase("GREEDY1K-CI"))
-			placer = new GreedyFiller(GreedyFiller.MODE_CONFLICT_INDEX,
-										1000, false);
+		else if (placement.equalsIgnoreCase("GREEDY-CI-1K"))
+			placer = new GreedyFiller(GreedyFiller.MODE_CONFLICT_INDEX, 1000);
 
-		else if (placement.equalsIgnoreCase("GREEDY100-CI"))
-			placer = new GreedyFiller(GreedyFiller.MODE_CONFLICT_INDEX,
-										100, false);
+		else if (placement.equalsIgnoreCase("GREEDY-CI-100"))
+			placer = new GreedyFiller(GreedyFiller.MODE_CONFLICT_INDEX, 100);
 
-		else if (placement.equalsIgnoreCase("GREEDY50-CI"))
-			placer = new GreedyFiller(GreedyFiller.MODE_CONFLICT_INDEX,
-										50, false);
+		else if (placement.equalsIgnoreCase("GREEDY-CI-50"))
+			placer = new GreedyFiller(GreedyFiller.MODE_CONFLICT_INDEX, 50);
 
 		else if (placement.equalsIgnoreCase("REPTX20K-BL"))
 			placer = new RowEpitaxial(20000, false);
@@ -456,6 +451,16 @@ public class ArrayOpt
 							GreedyFiller.MODE_CONFLICT_INDEX, 100),
 							PivotPartitioning.MODE_CONFLICT_INDEX, 8);
 		
+		// **************************
+
+		else if (placement.equalsIgnoreCase("CLUSTER-SEQ-BL"))
+			placer = new ClusterPartitioning(new SequentialFiller(),
+							PivotPartitioning.MODE_BORDER_LENGTH);
+
+		else if (placement.equalsIgnoreCase("CLUSTER-SEQ-CI"))
+			placer = new ClusterPartitioning(new SequentialFiller(),
+							PivotPartitioning.MODE_CONFLICT_INDEX);
+
 		// **************************
 
 		else if (placement.equalsIgnoreCase("PIVOTPART8+GREEDY50-CI"))
