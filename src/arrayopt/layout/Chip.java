@@ -292,8 +292,8 @@ public abstract class Chip implements Cloneable
 				dep_seq_cycle = c;
 				return;
 			}
-			else
-				c++;
+			
+			c++;
 		}
 		
 		// zero means dep. seq. is not cyclical
@@ -370,7 +370,8 @@ public abstract class Chip implements Cloneable
 	 */
 	public RectangularRegion getChipRegion ()
 	{
-		return new RectangularRegion (0, getNumberOfRows() - 1, 0, getNumberOfColumns() - 1);
+		return new RectangularRegion (0, getNumberOfRows() - 1,
+										0, getNumberOfColumns() - 1);
 	}
 
 	/**
@@ -494,6 +495,15 @@ public abstract class Chip implements Cloneable
 		throws IOException;
 
 	/**
+	 * Create a random set of probes and a random layout for this chip. This
+	 * method is an alternative to reading a layout from an input stream
+	 * ({@link #readLayout(Reader)}), and is specially useful for evaluating
+	 * algorithms. This method must be provided by sub-classes according to
+	 * their specific implementation details.
+	 */
+	public abstract void createRandomLayout ();
+	
+	/**
 	 * This method stores a probe sequence as a binary string encoded in
 	 * integers representing its embedding into the deposition sequnece. The
 	 * input consists of the probe's ID and the embedding specified as a string
@@ -571,8 +581,8 @@ public abstract class Chip implements Cloneable
 	public abstract void writeLayout (PrintWriter out) throws IOException;
 
 	/**
-	 * Prints the stored embedding of a probe on the standard output. This
-	 * method serves for debugging purposes only.
+	 * Prints the stored embedding of a probe on the standard error output
+	 * stream. This method serves for debugging purposes only.
 	 *
 	 * @param probe_id probe ID
 	 */
@@ -599,7 +609,65 @@ public abstract class Chip implements Cloneable
 			mask >>>= 1;
 		}
 	}
-	
+
+	/**
+	 * Prints the stored embedding of a probe as a binary string on the standard
+	 * error output stream. This method serves for debugging purposes only.
+	 *
+	 * @param probe_id probe ID
+	 */
+	public void printBinaryEmbedding (int probe_id)
+	{
+		int mask = 0, w, pos;
+		
+		for (w = -1, pos = 0; pos < embed_len; pos++)
+		{
+			if (pos % Integer.SIZE == 0)
+			{
+				// use next 4-byte word
+				w++;
+
+				// turn on very first bit of mask only
+				mask = 0x01 << (Integer.SIZE - 1);
+			}
+
+			if ((mask & embed[probe_id][w]) == 0)
+				System.err.print ('0');
+			else
+				System.err.print ('1');
+
+			mask >>>= 1;
+		}
+	}
+
+	/**
+	 * Prints the stored probe sequence on the standard error output stream.
+	 * This method serves for debugging purposes only.
+	 *
+	 * @param probe_id probe ID
+	 */
+	public void printProbe (int probe_id)
+	{
+		int mask = 0, w, pos;
+		
+		for (w = -1, pos = 0; pos < embed_len; pos++)
+		{
+			if (pos % Integer.SIZE == 0)
+			{
+				// use next 4-byte word
+				w++;
+
+				// turn on very first bit of mask only
+				mask = 0x01 << (Integer.SIZE - 1);
+			}
+			else
+				mask >>>= 1;
+
+			if ((mask & embed[probe_id][w]) != 0)
+				System.err.print (dep_seq[pos]);
+		}
+	}
+
 	/**
 	 * Creates and returns a copy of this Chip object. The new object will
 	 * contain the same chip specification as the cloned object, i.e. same
@@ -610,10 +678,11 @@ public abstract class Chip implements Cloneable
 	 *
 	 * @return a clone of this instance
 	 */
+	@Override
 	protected Chip clone ()
 	{
 		Chip c;
-		int i, len, dim1, dim2;
+		int i;
 		
 		try
 		{
@@ -663,6 +732,7 @@ public abstract class Chip implements Cloneable
 	 * @param obj the reference object with which to compare
 	 * @return true if this Chip is "equal to" the argument; false otherwise
 	 */
+	@Override
 	public boolean equals (Object obj)
 	{
 		Chip other;
@@ -755,20 +825,20 @@ public abstract class Chip implements Cloneable
 	 * not necessarily be the same for both chips); see
 	 * {link #compatibleEmbedding}.
 	 *
-	 * In normal circunstances, compatible chips can only be produced by
+	 * <P>In normal circunstances, compatible chips can only be produced by
 	 * cloning a chip (and optionally changing its layout). This is mainly
 	 * because the compatibility test assumes that a given probe has the same
 	 * ID on both chips. Thus, it is possible that two chips containing
 	 * identical set of probes may be regarded as not compatible just because
-	 * the lists of probes were input in a different order.
+	 * the lists of probes were input in a different order.</P>
 	 *
-	 * The {link #validateLayout} method is called on both chips before checking
-	 * their compatibility to make sure that both are in a correct state (and
-	 * thus avoiding errors such as NullPointerException).
+	 * <P>The {link #validateLayout} method is called on both chips before
+	 * checking their compatibility to make sure that both are in a correct
+	 * state (and thus avoiding errors such as NullPointerException).</P>
 	 *
-	 * Specific sub-classes may need to extend this method to account for added
-	 * member variables. Note that this method is similar but conceptually
-	 * different from the {link #equals} method.
+	 * <P>Sub-classes may need to extend this method to account for their own
+	 * member variables and specific requirements. Note that this method is
+	 * similar but conceptually different from the {link #equals} method.</P>
 	 *
 	 * @param other the reference object with which to compare
 	 * @return true if this Chip is "compatible with" the argument; false
@@ -913,14 +983,15 @@ public abstract class Chip implements Cloneable
 	 * checking that a {@linkplain PlacementAlgorithm} has produced a new but
 	 * still valid layout (according to the original specification). For
 	 * instance, it checks whether the fixed spots were respected (their
-	 * contents remain unchanged). This method must be provided by the
-	 * sub-classes according to their specific probe schemes and member
-	 * variables.
+	 * contents remain unchanged).
+	 * 
+	 * <P>Sub-classes may need to extend this method to account for their own
+	 * member variables and specific requirements.</P>
 	 *
-	 * Note that this method is called by the {link #compatible} method to make
-	 * sure that both chips being compared have a valid layout. Nonetheless,
+	 * <P>Note that this method is called by the {link #compatible} method to
+	 * ensure that both chips being compared have a valid layout. Nonetheless,
 	 * this method can be called independently to check that the chip is in a
-	 * valid state after, for instance, a new layout is created.
+	 * valid state after, for instance, a new layout is created.<P>
 	 * 
 	 * @return true if the current layout specification is valid; false
 	 * otherwise

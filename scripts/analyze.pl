@@ -78,13 +78,7 @@ my @spot;
 my @conflict;
 
 # distance-based conflict weight function
-my @weight_dist = (	[	0,		0,		0.1,	0.1111,	0.1,	0,		0		],
-					[	0,		0.125,	0.2,	0.25,	0.2,	0.125,	0		],
-					[	0.1,	0.2,	0.5,	1,		0.5,	0.2,	0.1		],
-					[	0.1111,	0.25,	1,		0,		1,		0.25,	0.1111	],
-					[	0.1,	0.2,	0.5,	1,		0.5,	0.2,	0.1		],
-					[	0,		0.125,	0.2,	0.25,	0.2,	0.125,	0		],
-					[	0,		0,		0.1,	0.1111,	0.1,	0,		0		]);
+my @weight_dist;
 
 # length of the deposition sequence
 my $ds_len = 0;
@@ -245,6 +239,51 @@ print "Chip has ", $max_y + 1, " rows and ", $max_x + 1, " columns\n";
 print "Length of deposition sequence: $ds_len\n";
 
 # ------------------------------------------------------------------------------
+# conflict index definition
+# ------------------------------------------------------------------------------
+
+# dimension of conflict index region
+my $CI_DIM = 3;
+
+# set the distance-dependent weights
+{
+	my $thetha_num = 5;
+	
+	my ($size, $r, $c, $h, $v, $d2) = (2 * $CI_DIM + 1, 0, 0, 0, 0, 0);
+	
+	for ($r = 0; $r < $size; $r++)
+	{
+		$v = $CI_DIM - $r;
+
+		for ($c = 0; $c < $size; $c++)
+		{
+			$h = $CI_DIM - $c;
+
+			$d2 = $v * $v + $h * $h;
+
+			$weight_dist[$r][$c] = $d2 > 0 ? 1 / $d2 : 0;
+		}
+	}
+
+}
+
+my $theta = 5 / $probe_len;
+
+my $c_const = 1 / exp $theta;
+
+# position-dependent weights:
+# conflicts are more harmful in the middle of a probe than in its extremities
+sub pos_weight
+{
+	my $base = $_[0];
+	
+	my $lambda = ($base <= $probe_len - $base) ?
+				($base + 1) : ($probe_len - $base + 1);
+
+	return $c_const * exp ($theta * $lambda);
+}
+
+# ------------------------------------------------------------------------------
 # initialize position pointers and conflict indexes
 # ------------------------------------------------------------------------------
 
@@ -321,25 +360,15 @@ for (my $m = 0; $m < $ds_len; $m++)
 					next;
 				}
 				
-				# compute position multiplier: conflicts
-				# are more harmful in the middle of a
-				# (a conflict would harm the next nucleotide
-				# to be synthesized, if there is any)
-				# pos_mult = 1 + log10 ( min (pos + 1, probe_len - pos + 1) )
-				$pos_mult = ($pos[$x][$y] <= $probe_len - $pos[$x][$y]) ?
-							 $pos[$x][$y] + 1 :  $probe_len - $pos[$x][$y] + 1;
-				
-				$pos_mult = 1 + log($pos_mult)/$log10;
-
 				$cost = 0;
-				$rx = ($x >= 3) ? $x - 3 : 0;
-				for (; $rx <= $x + 3 && $rx <= $max_x; $rx++)
+				$rx = ($x >= $CI_DIM) ? $x - $CI_DIM : 0;
+				for (; $rx <= $x + $CI_DIM && $rx <= $max_x; $rx++)
 				{
-					$ry = ($y >= 3) ? $y - 3 : 0;
-					for (; $ry <= $y + 3 && $ry <= $max_y; $ry++)
+					$ry = ($y >= $CI_DIM) ? $y - $CI_DIM : 0;
+					for (; $ry <= $y + $CI_DIM && $ry <= $max_y; $ry++)
 					{
 						# NOTE: $y is the row number and $x the column number!
-						$weight = $weight_dist[$ry - $y + 3][$rx - $x + 3];
+						$weight = $weight_dist[$ry - $y + $CI_DIM][$rx - $x + $CI_DIM];
 						
 						# skip if neighbor is not close enough
 						# for influencing the conflict index
@@ -353,7 +382,7 @@ for (my $m = 0; $m < $ds_len; $m++)
 						# (light directed to neighbor can activate this spot)
 						(substr($embed[$rx][$ry], $m, 1) eq " ") and next;
 						
-						$cost += $pos_mult * $weight;
+						$cost += $weight * pos_weight($pos[$x][$y]);
 					}
 				}
 				

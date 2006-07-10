@@ -15,7 +15,7 @@
  * Software Foundation; either version 2 of the License, or (at your option)
  * any later version.
  *
- * ?rrayOpt is distributed in the hope that it will be useful, but WITHOUT ANY
+ * ÂrrayOpt is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
  * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
  * details.
@@ -34,437 +34,894 @@
  * Universitaet Bielefeld         http://www.uni-bielefeld.de
  *
  */
-    
-package arrayopt.layout;
-import java.util.Vector;
 
+package arrayopt.layout;
+
+import arrayopt.util.ArrayIndexedCollection;
+import arrayopt.util.QuickSort;
 
 /**
- * please document this
+ * TODO document this
+ * 
+ * <P><B>Selection of pivots</B>. Normally, all probes that have at most 1
+ * possible embedding into the deposition sequence (or 2 in the case of an
+ * {@link AffymetrixChip}) are selected as pivots. These are called 'true'
+ * pivots. However, some chips have no such probes, i.e. all probes have more
+ * than 1 (or 2) possible embeddings. In this case, the probes with the minimum
+ * number of embeddings are promoted to pivots (they are then called 'fake'
+ * pivots).</P>
+ * 
+ * <P>This algorithm defines what is the minimum number of pivots that is needed
+ * in order guarantee a good partitioning of the chip. If it decides that there
+ * are not enough true pivots for a good partitioning, it promotes the probes
+ * with the next minimum number of embeddings to pivots (as fake pivots). This
+ * is repeated until the minimum number of pivots is reached.</P>
+ * 
+ * <P>The minimum number of pivots is usually 2 times 2 to the power of
+ * {@link #max_depth}. This is the number of pivots needed to partition the
+ * chip all the way down to the maximum partitioning depth. However, if the
+ * {@link #max_depth} is set too high, this might force too many probes to
+ * be promoted as fake probes, specially if the chip is not large enough.
+ * Having too many fake probes can degrade the quality of the layout since
+ * pivots are considered as having a single fixed embedding. To prevent the
+ * promotion of too many fake probes, the minimum number of pivots cannot
+ * exceed a percentage of the total number of probes defined by the
+ * {@link #MIN_PERCENTAGE_PIVOTS} constant.</P>
+ * 
+ * @author Anna Domanski
+ * @author Ronny Gaertner
+ * @author Sergio A. de Carvalho Jr.
  */
 public class PivotPartitioning implements PlacementAlgorithm
 {
+	private int mode;
+	
+	public static final int MODE_BORDER_LENGTH = 0;
+	
+	public static final int MODE_CONFLICT_INDEX = 1;
+
 	/**
-	 * please document this
+	 * TODO document this
 	 */
 	private FillingAlgorithm filler;
 
 	/**
-	 * please document this
+	 * TODO document this
 	 */
-	public static final int DEFAULT_STOP_DIMENSION = 4;
+	public static final int DEFAULT_MAX_DEPTH = 6;
 
 	/**
-	 * please document this
+	 * TODO document this
 	 */
-	private int stop_dimension;
+	private int max_depth;
 
-    private final double PIVOT_THRESHOLD = 0.15;
-    
-    private final double DIV_RATE_PIVOT = .2;
-    private final double DIV_RATE_NON_PIVOT = .2;
-    /**
-     * Value indicates at which percentage of the total size of the to be sorted array merge sort will stop 
-     * the division and insertion sort prepares the pieces of the array for further merging.
-     */
-    private final double SORTING_LENGTH_BORDER = 20000;
-    
-    private Chip chip;
-    private OptimumEmbedding embedder;
-    private int[] id;
-    private int rows_per_probe;
-    
-    // each entry contains the sum of 2 pivots, it is most likely that these sum are unique,
-    // though it is not a safe, but an easy way!
-    private Vector<Integer> visited;
-    /**
-	 * please document this
+	/**
+	 * TODO document this
+	 */
+	public static final double MIN_PERCENTAGE_PIVOTS = 0.01;
+
+	/**
+	 * TODO document this
+	 */
+	private OptimumSingleProbeEmbedding ospe;
+
+	/**
+	 * TODO document this
+	 */
+	private Chip chip;
+
+	/**
+	 * TODO document this
+	 */
+	private int pid[];
+
+	/**
+	 * TODO document this
+	 */
+	private boolean fake_pivots;
+
+	/**
+	 * TODO document this
+	 */
+	private long rank[];
+
+	/**
+	 * TODO use this to speed up the selection of pivots by computing the
+	 * number of embedding of every probe at once, storing the results on this
+	 * array sorting the probes by the number of embeddings
+	 */
+	private long num_embed[];
+
+	/**
+	 * TODO document this
+	 */
+	private double dist[];
+
+	/**
+	 * TODO document this
+	 */
+	private int offset;
+
+	/**
+	 * TODO document this
+	 */
+	private RankSorting rank_sort;
+
+	/**
+	 * TODO document this
+	 */
+	private DistanceSorting dist_sort;
+
+	/**
+	 * TODO document this
+	 */
+	private int rows_per_probe;
+	
+	/**
+	 * TODO document this
 	 */
 	public PivotPartitioning (FillingAlgorithm filler)
 	{
-		this(filler, DEFAULT_STOP_DIMENSION);
+		this(filler, MODE_BORDER_LENGTH);
 	}
 
 	/**
-	 * please document this
+	 * TODO document this
 	 */
-	public PivotPartitioning (FillingAlgorithm filler, int stop_dimension)
+	public PivotPartitioning (FillingAlgorithm filler, int mode)
 	{
-		this.filler = filler;
-		this.stop_dimension = (stop_dimension < 1) ? 1 : stop_dimension;
+		this(filler, mode, DEFAULT_MAX_DEPTH);
 	}
 
 	/**
-	 * please document this
+	 * TODO document this
 	 */
-	// to do: proceed recursively
-    public int makeLayout (Chip chip)
-    {
-        this.chip = chip;
-        id = chip.getMovableProbes();
-        final boolean horizontal = true;
-        if (chip instanceof AffymetrixChip)
-            rows_per_probe = 2;
-        else if (chip instanceof SimpleChip)
-            rows_per_probe = 1;
-        else
-            throw new IllegalArgumentException ("Unsupported chip type.");
-        
-        // reset current layout (if any)
-        chip.resetLayout();
-        
-        // sorting array in order to number of embeddings of probes 
-        int pivot_margin = pivotMergeSort(0.05);
-        visited = new Vector<Integer>(pivot_margin + 1);
-        this.embedder = OptimumEmbedding.createEmbedder(chip, OptimumEmbedding.MODE_CONFLICT_INDEX);
-        return partitioning(chip.getChipRegion(),horizontal, 0, pivot_margin, pivot_margin + 1, id.length - 1);
-    }
-        
-    protected int pivotMergeSort(double pivot_treshold)
-    {
-        int pivot_margin = 0;
-        int pivot_property;
+	public PivotPartitioning (FillingAlgorithm filler, int mode, int max_depth)
+	{
+		switch (mode)
+		{
+			case MODE_BORDER_LENGTH:
+			case MODE_CONFLICT_INDEX:
+				this.mode = mode;
+				break;
+				
+			default:
+				throw new IllegalArgumentException
+					("Illegal value for argument 'mode': " + mode);
+		}
+		
+		this.filler = filler;
+		this.max_depth = (max_depth < 1) ? 1 : max_depth;
+	}
 
-        double[] number_of_embeddings = new double[id.length];
-        
-        for (int i = 0; i < id.length; i++)
-        {
-            number_of_embeddings[i] = PivotEmbedding.numberOfEmbeddings(chip, id[i]);
-        }
-        
-        synchronousMergeSort(number_of_embeddings, 0, id.length - 1);
-        
-        pivot_property = (int) Math.ceil(number_of_embeddings[0]);
-        while (((( (double) pivot_margin + 1) / id.length)) < PIVOT_THRESHOLD)
-        {
-            pivot_property = (int) Math.ceil(number_of_embeddings[pivot_margin + 1]);
-            for (int i = pivot_margin; i < id.length; i++)
-            {
-                if (number_of_embeddings[i] <= pivot_property)
-                {
-                    pivot_margin = i;
-                }
-                else
-                {
-                    break;
-                }
-            }
-        }
-        return pivot_margin;
-    }
-    
-    // divides
-    protected void synchronousMergeSort(double[] property, int start, int stop)
-    {
-        if (stop - start > SORTING_LENGTH_BORDER )
-        {
-            int partition = (int) Math.floor((start + stop)/2);
-            synchronousMergeSort(property, start, partition);
-            synchronousMergeSort(property, partition + 1 , stop);
-            synchronousInsertionSort(property, start, partition);
-            synchronousInsertionSort(property, partition + 1, stop);
-            synchronousMerge(property, start, partition, stop);
-        }
-    }
-    
-    protected void synchronousMerge(double[] property, int start, int partition, int stop)
-    {
-        double[] left = new double[partition - start + 2];
-        double[] right = new double[stop - partition + 1];
-        
-        System.arraycopy(property, start, left, 0, left.length - 1);
-        System.arraycopy(property, partition + 1 , right, 0, right.length - 1);
-        left[left.length - 1] = Integer.MAX_VALUE;
-        right[right.length - 1] = Integer.MAX_VALUE;
-        
-        int i = 0;
-        int j = 0;
-        for (int k = start; k <= stop; k++)
-        {
-            if (left [i] <= right[j])
-            {
-                property[k] = left[i];
-                switchindex(i, k);
-                i++;
-            }
-            else
-            {
-                property[k] = right[j];
-                switchindex(j + partition + 1, k);
-                j++;
-            }
-        }
-    }
-    
-    protected void synchronousInsertionSort(double[] property, int start, int stop)
-    {
-    	double property_temp;
-    	int id_temp;
-    	int i;
-    	
-    	for(int j = start + 1; j <= stop; j++)
-    	{
-    		property_temp = property[j];
-    		id_temp = id[j];
-    		i = j - 1;
-    		while(i >= start && property[i] > property_temp)
-    		{
-    			property[i + 1] = property[i];
-    			id[i+1] = id[i];
-    			i = i - 1;
-    		}
-    		property[i + 1] = property_temp;
-    		id[i + 1] = id_temp; 
-    	}
-    }
-    
-    protected void switchindex(int from_index, int to_index)
-    {
-        int temp;
-        temp = id[from_index];
-        id[from_index] = id[to_index];
-        id[to_index] = temp;
-    }
-    // boolean parameter horizontal indicates whether the region is partitioned horizontal or vertical
-    protected int partitioning(RectangularRegion region, boolean horizontal, int start_pivot, int stop_pivot, int start_non_pivot, int stop_non_pivot)
-    {
-        int         cut_pivot;
-        int         cut_non_pivot;
-        double[]    min_hamming_distance = new double[id.length];
-        int         div_rate_non_pivot; 
-        int         div_rate_pivot;
-        int         rows_first_region;
-        int         cols_first_region;
-        int         rows_second_region;
-        int         cols_second_region;
-        int         overflow;
-        int         unplaced;
-        
-        
-        // check whether there are enough pivots for further partinioning
-        if (stop_pivot - start_pivot < 1)
-        {
-            return filler.fillRegion(chip, region, id, start_pivot, stop_pivot)
-            + filler.fillRegion(chip, region, id, start_non_pivot, stop_non_pivot);    
-        }
-               
-        if (horizontal)
-        {
-            if (region.last_row - region.first_row + 1 <= stop_dimension * rows_per_probe)
-            {
-                if (region.last_col - region.first_col + 1 <= stop_dimension)
-                {
-                    // region cannot be partitioned anymore:
-                    // place probes on the specified region and return
-                    return filler.fillRegion(chip, region, id, start_pivot, stop_pivot) 
-                            + filler.fillRegion(chip, region, id, start_non_pivot, stop_non_pivot);
-                }
-                else
-                {
-                    // region can still be vertically partitined
-                    return partitioning (region, !horizontal, start_pivot, stop_pivot, 
-                                            start_non_pivot, stop_non_pivot);
-                }
-            }
-        }
-        
-        if (!horizontal)
-        {
-            if (region.first_col - region.first_col + 1 <= stop_dimension)
-            {
-                if (region.last_row - region.first_row + 1 <= stop_dimension * rows_per_probe)
-                {
-                    return filler.fillRegion(chip, region, id, start_pivot, stop_pivot) 
-                            + filler.fillRegion(chip, region, id, start_non_pivot, stop_non_pivot);
-                }
-            }
-            else
-            {
-                return partitioning(region, horizontal, 
-                        start_pivot, stop_pivot, start_non_pivot, stop_non_pivot);
-            }
-        }
-            
-        
-        
-        // processing and splitting array
-        do
-        {
-            // find 2 suitable pivots for adjusting the rest of the probes  
-            do
-            {
-                maxMinHammingDistancePivots(start_pivot, stop_pivot, visited);
-                // compute hamming distance for non pivots and flag it to which pivot it belongs
-                computeDistance(min_hamming_distance, start_pivot, stop_pivot, start_pivot + 1, stop_pivot - 1);
-                synchronousMergeSort(min_hamming_distance, start_pivot +1, stop_pivot - 1);
-                cut_pivot = getBorder(min_hamming_distance, start_pivot +1, stop_pivot - 1);
-                div_rate_pivot = (cut_pivot - start_pivot) / (stop_pivot - start_pivot + 1);
-            }
-            while (div_rate_pivot < DIV_RATE_PIVOT);
-            // compute hamming distance for non pivots and flag it to which pivot it belongs
-            computeDistance(min_hamming_distance, start_pivot, stop_pivot, start_non_pivot, stop_non_pivot);
-            synchronousMergeSort(min_hamming_distance, start_non_pivot, stop_non_pivot);
-            cut_non_pivot = getBorder(min_hamming_distance, start_non_pivot, stop_non_pivot);
-            div_rate_non_pivot = (cut_non_pivot - start_non_pivot) / (stop_non_pivot - start_non_pivot + 1);
-        }
-        while (div_rate_non_pivot < DIV_RATE_NON_PIVOT);
-        
-        reverseArray(start_pivot + 1, cut_pivot);
-        reverseArray(cut_pivot + 1, stop_pivot - 1);
-        reverseArray(start_non_pivot, cut_non_pivot);
-        reverseArray(cut_non_pivot + 1, stop_non_pivot);
-        
-        int number_of_probes_first_region = (cut_pivot - start_pivot + cut_non_pivot - start_non_pivot + 2);
-        int number_of_probes_second_region = (stop_pivot - cut_pivot + stop_non_pivot - cut_non_pivot);
-        
-        int div_rate = number_of_probes_first_region / (stop_pivot - start_pivot + stop_non_pivot - start_non_pivot +2);
-        // splitting region
-        if (horizontal)
-        {
-           rows_first_region = (int) Math.round(div_rate * (region.last_row - region.first_row + 1));
-           cols_first_region = region.last_col - region.first_col + 1;
-           rows_second_region = (region.last_row - region.first_row + 1) - rows_first_region;
-           cols_second_region = region.last_col - region.first_col + 1;
-        }
-        else
-        {
-            rows_first_region = region.last_row - region.first_row + 1;
-            cols_first_region =(int) Math.round(div_rate * (region.last_col - region.first_col + 1));
-            rows_second_region = region.last_row - region.first_row + 1;
-            cols_second_region = (region.last_row - region.first_row +1) - cols_first_region;
-        }
-        // test if region is suitable to number of probes
-        if ((overflow = number_of_probes_first_region - (cols_first_region * rows_first_region) / rows_per_probe) > 0)
-        {
-            cut_non_pivot -= overflow;
-        }
-        else if ((overflow = (number_of_probes_second_region) - (cols_second_region * rows_second_region) / rows_per_probe) > 0)
-        {
-            cut_non_pivot += overflow;
-        }
-    
-        if (horizontal)
-        {
-            //  create two regions
-            int row_div = region.first_row + rows_first_region;
-            RectangularRegion first_region = new RectangularRegion(region.first_row, row_div - 1, region.first_col, region.last_col);
-            RectangularRegion second_region = new RectangularRegion(row_div, region.last_row, region.first_col, region.last_col);
-            //  assign probes to regions 
-            unplaced = partitioning(first_region, !horizontal, start_pivot, cut_pivot, start_non_pivot, cut_non_pivot);
-            unplaced += partitioning(second_region, !horizontal, cut_pivot + 1, stop_pivot, cut_non_pivot + 1, stop_non_pivot);
-        }
-        else
-        {
-            // create two regions
-            int col_div = region.first_col + cols_first_region;
-            RectangularRegion first_region = new RectangularRegion(region.first_row, region.last_row, region.first_col, col_div - 1);
-            RectangularRegion second_region = new RectangularRegion(region.first_row, region.last_row, col_div, region.last_col);
-            // assign probes to regions 
-            unplaced = partitioning(first_region, horizontal, start_pivot, cut_pivot, start_non_pivot, cut_non_pivot);
-            unplaced += partitioning(second_region, horizontal, cut_pivot + 1, stop_pivot, cut_non_pivot + 1, stop_non_pivot);
-        }
-        
-        return unplaced;
-    }
-    
-    private int getBorder(double[] property, int start, int stop)
-    {
-        int border = start;
-        
-        for (int i = start; i <= stop; i++)
-        {
-            if(property[i] < 0)
-            {
-                border = i;
-            }
-            else break;
-        }
-        
-        return border;
-    }
-    
-    private void reverseArray(int start, int stop)
-    {
-        int left;
-        int right;
-        
-        for(int i = start; i <= stop; i++)
-        {
-            left = i - start;
-            right = stop - i;
-            if (left > right)
-            {
-                break;
-            }
-            else
-            {
-                switchindex(left, right);
-            }
-        }
-    }
-    
-    private void computeDistance(double[] min_hamming_distance, int start_pivot, int stop_pivot, int start, int stop)
-    {
-        double distance_start_pivot;
-        double distance_stop_pivot;
-        
-        
-        for (int i = start; i <= stop; i++)
-            {
-                distance_start_pivot = embedder.minDistanceProbe(id[i], id[start_pivot]);
-                distance_stop_pivot = embedder.minDistanceProbe(id[i], id[stop_pivot]);
-                if (distance_start_pivot < distance_stop_pivot)
-                {
-                    min_hamming_distance[i] = -distance_start_pivot;
-                }
-                else
-                {
-                    min_hamming_distance[i] = distance_stop_pivot;
-                }
-            }
-        
-        
-    }
-    
-    private void maxMinHammingDistancePivots(int start_pivot, int stop_pivot, Vector<Integer> visited)
-    {
-        double max_distance = -1;
-        Integer[] max_distance_pivots = new Integer[2];
-        for (int e1 = start_pivot; e1 <= stop_pivot; e1++)
-        {
-            for (int e2 = start_pivot; e2 <= stop_pivot; e2++)
-            {
-                if (e1 == e2)
-                {
-                    continue;
-                }
-                if (visited.contains(e1 + e2))
-                {
-                	continue;
-                }
-                                
-                double distance = embedder.minDistanceProbe(id[e1], id[e2]);
-                if (max_distance < distance )
-                {
-                    max_distance = distance;
-                    max_distance_pivots[0] = e1;
-                    max_distance_pivots[1] = e2;
-                }
-            }
-        }
-        if (max_distance_pivots[0] != null && max_distance_pivots[1] != null)
-        {
-            if(!visited.contains(max_distance_pivots[0] + max_distance_pivots[1]))
-            {
-            	visited.add(max_distance_pivots[0] + max_distance_pivots[1]);
-            }
-            
-        	switchindex(max_distance_pivots[0], start_pivot);
-            switchindex(max_distance_pivots[1], stop_pivot);
-        }
-        else 
-            throw new NullPointerException("No pivots have been found!");
-    }
-     
+	/**
+	 * TODO document this
+	 */
+	public int makeLayout (Chip c)
+	{
+		int pivots, nonpivots;
+		
+		if (c instanceof SimpleChip)
+			rows_per_probe = 1;
+		else if (c instanceof AffymetrixChip)
+			rows_per_probe = 2;
+		else
+			throw new IllegalArgumentException ("Unsupported chip type.");
+		
+		this.chip = c;
+		this.ospe = OptimumSingleProbeEmbedding.createEmbedder(c, mode);
+				
+		// reset current layout (if any)
+		chip.resetLayout();
+		
+		this.pid = chip.getMovableProbes ();
+		if (pid.length < 1)
+			throw new IllegalStateException
+				("No probes available for placing.");
+
+		// select probes which will serve as pivots
+		pivots = selectPivots ();
+		nonpivots = pid.length - pivots;
+		
+		// offset marks the index of the first non-pivot probe
+		this.offset = pivots;
+		
+		// create probe ranking array
+		rank = new long[nonpivots];
+		rank_sort = new RankSorting (pid, rank, pivots);
+		computeProbeRanks (pivots, pid.length - 1);
+		
+		// create probe distance array
+		dist = new double[nonpivots];
+		dist_sort = new DistanceSorting (pid, rank, dist, offset);
+		
+		return horizontalDivide (1, chip.getChipRegion(), 0, pivots - 1, pivots,
+				pid.length - 1);
+	}
+	
+	private int selectPivots ()
+	{
+		int min_pivots, num_pivots, end, start_fake;
+		
+		// first select probes with the minimum number of embeddings
+		num_pivots = findPivots (0, end = pid.length - 1);
+
+		// check whether selected pivots are 'real' or 'fake' pivots:
+		// 'real' pivots are those with only 1 possible embedding
+		// (or 2 in case of Affymetrix chips since the middle bases of PM/MM
+		// pairs usually have some degree of freedom); pivots with more than 2
+		// possible embeddings are considered 'fake' pivots
+		if (ospe.numberOfEmbeddings(pid[0]) > 2)
+		{
+			// yes: we call these probes as 'fake' pivots
+			start_fake = 0;
+			
+			// TODO remove this
+			// long noe = ospe.numberOfEmbeddings(pid[0]);
+			// System.err.println(num_pivots + " fake pivots selected => noe: " + noe);
+		}
+		else
+		{
+			// no: the selected pivots are 'real' pivots, i.e.
+			// they have only 1 embedding (or 2 in case of Affy chips)
+			start_fake = num_pivots;
+			
+			// TODO remove this
+			// long noe = ospe.numberOfEmbeddings(pid[0]);
+			// System.err.println(num_pivots + " true pivots selected => noe: " + noe);
+		}
+		
+		// set the minimum number of pivots as the maximum between:
+		// a) 2 * 2 ^ max_depth
+		// b) MIN_PERCENTAGE_PIVOTS * the total number of probes
+		min_pivots = Math.max(
+					2 * (int) Math.pow(2, max_depth),
+					(int) (MIN_PERCENTAGE_PIVOTS * chip.getNumberOfProbes()));
+		
+		while (num_pivots < min_pivots)
+		{
+			// find more probes with the next minimum number of embeddings
+			num_pivots = findPivots (num_pivots, end);
+			
+			// TODO remove this
+			// long noe = ospe.numberOfEmbeddings(pid[num_pivots - 1]);
+			// System.err.println("Pivot list extended to " + num_pivots + " => noe: " + noe);
+		}
+		
+		if (start_fake < num_pivots)
+		{
+			// turn on the fake pivots flag
+			this.fake_pivots = true;
+			
+			// cut the excess of fake pivots
+			if (num_pivots > min_pivots)
+				num_pivots = min_pivots;
+			
+			// TODO remove this
+			// System.err.println("Pivot list trimmed to " + num_pivots);
+			
+			// TODO re-embed fake probes with the CenteredEmbedding algorithm
+			// or implement a different one that move unmasked steps to the
+			// extremities as far as possible
+		}
+		else
+		{
+			// turn off the fake pivots flag
+			this.fake_pivots = false;
+		}
+		
+		return num_pivots;
+	}
+	
+	private int findPivots (int start, int end)
+	{
+		int i, border, tmp;
+		long noe, min;
+		
+		min = ospe.numberOfEmbeddings(pid[start]);
+		
+		// select probes with the lowest number of embeddings as pivots
+		for (border = start + 1, i = border; i <= end; i++)
+		{
+			if ((noe = ospe.numberOfEmbeddings(pid[i])) == min)
+			{
+				tmp = pid[border];
+				pid[border] = pid[i];
+				pid[i] = tmp;
+				border++;
+			}
+			else if (noe < min)
+			{
+				min = noe;
+				tmp = pid[start];
+				pid[start] = pid[i];
+				pid[i] = tmp;
+				border = start + 1;
+			}
+		}
+		
+		return border;
+	}
+	
+	private int horizontalDivide (int depth, RectangularRegion r,
+			int f_pivot, int l_pivot, int f_probe, int l_probe)
+	{
+		RectangularRegion top, bottom;
+		int part_pivot, part_probe, num_rows, num_cols, exceed, unplaced;
+		int probes_1, total_1, rows_1, spots_1;
+		int probes_2, total_2, rows_2, spots_2;
+		
+		/*
+		System.err.println("\nhorizontalDivide (depth " + depth + ")");
+		System.err.println("Region: " + (r.last_row - r.first_row + 1) +
+				" x " + (r.last_col - r.first_col + 1) + " (" + r + ")");
+		System.err.println("Pivots: " + (l_pivot - f_pivot + 1) + " pivots (" +
+				f_pivot + " - " + l_pivot + ")");
+		System.err.println("Probes: " + (l_probe - f_probe + 1) + " probes (" +
+				f_probe + " - " + l_probe + ")");
+		//*/
+		
+		// stop partitioning if reached maximum depth or
+		// if the number of probes or pivots is insufficient
+		if ((depth > max_depth) || (l_pivot <= f_pivot) || (l_probe <= f_probe))
+			return fillRegion (r, f_pivot, l_pivot, f_probe, l_probe);
+		
+		num_rows = r.last_row - r.first_row + 1;
+		num_cols = r.last_col - r.first_col + 1;
+		
+		if (num_rows <= rows_per_probe)
+		{
+			if (num_cols <= 1)
+			{
+				// region cannot be partitioned anymore
+				return fillRegion (r, f_pivot, l_pivot, f_probe, l_probe);
+			}
+
+			// region can still be vertically partitined
+			return verticalDivide (depth, r, f_pivot,l_pivot,f_probe,l_probe);
+		}
+		
+		// select a pair of pivots, p1 and p2, with max hamming distance
+		// between them, and assign the remaining pivots to the chosen pivot 
+		// with minimum hamming distance 
+		part_pivot = choosePivotPair (f_pivot, l_pivot);
+		 
+		part_probe = divideProbes (pid[f_pivot], pid[l_pivot], f_probe,l_probe);
+		
+		// check how many (non-pivot) probes were assigned to each region
+		probes_1 = part_probe - f_probe;
+		probes_2 = l_probe - part_probe + 1;
+		
+		// check the total number of probes of each region (including pivots)
+		total_1 = (part_pivot - f_pivot) + probes_1;
+		total_2 = (l_pivot - part_pivot + 1) + probes_2; 
+		
+		// divide the region proportionally
+		rows_1 = rows_per_probe * (int) Math.round((double)probes_1 / num_cols);
+		
+		// make sure each region gets at least one row
+		if (rows_1 == 0)
+			rows_1 = rows_per_probe;
+		else if (rows_1 == num_rows)
+			rows_1 = num_rows - rows_per_probe;
+		
+		rows_2 = num_rows - rows_1;
+		
+		// TODO remove this
+		// System.err.println("Partitioning (%): " + (100 * rows_1 / num_rows) + " x " + (100 * rows_2 / num_rows));
+		
+		// check how many spots each region has
+		spots_1 = num_cols * rows_1 / rows_per_probe;
+		spots_2 = num_cols * rows_2 / rows_per_probe;
+		
+		// check if each region can handle the assigned probes
+		if ((exceed = total_1 - spots_1) > 0)
+		{
+			if (exceed <= probes_1)
+			{
+				part_probe -= exceed;
+			}
+			else
+			{
+				part_probe -= probes_1;
+				exceed -= probes_1;
+				part_pivot -= exceed;
+			}
+		}
+		else if ((exceed = total_2 - spots_2) > 0)
+		{
+			if (exceed <= probes_2)
+			{
+				part_probe += exceed;
+			}
+			else
+			{
+				part_probe += probes_2;
+				exceed -= probes_2;
+				part_pivot += exceed;
+			}
+		}
+		
+		top = new RectangularRegion(r.first_row, r.first_row + rows_1 - 1,
+									r.first_col, r.last_col);
+		
+		unplaced = verticalDivide (depth + 1, top, f_pivot, part_pivot - 1,
+						f_probe, part_probe - 1);
+
+		bottom = new RectangularRegion(r.first_row + rows_1, r.last_row,
+										r.first_col, r.last_col);
+
+		unplaced += verticalDivide (depth + 1, bottom, part_pivot, l_pivot,
+						part_probe, l_probe);
+
+		return unplaced;
+	}
+
+	private int verticalDivide (int depth, RectangularRegion r,
+			int f_pivot, int l_pivot, int f_probe, int l_probe)
+	{
+		RectangularRegion left, right;
+		int part_pivot, part_probe, num_rows, num_cols, exceed, unplaced;
+		int probes_1, total_1, cols_1, spots_1;
+		int probes_2, total_2, cols_2, spots_2;
+		
+		/*
+		System.err.println("\nverticalDivide (depth " + depth + ")");
+		System.err.println("Region: " + (r.last_row - r.first_row + 1) +
+				" x " + (r.last_col - r.first_col + 1) + " (" + r + ")");
+		System.err.println("Pivots: " + (l_pivot - f_pivot + 1) + " pivots (" +
+				f_pivot + " - " + l_pivot + ")");
+		System.err.println("Probes: " + (l_probe - f_probe + 1) + " probes (" +
+				f_probe + " - " + l_probe + ")");
+		//*/
+		
+		// stop partitioning if reached maximum depth or
+		// if the number of probes or pivots is insufficient
+		if ((depth > max_depth) || (l_pivot <= f_pivot) || (l_probe <= f_probe))
+			return fillRegion (r, f_pivot, l_pivot, f_probe, l_probe);
+
+		num_rows = r.last_row - r.first_row + 1;
+		num_cols = r.last_col - r.first_col + 1;
+		
+		if (num_cols <= 1)
+		{
+			if (num_rows <= rows_per_probe)
+			{
+				// region cannot be partitioned anymore
+				return fillRegion (r, f_pivot, l_pivot, f_probe, l_probe);
+			}
+
+			// region can still be horizontally partitined
+			return horizontalDivide (depth, r, f_pivot,l_pivot,f_probe,l_probe);
+		}
+
+		// select a pair of pivots, p1 and p2, with max hamming distance
+		// between them, and assign the remaining pivots to the chosen pivot 
+		// with minimum hamming distance 
+		part_pivot = choosePivotPair (f_pivot, l_pivot);
+		 
+		part_probe = divideProbes (pid[f_pivot], pid[l_pivot], f_probe,l_probe);
+		
+		// check how many (non-pivot) probes were assigned to each region
+		probes_1 = part_probe - f_probe;
+		probes_2 = l_probe - part_probe + 1;
+		
+		// check the total number of probes of each region (including pivots)
+		total_1 = (part_pivot - f_pivot) + probes_1;
+		total_2 = (l_pivot - part_pivot + 1) + probes_2; 
+		
+		// divide the region proportionally
+		cols_1 = (int) Math.round((double)probes_1 / (num_rows/rows_per_probe));
+		
+		// make sure each region gets at least one column
+		if (cols_1 == 0)
+			cols_1 = 1;
+		else if (cols_1 == num_cols)
+			cols_1 = num_cols - 1;
+		
+		cols_2 = num_cols - cols_1;
+		
+		// TODO remove this
+		// System.err.println("Partitioning (%): " + (100 * cols_1 / num_cols) + " x " + (100 * cols_2 / num_cols));
+		
+		// check how many spots each region has
+		spots_1 = cols_1 * num_rows / rows_per_probe;
+		spots_2 = cols_2 * num_rows / rows_per_probe;
+		
+		// check if each region can handle the assigned probes
+		if ((exceed = total_1 - spots_1) > 0)
+		{
+			if (exceed <= probes_1)
+			{
+				part_probe -= exceed;
+			}
+			else
+			{
+				part_probe -= probes_1;
+				exceed -= probes_1;
+				part_pivot -= exceed;
+			}
+		}
+		else if ((exceed = total_2 - spots_2) > 0)
+		{
+			if (exceed <= probes_2)
+			{
+				part_probe += exceed;
+			}
+			else
+			{
+				part_probe += probes_2;
+				exceed -= probes_2;
+				part_pivot += exceed;
+			}
+		}
+		
+		left = new RectangularRegion(r.first_row, r.last_row,
+									r.first_col, r.first_col + cols_1 - 1);
+		
+		unplaced = horizontalDivide (depth + 1, left, f_pivot, part_pivot - 1,
+						f_probe, part_probe - 1);
+
+		right = new RectangularRegion(r.first_row, r.last_row,
+									r.first_col + cols_1, r.last_col);
+
+		unplaced += horizontalDivide (depth + 1, right, part_pivot, l_pivot,
+						part_probe, l_probe);
+
+		return unplaced;
+	}
+	
+	private int choosePivotPair (int first, int last)
+	{
+		int i, j, p1, p2, d, maxdist, tmp;
+		
+		p1 = first;
+		p2 = last;
+		maxdist = -1;
+		
+		// find pair of pivots p1 and p2 with maximum Hamming distance
+		for (i = first; i < last; i++)
+			for (j = i + 1; j <= last; j++)
+			{
+				d = LayoutEvaluation.hammingDistance(chip, pid[i], pid[j]);
+				if (d > maxdist)
+				{
+					maxdist = d;
+					p1 = i;
+					p2 = j;
+				}
+			}
+		
+		// move pivots to extremities
+		tmp = pid[first];
+		pid[first] = pid[p1];
+		pid[p1] = tmp;
+		
+		tmp = pid[last];
+		pid[last] = pid[p2];
+		pid[p2] = tmp;
+		
+		// from now on, p1 and p2 store the ID of the chosen pivots
+		p1 = pid[first];
+		p2 = pid[last];
+		
+		// TODO remove this
+		// System.err.println("Chosen pivot pair: " + p1 + " and " + p2+ " (distance: " + maxdist + ")");
+		
+		// partition the remaining pivots into two groups
+		// according to whether they are closer to p1 or p2
+		int dist1, dist2, count1 = 0, count2 = 0; 
+		
+		for (i = first + 1, j = last - 1; i <= j;)
+		{
+			dist1 = LayoutEvaluation.hammingDistance(chip, pid[i], p1);
+			dist2 = LayoutEvaluation.hammingDistance(chip, pid[i], p2);
+			
+			if ((dist1 < dist2) || (dist1 == dist2 && count1 < count2))
+			{
+				// assign pivot to p1
+				i++;
+				count1++;
+			}
+			else
+			{
+				// assign pivot to p2
+				tmp = pid[i];
+				pid[i] = pid[j];
+				pid[j] = tmp;
+				j--;
+				count2++;
+			}
+		}
+		
+		// move p2 to the beginning of its own list
+		pid[last] = pid[i];
+		pid[i] = p2;
+
+		return i;
+	}
+
+	private int divideProbes (int p1, int p2, int first, int last)
+	{
+		int i, total, count1 = 0, count2 = 0, count_any, delta;
+		double d;
+		
+		total = last - first + 1;
+		
+		// sort probes lexicographically
+		QuickSort.sort(rank_sort, first, total);
+		
+		// compute and save the minimum distance of every probe to pivot p1
+		dist[first - offset] = ospe.minDistanceProbe(pid[first], p1);
+		for (i = first + 1; i <= last; i++)
+			dist[i - offset] = ospe.minDistanceProbe(pid[i]);
+		
+		// subtract the the min distance to p1 by the min distance to p2
+		d = dist[first - offset] -= ospe.minDistanceProbe(pid[first], p2);
+		if (d < 0) count1++; else if (d > 0) count2++;
+		for (i = first + 1; i <= last; i++)
+		{
+			d = dist[i - offset] -= ospe.minDistanceProbe(pid[i]);
+			if (d < 0) count1++; else if (d > 0) count2++;
+		}
+		
+		// sort probes by the difference of the distances
+		QuickSort.sort(dist_sort, first, total);
+		
+		// count how many probes have the same minimum distance to p1 and p2
+		count_any = total - count1 - count2;
+
+		// divide the set of probes as evenly as possible
+		if ((delta = count1 - count2) < 0)
+		{
+			delta = -delta;
+			if (count_any >= delta)
+			{
+				count_any -= delta;
+				count1 += delta + count_any / 2;
+			}
+			else
+			{
+				count1 += count_any;
+			}
+		}
+		else if (delta > 0)
+		{
+			if (count_any >= delta)
+			{
+				count_any -= delta;
+				count1 += count_any / 2;
+			}
+		}
+		
+		// return the index of the first probe assigned to p2
+		return first + count1;
+	}
+	
+	private void computeProbeRanks (int start, int end)
+	{
+		int  i, word, step, bitmask = 0;
+		long base_mask;
+		
+		for (i = start; i <= end; i++)
+			rank[i - offset] = 0;
+		
+		for (word = -1, step = 0; step < chip.embed_len; step++)
+		{
+			if (step % Integer.SIZE == 0)
+			{
+				bitmask = 0x01 << (Integer.SIZE - 1);
+				word++;
+			}
+			else
+				bitmask >>>= 1;
+
+			switch (chip.dep_seq[step])
+			{
+				case 'A':
+					base_mask = 0x00;
+					break;
+					
+				case 'C':
+					base_mask = 0x01;
+					break;
+
+				case 'G':
+					base_mask = 0x02;
+					break;
+					
+				case 'T':
+					base_mask = 0x03;
+					break;
+				
+				default:
+					throw new IllegalArgumentException
+						("Illegal deposition sequence.");
+			}
+			
+			for (i = start; i <= end; i++)
+				if ((bitmask & chip.embed[pid[i]][word]) != 0)
+				{
+					rank[i - offset] <<= 2;
+					rank[i - offset] |= base_mask;
+				}
+		}
+	}
+
+	private int fillRegion (RectangularRegion region, int f_pivot, int l_pivot,
+			int f_probe, int l_probe)
+	{
+		int i, num_pivots, num_probes, all[];
+		
+		num_pivots = l_pivot - f_pivot + 1;
+		num_probes = l_probe - f_probe + 1;
+		
+		if (fake_pivots)
+		{
+			// reembed fake pivots optimally in regards to the main pivot
+			if (f_pivot + 1 <= l_pivot)
+				ospe.reembedProbe(pid[f_pivot + 1], pid[f_pivot]);
+			for (i = f_pivot + 2; i <= l_pivot; i++)
+				ospe.reembedProbe(pid[i]);
+		}
+
+		// sort probes lexicographically to speed up re-embeddings
+		QuickSort.sort(rank_sort, f_probe, l_probe - f_probe + 1);
+
+		// reembed non-pivots optimally in regards to all pivots
+		if (f_probe <= l_probe)
+			ospe.reembedProbe(pid[f_probe], pid, f_pivot, l_pivot);
+		for (i = f_probe + 1; i <= l_probe; i++)
+			ospe.reembedProbe(pid[i]);
+
+		// create an array with all probe IDs (pivots and non-pivots)
+		all = new int [num_pivots + num_probes];
+		System.arraycopy(pid, f_pivot, all, 0, num_pivots);
+		System.arraycopy(pid, f_probe, all, num_pivots, num_probes);
+		
+		return filler.fillRegion(chip, region, all);
+	}
+
+	private class RankSorting implements ArrayIndexedCollection
+	{
+		private int probe_id[];
+		
+		private long probe_rank[];
+		
+		private int off;
+		
+		private long pivot;
+		
+		RankSorting (int probe_id[], long probe_rank[], int offset)
+		{
+			this.probe_id = probe_id;
+			this.probe_rank = probe_rank;
+			this.off = offset;
+		}
+		
+		public int compare (int i, int j)
+		{
+			i -= off;
+			j -= off;
+			
+			return probe_rank[i] < probe_rank[j] ? -1 :
+					probe_rank[i] == probe_rank[j] ? 0 : +1;
+		}
+		
+		public void swap (int i, int j)
+		{
+			int tmp1;
+			tmp1 = probe_id[i];
+			probe_id[i] = probe_id[j];
+			probe_id[j] = tmp1;
+			
+			i -= off;
+			j -= off;
+			
+			long tmp2;
+			tmp2 = probe_rank[i];
+			probe_rank[i] = probe_rank[j];
+			probe_rank[j] = tmp2;
+		}
+		
+		public void setPivot (int i)
+		{
+			this.pivot = probe_rank[i - off];
+		}
+		
+		public int compareToPivot (int i)
+		{
+			i -= off;
+			
+			return probe_rank[i] < pivot ? -1 :
+					probe_rank[i] == pivot ? 0 : +1;
+		}
+		
+		public int medianOfThree (int i, int j, int k)
+		{
+			long rank_i = probe_rank[i - off];
+			long rank_j = probe_rank[j - off];
+			long rank_k = probe_rank[k - off];
+
+			return rank_i < rank_j ?
+					(rank_j < rank_k ? j : (rank_i < rank_k ? k : i)) :
+					(rank_j > rank_k ? j : (rank_i > rank_k ? k : i));
+		}
+	}
+	
+	private class DistanceSorting implements ArrayIndexedCollection
+	{
+		private int probe_id[];
+		
+		private long probe_rank[];
+		
+		private double probe_dist[];
+		
+		private int off;
+		
+		private double pivot;
+		
+		DistanceSorting (int probe_id[], long probe_rank[], double probe_dist[],
+				int offset)
+		{
+			this.probe_id = probe_id;
+			this.probe_rank = probe_rank;
+			this.probe_dist = probe_dist;
+			this.off = offset;
+		}
+		
+		public int compare (int i, int j)
+		{
+			i -= off;
+			j -= off;
+			
+			return probe_dist[i] < probe_dist[j] ? -1 :
+					probe_dist[i] == probe_dist[j] ? 0 : +1;
+		}
+		
+		public void swap (int i, int j)
+		{
+			int tmp1;
+			tmp1 = probe_id[i];
+			probe_id[i] = probe_id[j];
+			probe_id[j] = tmp1;
+			
+			i -= off;
+			j -= off;
+			
+			long tmp2;
+			tmp2 = probe_rank[i];
+			probe_rank[i] = probe_rank[j];
+			probe_rank[j] = tmp2;
+			
+			double tmp3;
+			tmp3 = probe_dist[i];
+			probe_dist[i] = probe_dist[j];
+			probe_dist[j] = tmp3;
+		}
+		
+		public void setPivot (int i)
+		{
+			this.pivot = probe_dist[i - off];
+		}
+		
+		public int compareToPivot (int i)
+		{
+			i -= off;
+			
+			return probe_dist[i] < pivot ? -1 :
+					probe_dist[i] == pivot ? 0 : +1;
+		}
+		
+		public int medianOfThree (int i, int j, int k)
+		{
+			double dist_i = probe_dist[i - off];
+			double dist_j = probe_dist[j - off];
+			double dist_k = probe_dist[k - off];
+
+			return dist_i <= dist_j ?
+					(dist_j <= dist_k ? j : (dist_i <= dist_k ? k : i)) :
+					(dist_j >= dist_k ? j : (dist_i >= dist_k ? k : i));
+		}
+	}
 }
-

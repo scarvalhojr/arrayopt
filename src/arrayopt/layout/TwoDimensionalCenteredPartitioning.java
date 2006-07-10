@@ -1,5 +1,5 @@
 /*
- * TwoDimensionalPartitioning.java
+ * TwoDimensionalCenteredPartitioning.java
  *
  * $Revision$
  *
@@ -40,7 +40,7 @@ package arrayopt.layout;
 /**
  *
  */
-public class TwoDimensionalPartitioning implements PlacementAlgorithm
+public class TwoDimensionalCenteredPartitioning implements PlacementAlgorithm
 {
 	public static final int DEFAULT_STOP_DIMENSION = 4;
 
@@ -50,12 +50,12 @@ public class TwoDimensionalPartitioning implements PlacementAlgorithm
 
 	private double MIN_DIV_RATE = .1;
 
-	public TwoDimensionalPartitioning (FillingAlgorithm filler)
+	public TwoDimensionalCenteredPartitioning (FillingAlgorithm filler)
 	{
 		this(filler, DEFAULT_STOP_DIMENSION);
 	}
 
-	public TwoDimensionalPartitioning (FillingAlgorithm filler, int stop_dimension)
+	public TwoDimensionalCenteredPartitioning (FillingAlgorithm filler, int stop_dimension)
 	{
 		this.filler = filler;
 		this.stop_dimension = (stop_dimension < 1) ? 1 : stop_dimension;
@@ -66,7 +66,7 @@ public class TwoDimensionalPartitioning implements PlacementAlgorithm
 	 */
 	public int makeLayout (Chip chip)
 	{
-		int		id[];
+		int		id[], m;
 		int		rows_per_probe;
 
 		if (chip instanceof AffymetrixChip)
@@ -81,14 +81,16 @@ public class TwoDimensionalPartitioning implements PlacementAlgorithm
 
 		// get list of movable probes
 		id = chip.getMovableProbes ();
+		
+		m = chip.getEmbeddingLength() / 2;
 
-		return horizontalDivide (chip, 0, chip.getChipRegion(), rows_per_probe,
-									0, 0, id, 0, id.length - 1);
+		return horizontalDivide (chip, m -1, m, chip.getChipRegion(),
+				rows_per_probe,	0, 0, id, 0, id.length - 1);
 	}
 
-	protected int horizontalDivide (Chip chip, int step, RectangularRegion r,
-		int rows_per_probe, int hor_par, int ver_par, int probe_id[],
-		int start, int end)
+	protected int horizontalDivide (Chip chip, int vstep, int hstep,
+			RectangularRegion r, int rows_per_probe, int hor_par, int ver_par,
+			int probe_id[],	int start, int end)
 	{
 		RectangularRegion	t_region, b_region;
 		int					row_div, probe_div, m_rows, u_rows, qt_cols, overflow, unplaced;
@@ -98,14 +100,14 @@ public class TwoDimensionalPartitioning implements PlacementAlgorithm
 		{
 			// insufficient number of probes for partitioning:
 			// place probes on the specified region and return
-			return filler.fillRegion (chip, r, probe_id, start, end);
+			return fillRegion (chip, r, probe_id, start, end);
 		}
 
-		if (step >= chip.getEmbeddingLength())
+		if (hstep < 0)
 		{
 			// cannot partition anymore:
 			// place probes on the specified region and return
-			return filler.fillRegion (chip, r, probe_id, start, end);
+			return fillRegion (chip, r, probe_id, start, end);
 		}
 
 		if (r.last_row - r.first_row + 1 <= stop_dimension * rows_per_probe)
@@ -114,23 +116,23 @@ public class TwoDimensionalPartitioning implements PlacementAlgorithm
 			{
 				// region cannot be partitioned anymore:
 				// place probes on the specified region and return
-				return filler.fillRegion (chip, r, probe_id, start, end);
+				return fillRegion (chip, r, probe_id, start, end);
 			}
 
 			// region can still be vertically partitined
-			return verticalDivide (chip, step, r, rows_per_probe, hor_par,
-									ver_par, probe_id, start, end);
+			return verticalDivide (chip, hstep, vstep, r, rows_per_probe,
+					hor_par, ver_par, probe_id, start, end);
 		}
 
 		// split the probes into two groups, M and U, according to
 		// whether they are masked or unmasked at this step
-		probe_div = divideProbes (chip, step, probe_id, start, end);
+		probe_div = divideProbes (chip, hstep, probe_id, start, end);
 
 		div_rate = ((double)(probe_div - start)) / (end - start + 1);
 
 		if (div_rate < MIN_DIV_RATE || 1 - div_rate < MIN_DIV_RATE)
 		{
-			return horizontalDivide (chip, step + 1, r, rows_per_probe,
+			return horizontalDivide (chip, hstep - 1, vstep, r, rows_per_probe,
 									hor_par, ver_par, probe_id, start, end);
 		}
 
@@ -186,37 +188,37 @@ public class TwoDimensionalPartitioning implements PlacementAlgorithm
 		t_region = new RectangularRegion (r.first_row, row_div - 1, r.first_col, r.last_col);
 		b_region = new RectangularRegion (row_div, r.last_row, r.first_col, r.last_col);
 
-		step++;
+		hstep--;
 
 		// check horizontal parity
 		if (hor_par == 0)
 		{
 			// assign masked probes to region T
-			unplaced = verticalDivide (chip, step, t_region, rows_per_probe,
-									0, ver_par, probe_id, start, probe_div - 1);
+			unplaced = verticalDivide (chip, hstep, vstep, t_region,
+					rows_per_probe,	0, ver_par, probe_id, start, probe_div - 1);
 
 			// assign unmasked probes to region B
-			unplaced += verticalDivide (chip, step, b_region, rows_per_probe,
-										1, ver_par, probe_id, probe_div, end);
+			unplaced += verticalDivide (chip, hstep, vstep, b_region,
+					rows_per_probe, 1, ver_par, probe_id, probe_div, end);
 		}
 		else
 		{
 			// assign masked probes to region B
-			unplaced = verticalDivide (chip, step, b_region, rows_per_probe,
-									1, ver_par, probe_id, start, probe_div - 1);
+			unplaced = verticalDivide (chip, hstep, vstep, b_region,
+					rows_per_probe, 1, ver_par, probe_id, start, probe_div - 1);
 
 			// assign unmasked probes to region T
-			unplaced += verticalDivide (chip, step, t_region, rows_per_probe,
-										0, ver_par, probe_id, probe_div, end);
+			unplaced += verticalDivide (chip, hstep, vstep, t_region,
+					rows_per_probe, 0, ver_par, probe_id, probe_div, end);
 		}
 
 		// return number of unplaced probes
 		return unplaced;
 	}
 
-	protected int verticalDivide (Chip chip, int step, RectangularRegion r,
-		int rows_per_probe, int hor_par, int ver_par, int probe_id[],
-		int start, int end)
+	protected int verticalDivide (Chip chip, int hstep, int vstep,
+			RectangularRegion r, int rows_per_probe, int hor_par, int ver_par,
+			int probe_id[], int start, int end)
 	{
 		RectangularRegion	l_region, r_region;
 		int					col_div, probe_div, m_cols, u_cols, qt_rows, overflow, unplaced;
@@ -226,14 +228,14 @@ public class TwoDimensionalPartitioning implements PlacementAlgorithm
 		{
 			// insufficient number of probes for partitioning:
 			// place probes on the specified region and return
-			return filler.fillRegion (chip, r, probe_id, start, end);
+			return fillRegion (chip, r, probe_id, start, end);
 		}
 
-		if (step >= chip.getEmbeddingLength())
+		if (vstep >= chip.getEmbeddingLength())
 		{
 			// cannot partition anymore:
 			// place probes on the specified region and return
-			return filler.fillRegion (chip, r, probe_id, start, end);
+			return fillRegion (chip, r, probe_id, start, end);
 		}
 
 		if (r.last_col - r.first_col + 1 <= stop_dimension)
@@ -242,24 +244,24 @@ public class TwoDimensionalPartitioning implements PlacementAlgorithm
 			{
 				// region cannot be partitioned anymore:
 				// place probes on the specified region and return
-				return filler.fillRegion (chip, r, probe_id, start, end);
+				return fillRegion (chip, r, probe_id, start, end);
 			}
 
 			// region can still be horizontally partitined
-			return horizontalDivide (chip, step, r, rows_per_probe,
+			return horizontalDivide (chip, hstep, vstep, r, rows_per_probe,
 								hor_par, ver_par, probe_id, start, end);
 		}
 
 		// split the probes into two groups, M and U, according to
 		// whether they are masked or unmasked at this step
-		probe_div = divideProbes (chip, step, probe_id, start, end);
+		probe_div = divideProbes (chip, vstep, probe_id, start, end);
 
 		div_rate = ((double)(probe_div - start)) / (end - start + 1);
 
 		if (div_rate < MIN_DIV_RATE || 1 - div_rate < MIN_DIV_RATE)
 		{
-			return verticalDivide (chip, step + 1, r, rows_per_probe, hor_par,
-									ver_par, probe_id, start, end);
+			return verticalDivide (chip, hstep, vstep + 1, r, rows_per_probe,
+					hor_par, ver_par, probe_id, start, end);
 		}
 
 		qt_rows = r.last_row - r.first_row + 1;
@@ -303,28 +305,28 @@ public class TwoDimensionalPartitioning implements PlacementAlgorithm
 		l_region = new RectangularRegion (r.first_row, r.last_row, r.first_col, col_div - 1);
 		r_region = new RectangularRegion (r.first_row, r.last_row, col_div, r.last_col);
 
-		step++;
+		vstep++;
 
 		// check vertical parity
 		if (ver_par == 0)
 		{
 			// assign masked probes to region L
-			unplaced = horizontalDivide (chip, step, l_region, rows_per_probe,
-								hor_par, 0, probe_id, start, probe_div - 1);
+			unplaced = horizontalDivide (chip, hstep, vstep, l_region,
+					rows_per_probe, hor_par, 0, probe_id, start, probe_div - 1);
 
 			// assign unmasked probes to region R
-			unplaced += horizontalDivide (chip, step, r_region, rows_per_probe,
-										hor_par, 1, probe_id, probe_div, end);
+			unplaced += horizontalDivide (chip, hstep, vstep, r_region,
+					rows_per_probe, hor_par, 1, probe_id, probe_div, end);
 		}
 		else
 		{
 			// assign masked probes to region R
-			unplaced = horizontalDivide (chip, step, r_region, rows_per_probe,
-								hor_par, 1, probe_id, start, probe_div - 1);
+			unplaced = horizontalDivide (chip, hstep, vstep, r_region,
+					rows_per_probe, hor_par, 1, probe_id, start, probe_div - 1);
 
 			// assign unmasked probes to region L
-			unplaced += horizontalDivide (chip, step, l_region, rows_per_probe,
-										hor_par, 0, probe_id, probe_div, end);
+			unplaced += horizontalDivide (chip, hstep, vstep, l_region,
+					rows_per_probe, hor_par, 0, probe_id, probe_div, end);
 		}
 
 		// return number of unplaced probes
@@ -363,5 +365,28 @@ public class TwoDimensionalPartitioning implements PlacementAlgorithm
 		}
 
 		return start;
+	}
+	
+	private OptimumSingleProbeEmbedding ospe;
+	
+	private int fillRegion (Chip chip, RectangularRegion r, int probe_id[],
+			int start, int end)
+	{
+		/*
+		// TODO do this nicely!
+		if (ospe == null)
+			// TODO make mode configurable!
+			ospe = OptimumSingleProbeEmbedding.createEmbedder(chip,
+					OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN);
+		
+		if (end > start)
+		{
+			ospe.reembedProbe(probe_id[start+1], probe_id[start]);
+			for (int i = start + 2; i <= end; i++)
+				ospe.reembedProbe(probe_id[i]);
+		}
+		//*/
+		
+		return filler.fillRegion (chip, r, probe_id, start, end);
 	}
 }

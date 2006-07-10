@@ -1,5 +1,5 @@
 /*
- * GraspDense.java
+ * GraspSparse.java
  *
  * $Revision$
  *
@@ -40,11 +40,11 @@ package arrayopt.qap;
 /**
  *
  */
-public class GraspDense extends QAPSolverAlgorithm
+public class GraspSparse extends QAPSolverAlgorithm
 {
 	static
 	{
-		String lib_name = "qap_graspd";
+		String lib_name = "qap_grasps";
 
 		try
 		{
@@ -80,17 +80,17 @@ public class GraspDense extends QAPSolverAlgorithm
 
 	public static final int DEFAULT_SEED = 270001;
 
-	public GraspDense ()
+	public GraspSparse ()
 	{
 		this (DEFAULT_MAX_ITERACTIONS, DEFAULT_ALPHA, DEFAULT_BETA, DEFAULT_SEED);
 	}
 
-	public GraspDense (int max_iter)
+	public GraspSparse (int max_iteractions)
 	{
-		this (max_iter, DEFAULT_ALPHA, DEFAULT_BETA, DEFAULT_SEED);
+		this (max_iteractions, DEFAULT_ALPHA, DEFAULT_BETA, DEFAULT_SEED);
 	}
 
-	public GraspDense (int max_iter, float alpha, float beta, int seed)
+	public GraspSparse (int max_iter, float alpha, float beta, int seed)
 	{
 		this.max_iter = max_iter;
 		this.alpha = alpha;
@@ -100,13 +100,15 @@ public class GraspDense extends QAPSolverAlgorithm
 	}
 
 	/**
-	 * Native method (C->Fortran).
+	 * Native method (in C) that calls the Fortran implementation.
 	 */
-	private native long qap_graspd (int dim, int niter, float alpha_,
+	private native long qap_grasps (int dim, int niter, float alpha_,
 		float beta_, int look4, int dist[], int flow[], int sol[],
 		int in_out_[]);
-	// TODO remove runs parameter (not used)
 
+	/**
+	 *
+	 */
 	@Override
 	long solveQAP (int dim, int dist[], int flow[], int sol[])
 	{
@@ -115,9 +117,9 @@ public class GraspDense extends QAPSolverAlgorithm
 
 		this.in_out[0] = seed;
 
-		cost = qap_graspd (dim, max_iter, alpha, beta, look4,
+		cost = qap_grasps (dim, max_iter, alpha, beta, look4,
 							dist, flow, sol, in_out);
-		
+
 		this.seed = in_out[0];
 		this.last_num_iter = in_out[1];
 
@@ -138,7 +140,7 @@ public class GraspDense extends QAPSolverAlgorithm
 	{
 		this.beta = beta;
 	}
-
+	
 	public float getBeta ()
 	{
 		return this.beta;

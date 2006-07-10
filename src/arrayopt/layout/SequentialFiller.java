@@ -101,7 +101,7 @@ public class SequentialFiller implements PlacementAlgorithm, FillingAlgorithm
 			for (int c = region.first_col; c <= region.last_col; c++)
 			{
 				// skip spot if not empty
-				if (chip.spot[r][c] != chip.EMPTY_SPOT)
+				if (chip.spot[r][c] != Chip.EMPTY_SPOT)
 					continue;
 
 				// skip fixed spots
@@ -132,7 +132,7 @@ public class SequentialFiller implements PlacementAlgorithm, FillingAlgorithm
 			for (int c = region.first_col; c <= region.last_col; c++)
 			{
 				// skip spot pair if not empty
-				if (chip.spot[r][c] != chip.EMPTY_SPOT || chip.spot[r+1][c] != chip.EMPTY_SPOT)
+				if (chip.spot[r][c] != Chip.EMPTY_SPOT || chip.spot[r+1][c] != Chip.EMPTY_SPOT)
 					continue;
 
 				// skip fixed spot pairs

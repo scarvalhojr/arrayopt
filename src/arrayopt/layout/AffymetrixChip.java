@@ -293,6 +293,9 @@ public class AffymetrixChip extends Chip
 		{
 			// line number
 			ln++;
+			
+			// skip blank lines
+			if (line.length() <= 0) continue;
 
 			// parse fields
 			field = parser.split(line, field.length);
@@ -447,6 +450,18 @@ public class AffymetrixChip extends Chip
 
 		// reading successful
 		input_done = true;
+	}
+	
+	/**
+	 * Create a random set of probe pairs and a random layout for this chip.
+	 * This method is an alternative to reading a layout from an input stream
+	 * ({@link #readLayout(Reader)}), and is specially useful for evaluating
+	 * algorithms.
+	 */
+	@Override
+	public void createRandomLayout ()
+	{
+		// TODO implement this
 	}
 
 	/**

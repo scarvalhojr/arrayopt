@@ -1,5 +1,5 @@
 /*
- * GraspDense.java
+ * GraspPathRelinking.java
  *
  * $Revision$
  *
@@ -15,7 +15,7 @@
  * Software Foundation; either version 2 of the License, or (at your option)
  * any later version.
  *
- * ÂrrayOpt is distributed in the hope that it will be useful, but WITHOUT ANY
+ * ÃrrayOpt is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
  * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
  * details.
@@ -40,11 +40,11 @@ package arrayopt.qap;
 /**
  *
  */
-public class GraspDense extends QAPSolverAlgorithm
+public class GraspPathRelinking extends QAPSolverAlgorithm
 {
 	static
 	{
-		String lib_name = "qap_graspd";
+		String lib_name = "qap_grasppr";
 
 		try
 		{
@@ -59,7 +59,9 @@ public class GraspDense extends QAPSolverAlgorithm
 			throw e;
 		}
 	}
-
+	
+	protected int runs;
+	
 	protected int max_iter;
 
 	protected float alpha;
@@ -67,76 +69,93 @@ public class GraspDense extends QAPSolverAlgorithm
 	protected float beta;
 
 	protected int seed;
+	
+	protected int elite_size;
 
 	protected int last_num_iter;
 
 	protected int in_out[];
+	
+	public static final int DEFAULT_RUNS = 1;
 
 	public static final int DEFAULT_MAX_ITERACTIONS = 32;
 
 	public static final float DEFAULT_ALPHA = .1f;
 
 	public static final float DEFAULT_BETA = .4f;
+	
+	public static final int DEFAULT_ELITE_SIZE = 10;
 
 	public static final int DEFAULT_SEED = 270001;
 
-	public GraspDense ()
+	public GraspPathRelinking ()
 	{
-		this (DEFAULT_MAX_ITERACTIONS, DEFAULT_ALPHA, DEFAULT_BETA, DEFAULT_SEED);
+		this (DEFAULT_RUNS, DEFAULT_MAX_ITERACTIONS);
 	}
 
-	public GraspDense (int max_iter)
+	public GraspPathRelinking (int runs, int max_iter)
 	{
-		this (max_iter, DEFAULT_ALPHA, DEFAULT_BETA, DEFAULT_SEED);
+		this (runs, max_iter, DEFAULT_ALPHA, DEFAULT_BETA, DEFAULT_ELITE_SIZE);
 	}
 
-	public GraspDense (int max_iter, float alpha, float beta, int seed)
+	public GraspPathRelinking (int runs, int max_iter, float alpha, float beta,
+		int elite_size)
 	{
+		this.runs = runs;
 		this.max_iter = max_iter;
 		this.alpha = alpha;
 		this.beta = beta;
-		this.seed = seed;
+		
+		// use random seed 
+		this.seed = (int) (Short.MAX_VALUE * Math.random());
+		
+		// TODO start with default or random seed?
+		// this.seed = DEFAULT_SEED;
+		
+		this.elite_size = elite_size;
 		this.in_out = new int [2];
 	}
 
 	/**
-	 * Native method (C->Fortran).
+	 * Native method (in C).
 	 */
-	private native long qap_graspd (int dim, int niter, float alpha_,
-		float beta_, int look4, int dist[], int flow[], int sol[],
-		int in_out_[]);
-	// TODO remove runs parameter (not used)
+	private native long qap_grasppr (int dim, int flow[], int dist[],
+		int sol[], float alpha_, float beta_, int runs_, int max_itr_,
+		int look4, int elite_size_, int max_time_, int in_out_[]);
 
+	/**
+	 *
+	 */
 	@Override
 	long solveQAP (int dim, int dist[], int flow[], int sol[])
 	{
 		long cost;
 		int look4 = -1;
+		int max_time = 0;
 
+		// TODO remove this as the C code does not return an updated seed
 		this.in_out[0] = seed;
 
-		cost = qap_graspd (dim, max_iter, alpha, beta, look4,
-							dist, flow, sol, in_out);
-		
-		this.seed = in_out[0];
-		this.last_num_iter = in_out[1];
+		cost = qap_grasppr (dim, flow, dist, sol, alpha, beta, runs, max_iter,
+							look4, elite_size, max_time, in_out);
 
+		// TODO generate a new seed for the next call?
+		// this.seed = (int) (Short.MAX_VALUE * Math.random());
+		
+		this.last_num_iter = in_out[1];
+		
 		return cost;
 	}
 
-	public void setAlpha (float alpha)
+	public void setPhase1Parameters (float alpha, float beta)
 	{
 		this.alpha = alpha;
+		this.beta = beta;
 	}
 
 	public float getAlpha ()
 	{
 		return this.alpha;
-	}
-
-	public void setBeta (float beta)
-	{
-		this.beta = beta;
 	}
 
 	public float getBeta ()

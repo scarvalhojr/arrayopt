@@ -1,5 +1,5 @@
 /*
- * qap_graspd.c
+ * qap_grasps.c
  *
  * $Revision$
  *
@@ -39,17 +39,17 @@
  * This program provides an interface from ArrayOpt's API to an implementation
  * of the following QAP (Quadratic Assignment Problem) solver:
  *
- * Method:       GRASP for dense QAP
+ * Method:       GRASP for sparse QAP
  * Language:     Fortran
  * Authors:      M.G.C. Resende (AT&T Bell Laboratories)
- *               Y. Li (Penn State University)
+ *               L.S. Pitsoulis (University of Florida)
  *               P.M. Pardalos (University of Florida)
  * Available at: http://www.research.att.com/~mgcr/
  *
  */
 
 #include <cfortran.h>
-#include <arrayopt_qap_GraspDense.h>
+#include <arrayopt_qap_GraspSparse.h>
 
 #define ERROR_CODE		-1
 #define MIN_DIMENSION	2
@@ -57,31 +57,31 @@
 // ****************************************************************************
 // C to Fortran prototype
 
-	PROTOCCALLSFSUB24 (GQAPD,gqapd, INT,INT,INT,FLOAT,FLOAT,INT,PINT,INTV,	\
+	PROTOCCALLSFSUB26 (GQAPS,gqaps, INT,INT,INT,FLOAT,FLOAT,INT,PINT,INTV,	\
 							INTV,INTV,INTV,INTV,INTV,INTV,INTV,INTV,INTV,	\
-							INTV,INTV,INTV,INTV,INTV,PINT,PINT)
+							INTV,INTV,INTV,INTV,INTV,INTV,PINT,PINT,INTV)
 
-#define QAP_GRASP_DENSE(N,N2,NITER,ALPHA,BETA,LOOK4,SEED,F,					\
-							D,A,B,SRTF,SRTIF,SRTD,SRTID,SRTC,SRTIC,			\
-							INDEXD,INDEXF,COST,FDIND,OPTA,BESTV,ITER)		\
-		CCALLSFSUB24 (GQAPD,gqapd, INT,INT,INT,FLOAT,FLOAT,INT,PINT,INTV,	\
+#define QAP_GRASP_SPARSE(N,N2,NITER,ALPHA,BETA,LOOK4,SEED,F,				\
+							D,A,B,OPTB,SRTF,SRTIF,SRTD,SRTID,SRTC,SRTIC,	\
+							INDEXD,INDEXF,COST,FDIND,OPTA,BESTV,ITER,CP)	\
+		CCALLSFSUB26 (GQAPS,gqaps, INT,INT,INT,FLOAT,FLOAT,INT,PINT,INTV,	\
 							INTV,INTV,INTV,INTV,INTV,INTV,INTV,INTV,INTV,	\
-							INTV,INTV,INTV,INTV,INTV,PINT,PINT,				\
+							INTV,INTV,INTV,INTV,INTV,INTV,PINT,PINT,INTV,	\
 							N,N2,NITER,ALPHA,BETA,LOOK4,SEED,F,				\
-							D,A,B,SRTF,SRTIF,SRTD,SRTID,SRTC,SRTIC,			\
-							INDEXD,INDEXF,COST,FDIND,OPTA,BESTV,ITER)
+							D,A,B,OPTB,SRTF,SRTIF,SRTD,SRTID,SRTC,SRTIC,	\
+							INDEXD,INDEXF,COST,FDIND,OPTA,BESTV,ITER,CP)
 
 // ****************************************************************************
 // Java to C interface
 
-JNIEXPORT jlong JNICALL Java_arrayopt_qap_GraspDense_qap_1graspd
+JNIEXPORT jlong JNICALL Java_arrayopt_qap_GraspSparse_qap_1grasps
 	(JNIEnv *env, jclass obj, jint n, jint niter, jfloat alpha, jfloat beta,
 		jint look4, jintArray dist, jintArray flow, jintArray sol,
 		jintArray in_out)
 {
 	int	i, n2, seed, bestv, iter;
-	int	*a, *b, *srtf, *srtif, *srtd, *srtid, *srtc, *srtic, *idxd, *idxf,
-		*cost, *fdind;
+	int	*a, *b, *optb, *srtf, *srtif, *srtd, *srtid, *srtc, *srtic, *idxd,
+		*idxf, *cost, *fdind, *cp;
 
 	// check min dimension
 	if (n < MIN_DIMENSION) return ERROR_CODE;
@@ -93,6 +93,10 @@ JNIEXPORT jlong JNICALL Java_arrayopt_qap_GraspDense_qap_1graspd
 	// allocate temporary working space
 	if (!(a 	= malloc (n  * sizeof(a))))		return ERROR_CODE;
 	if (!(b 	= malloc (n  * sizeof(b))))		return ERROR_CODE;
+
+	// TODO is this really needed? what does it return?
+	if (!(optb 	= malloc (n  * sizeof(optb))))	return ERROR_CODE;
+
 	if (!(srtf	= malloc (n2 * sizeof(srtf))))	return ERROR_CODE;
 	if (!(srtif	= malloc (n2 * sizeof(srtif)))) return ERROR_CODE;
 	if (!(srtd	= malloc (n2 * sizeof(srtd))))	return ERROR_CODE;
@@ -103,6 +107,7 @@ JNIEXPORT jlong JNICALL Java_arrayopt_qap_GraspDense_qap_1graspd
 	if (!(idxf	= malloc (n2 * sizeof(idxf))))	return ERROR_CODE;
 	if (!(cost	= malloc (n2 * sizeof(cost))))	return ERROR_CODE;
 	if (!(fdind	= malloc (n2 * sizeof(fdind))))	return ERROR_CODE;
+	if (!(cp	= malloc (n2 * sizeof(cp))))	return ERROR_CODE;
 
 	// get reference to Java arrays (input)
 	jint *d    = (*env)->GetIntArrayElements(env, dist, 0);
@@ -115,9 +120,9 @@ JNIEXPORT jlong JNICALL Java_arrayopt_qap_GraspDense_qap_1graspd
 	seed = io[0];
 
 	// call fortran subroutine
-	QAP_GRASP_DENSE (n,n2,niter,alpha,beta,look4,seed,f,d,a,b,
-						srtf,srtif,srtd,srtid,srtc,srtic,idxd,
-						idxf,cost,fdind,opta,bestv,iter);
+	QAP_GRASP_SPARSE (n,n2,niter,alpha,beta,look4,seed,f,d,a,b,
+						optb,srtf,srtif,srtd,srtid,srtc,srtic,idxd,
+						idxf,cost,fdind,opta,bestv,iter,cp);
 
 	// permutation returned starts with 1, but
 	// the Java code expects it to start with zero
@@ -138,6 +143,7 @@ JNIEXPORT jlong JNICALL Java_arrayopt_qap_GraspDense_qap_1graspd
 	// release locally allocated memory
 	free(a);
 	free(b);
+	free(optb);
 	free(srtf);
 	free(srtif);
 	free(srtd);
@@ -148,6 +154,7 @@ JNIEXPORT jlong JNICALL Java_arrayopt_qap_GraspDense_qap_1graspd
 	free(idxf);
 	free(cost);
 	free(fdind);
+	free(cp);
 
 	return bestv;
 }
