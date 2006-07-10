@@ -220,8 +220,8 @@ public abstract class OptimumSingleProbeEmbedding
 
 	/**
 	 * Computes the minimum distance between any valid embedding of a probe
-	 * (<CODE>id_1</CODE>) and the current embedding of the last probe or set of
-	 * probes for a distance has been computed.
+	 * (<CODE>id_1</CODE>) and the current embedding of the probe or set of
+	 * probes for which a distance has been last computed.
 	 * @param id_1 the ID of the probe
 	 * @return the minimum distance of any embedding of id_1
 	 */

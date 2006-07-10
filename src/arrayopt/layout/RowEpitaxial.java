@@ -72,7 +72,7 @@ package arrayopt.layout;
  * spot, while {@linkplain GreedyFiller} also considers the bottom and right
  * neighbors (if they are not empty, that is). As a result, the
  * {@linkplain GreedyFiller} is slightly slower but it is also likely to produce
- * marginally better results such these cases.</P>
+ * marginally better results in such cases.</P>
  * 
  * @author Sergio A. de Carvalho Jr.
  */
