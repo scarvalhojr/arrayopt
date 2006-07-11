@@ -46,9 +46,9 @@ package arrayopt.layout;
  * Annual Int. Conference on Research in Computational Molecular Biology
  * (RECOMB), 2003, pp. 148–156.</P>
  * 
- * <P>This algorithm is similar to the {@linkplain GreedyFiller} implementation.
+ * <P>This algorithm is similar to the {@linkplain GreedyPlacer} implementation.
  * The main difference is that the row-epitaxial is restricted to border length
- * minimization, while the {@linkplain GreedyFiller} is also able produce a
+ * minimization, while the {@linkplain GreedyPlacer} is also able produce a
  * layout reducing the overall conflict index (see {@link ConflictIndex}).</P>
  * 
  * <P>The row-epitaxial produces an initial layout placing the probes
@@ -66,12 +66,12 @@ package arrayopt.layout;
  * 
  * <P>Note that, if the region to be filled is completely empty, the layout
  * produced by the row-epitaxial algorithm will be identical to the one produced
- * by the {@linkplain GreedyFiller} algorithm with border length minimization.
+ * by the {@linkplain GreedyPlacer} algorithm with border length minimization.
  * If some spots are non-empty, the results are likely to be different. This is
  * because the row-epitaxial only considers the top and left neighbors of a
- * spot, while {@linkplain GreedyFiller} also considers the bottom and right
+ * spot, while {@linkplain GreedyPlacer} also considers the bottom and right
  * neighbors (if they are not empty, that is). As a result, the
- * {@linkplain GreedyFiller} is slightly slower but it is also likely to produce
+ * {@linkplain GreedyPlacer} is slightly slower but it is also likely to produce
  * marginally better results in such cases.</P>
  * 
  * @author Sergio A. de Carvalho Jr.
