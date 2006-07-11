@@ -1,5 +1,5 @@
 /*
- * SequentialFiller.java
+ * SequentialPlacer.java
  *
  * $Revision$
  *
@@ -40,7 +40,7 @@ package arrayopt.layout;
 /**
  *
  */
-public class SequentialFiller implements PlacementAlgorithm, FillingAlgorithm
+public class SequentialPlacer implements PlacementAlgorithm, FillingAlgorithm
 {
 	/**
 	 *
