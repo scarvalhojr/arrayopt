@@ -1,5 +1,5 @@
 /*
- * GreedyFiller.java
+ * GreedyPlacer.java
  *
  * $Revision$
  *
@@ -43,7 +43,7 @@ import arrayopt.util.QuickSort;
 /**
  *
  */
-public class GreedyFiller implements PlacementAlgorithm, FillingAlgorithm
+public class GreedyPlacer implements PlacementAlgorithm, FillingAlgorithm
 {
 	private int window_size;
 	
@@ -75,22 +75,22 @@ public class GreedyFiller implements PlacementAlgorithm, FillingAlgorithm
 	
 	private double conflict[];
 
-	public GreedyFiller ()
+	public GreedyPlacer ()
 	{
 		this(MODE_BORDER_LENGTH);
 	}
 
-	public GreedyFiller (int mode)
+	public GreedyPlacer (int mode)
 	{
 		this(mode, 0);
 	}
 
-	public GreedyFiller (int mode, int window_size)
+	public GreedyPlacer (int mode, int window_size)
 	{
 		this(mode, window_size, NO_PREPROCESSING);
 	}
 
-	public GreedyFiller (int mode, int window_size, int options)
+	public GreedyPlacer (int mode, int window_size, int options)
 	{
 		switch (mode)
 		{
