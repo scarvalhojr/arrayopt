@@ -1,5 +1,5 @@
 /*
- * RandomFiller.java
+ * RandomPlacer.java
  *
  * $Revision$
  *
@@ -40,7 +40,7 @@ package arrayopt.layout;
 /**
  *
  */
-public class RandomFiller implements PlacementAlgorithm, FillingAlgorithm
+public class RandomPlacer implements PlacementAlgorithm, FillingAlgorithm
 {
 	/**
 	 *
