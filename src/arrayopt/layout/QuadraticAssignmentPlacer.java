@@ -1,5 +1,5 @@
 /*
- * QAPOptimization.java
+ * QuadraticAssignmentPlacer.java
  *
  * $Revision$
  *
@@ -76,11 +76,9 @@ import arrayopt.qap.*;
  * nearest integer, which may impair the results.</P>
  *
  */
-public class QAPOptimization implements PlacementAlgorithm, FillingAlgorithm,
+public class QuadraticAssignmentPlacer implements PlacementAlgorithm, FillingAlgorithm,
 	PostPlacementAlgorithm, IteractiveOptimizationAlgorithm
 {
-	// TODO rename class to QuadraticAssignment
-	
 	// TODO handle fixed spots
 	
 	// TODO swap the flow and distance matrix (to be consistent with the
@@ -172,7 +170,7 @@ public class QAPOptimization implements PlacementAlgorithm, FillingAlgorithm,
 	 * @param solver an instance of QAP solver algorithm
 	 * @param mode border length or conflict index minimization
 	 */
-	public QAPOptimization (QAPSolverAlgorithm solver, int mode)
+	public QuadraticAssignmentPlacer (QAPSolverAlgorithm solver, int mode)
 	{
 		this.solver = solver;
 		this.dim = -1;
