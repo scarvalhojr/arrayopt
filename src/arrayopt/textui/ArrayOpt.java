@@ -180,89 +180,89 @@ public class ArrayOpt
 			placer = null;
 
 		else if (placement.equalsIgnoreCase("RANDOM"))
-			placer = new RandomFiller();
+			placer = new RandomPlacer();
 
 		else if (placement.equalsIgnoreCase("SEQUENTIAL"))
-			placer = new SequentialFiller();
+			placer = new SequentialPlacer();
 
 		else if (placement.equalsIgnoreCase("GREEDY-BL"))
-			placer = new GreedyFiller(GreedyFiller.MODE_BORDER_LENGTH);
+			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH);
 
 		else if (placement.equalsIgnoreCase("GREEDY-CI"))
-			placer = new GreedyFiller(GreedyFiller.MODE_CONFLICT_INDEX);
+			placer = new GreedyPlacer(GreedyPlacer.MODE_CONFLICT_INDEX);
 
 		else if (placement.equalsIgnoreCase("GREEDY-BL-20K"))
-			placer = new GreedyFiller(GreedyFiller.MODE_BORDER_LENGTH, 20000);
+			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 20000);
 
 		else if (placement.equalsIgnoreCase("GREEDY-BL-10K"))
-			placer = new GreedyFiller(GreedyFiller.MODE_BORDER_LENGTH, 10000);
+			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 10000);
 
 		else if (placement.equalsIgnoreCase("GREEDY-BL-5K"))
-			placer = new GreedyFiller(GreedyFiller.MODE_BORDER_LENGTH, 5000);
+			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 5000);
 
 		else if (placement.equalsIgnoreCase("GREEDY-BL-2K"))
-			placer = new GreedyFiller(GreedyFiller.MODE_BORDER_LENGTH, 2000);
+			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 2000);
 
 		else if (placement.equalsIgnoreCase("GREEDY-BL-2K-S"))
-			placer = new GreedyFiller(GreedyFiller.MODE_BORDER_LENGTH, 2000,
-										GreedyFiller.SORT_EMBEDDINGS);
+			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 2000,
+										GreedyPlacer.SORT_EMBEDDINGS);
 
 		else if (placement.equalsIgnoreCase("GREEDY-BL-2K-R"))
-			placer = new GreedyFiller(GreedyFiller.MODE_BORDER_LENGTH, 2000,
-										GreedyFiller.RANDOMIZE_INPUT);
+			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 2000,
+										GreedyPlacer.RANDOMIZE_INPUT);
 
 		else if (placement.equalsIgnoreCase("GREEDY-BL-1K"))
-			placer = new GreedyFiller(GreedyFiller.MODE_BORDER_LENGTH, 1000);
+			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 1000);
 
 		else if (placement.equalsIgnoreCase("GREEDY-BL-100"))
-			placer = new GreedyFiller(GreedyFiller.MODE_BORDER_LENGTH, 100);		
+			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 100);		
 
 		else if (placement.equalsIgnoreCase("GREEDYBL-50"))
-			placer = new GreedyFiller(GreedyFiller.MODE_BORDER_LENGTH, 50);		
+			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 50);		
 
 		else if (placement.equalsIgnoreCase("GREEDY-CI-10K"))
-			placer = new GreedyFiller(GreedyFiller.MODE_CONFLICT_INDEX, 10000);
+			placer = new GreedyPlacer(GreedyPlacer.MODE_CONFLICT_INDEX, 10000);
 
 		else if (placement.equalsIgnoreCase("GREEDY-CI-5K"))
-			placer = new GreedyFiller(GreedyFiller.MODE_CONFLICT_INDEX, 5000);
+			placer = new GreedyPlacer(GreedyPlacer.MODE_CONFLICT_INDEX, 5000);
 
 		else if (placement.equalsIgnoreCase("GREEDY-CI-2K"))
-			placer = new GreedyFiller(GreedyFiller.MODE_CONFLICT_INDEX, 2000);
+			placer = new GreedyPlacer(GreedyPlacer.MODE_CONFLICT_INDEX, 2000);
 		
 		else if (placement.equalsIgnoreCase("GREEDY-CI-1K"))
-			placer = new GreedyFiller(GreedyFiller.MODE_CONFLICT_INDEX, 1000);
+			placer = new GreedyPlacer(GreedyPlacer.MODE_CONFLICT_INDEX, 1000);
 
 		else if (placement.equalsIgnoreCase("GREEDY-CI-100"))
-			placer = new GreedyFiller(GreedyFiller.MODE_CONFLICT_INDEX, 100);
+			placer = new GreedyPlacer(GreedyPlacer.MODE_CONFLICT_INDEX, 100);
 
 		else if (placement.equalsIgnoreCase("GREEDY-CI-50"))
-			placer = new GreedyFiller(GreedyFiller.MODE_CONFLICT_INDEX, 50);
+			placer = new GreedyPlacer(GreedyPlacer.MODE_CONFLICT_INDEX, 50);
 
 		else if (placement.equalsIgnoreCase("REPTX20K-BL"))
 			placer = new RowEpitaxial(20000, false);
 
 		else if (placement.equalsIgnoreCase("2D1-SEQ"))
-			placer = new TwoDimensionalPartitioning(new SequentialFiller(), 1);
+			placer = new TwoDimensionalPartitioning(new SequentialPlacer(), 1);
 
 		else if (placement.equalsIgnoreCase("2D4-SEQ"))
-			placer = new TwoDimensionalPartitioning(new SequentialFiller(), 4);
+			placer = new TwoDimensionalPartitioning(new SequentialPlacer(), 4);
 
 		else if (placement.equalsIgnoreCase("2D1-GREEDY"))
-			placer = new TwoDimensionalPartitioning(new GreedyFiller(), 1);
+			placer = new TwoDimensionalPartitioning(new GreedyPlacer(), 1);
 
 		else if (placement.equalsIgnoreCase("2D4-GREEDY"))
-			placer = new TwoDimensionalPartitioning(new GreedyFiller(), 4);
+			placer = new TwoDimensionalPartitioning(new GreedyPlacer(), 4);
 
 		else if (placement.equalsIgnoreCase("2D8-GREEDY"))
-			placer = new TwoDimensionalPartitioning(new GreedyFiller(), 8);
+			placer = new TwoDimensionalPartitioning(new GreedyPlacer(), 8);
 
 		else if (placement.equalsIgnoreCase("2D64-GREEDY"))
-			placer = new TwoDimensionalPartitioning(new GreedyFiller(), 64);
+			placer = new TwoDimensionalPartitioning(new GreedyPlacer(), 64);
 
 		else if (placement.equalsIgnoreCase("2D8-GRASPD"))
 			placer = new TwoDimensionalPartitioning(
-						new QAPOptimization(
-							new GraspDense(), QAPOptimization.MODE_CONFLICT_INDEX),
+						new QuadraticAssignmentPlacer(
+							new GraspDense(), QuadraticAssignmentPlacer.MODE_CONFLICT_INDEX),
 						8);
 
 		else if (placement.equalsIgnoreCase("LEFT"))
@@ -278,7 +278,7 @@ public class ArrayOpt
 			placer = new ProbeSetEmbeddingWrapper(new EdgeEmbedding());
 
 		else if (placement.equalsIgnoreCase("PIVOTPART"))
-			placer = new PivotPartitioning(new SequentialFiller());
+			placer = new PivotPartitioning(new SequentialPlacer());
 
 		else if (placement.equalsIgnoreCase("PIVOTPART1+REPTX20K-BL"))
 			placer = new PivotPartitioning(new RowEpitaxial(20000),
@@ -308,221 +308,221 @@ public class ArrayOpt
 		// *************************
 
 		else if (placement.equalsIgnoreCase("PIVOTPART2+GREEDY20K-BL"))
-			placer = new PivotPartitioning(new GreedyFiller(
-							GreedyFiller.MODE_BORDER_LENGTH, 20000),
+			placer = new PivotPartitioning(new GreedyPlacer(
+							GreedyPlacer.MODE_BORDER_LENGTH, 20000),
 							PivotPartitioning.MODE_BORDER_LENGTH, 2);
 
 		else if (placement.equalsIgnoreCase("PIVOTPART4+GREEDY20K-BL"))
-			placer = new PivotPartitioning(new GreedyFiller(
-							GreedyFiller.MODE_BORDER_LENGTH, 20000),
+			placer = new PivotPartitioning(new GreedyPlacer(
+							GreedyPlacer.MODE_BORDER_LENGTH, 20000),
 							PivotPartitioning.MODE_BORDER_LENGTH, 4);
 
 		else if (placement.equalsIgnoreCase("PIVOTPART6+GREEDY20K-BL"))
-			placer = new PivotPartitioning(new GreedyFiller(
-							GreedyFiller.MODE_BORDER_LENGTH, 20000),
+			placer = new PivotPartitioning(new GreedyPlacer(
+							GreedyPlacer.MODE_BORDER_LENGTH, 20000),
 							PivotPartitioning.MODE_BORDER_LENGTH, 6);
 
 		// **************************
 		
 		else if (placement.equalsIgnoreCase("PIVOTPART2+GREEDY2K-BL"))
-			placer = new PivotPartitioning(new GreedyFiller(
-							GreedyFiller.MODE_BORDER_LENGTH, 2000),
+			placer = new PivotPartitioning(new GreedyPlacer(
+							GreedyPlacer.MODE_BORDER_LENGTH, 2000),
 							PivotPartitioning.MODE_BORDER_LENGTH, 2);
 
 		else if (placement.equalsIgnoreCase("PIVOTPART4+GREEDY2K-BL"))
-			placer = new PivotPartitioning(new GreedyFiller(
-							GreedyFiller.MODE_BORDER_LENGTH, 2000),
+			placer = new PivotPartitioning(new GreedyPlacer(
+							GreedyPlacer.MODE_BORDER_LENGTH, 2000),
 							PivotPartitioning.MODE_BORDER_LENGTH, 4);
 
 		else if (placement.equalsIgnoreCase("PIVOTPART6+GREEDY2K-BL"))
-			placer = new PivotPartitioning(new GreedyFiller(
-							GreedyFiller.MODE_BORDER_LENGTH, 2000),
+			placer = new PivotPartitioning(new GreedyPlacer(
+							GreedyPlacer.MODE_BORDER_LENGTH, 2000),
 							PivotPartitioning.MODE_BORDER_LENGTH, 6);
 
 		else if (placement.equalsIgnoreCase("PIVOTPART8+GREEDY2K-BL"))
-			placer = new PivotPartitioning(new GreedyFiller(
-							GreedyFiller.MODE_BORDER_LENGTH, 2000),
+			placer = new PivotPartitioning(new GreedyPlacer(
+							GreedyPlacer.MODE_BORDER_LENGTH, 2000),
 							PivotPartitioning.MODE_BORDER_LENGTH, 8);
 
 		else if (placement.equalsIgnoreCase("PIVOTPART2+GREEDY2K-CI"))
-			placer = new PivotPartitioning(new GreedyFiller(
-							GreedyFiller.MODE_CONFLICT_INDEX, 2000),
+			placer = new PivotPartitioning(new GreedyPlacer(
+							GreedyPlacer.MODE_CONFLICT_INDEX, 2000),
 							PivotPartitioning.MODE_CONFLICT_INDEX, 2);
 
 		else if (placement.equalsIgnoreCase("PIVOTPART4+GREEDY2K-CI"))
-			placer = new PivotPartitioning(new GreedyFiller(
-							GreedyFiller.MODE_CONFLICT_INDEX, 2000),
+			placer = new PivotPartitioning(new GreedyPlacer(
+							GreedyPlacer.MODE_CONFLICT_INDEX, 2000),
 							PivotPartitioning.MODE_CONFLICT_INDEX, 4);
 
 		else if (placement.equalsIgnoreCase("PIVOTPART6+GREEDY2K-CI"))
-			placer = new PivotPartitioning(new GreedyFiller(
-							GreedyFiller.MODE_CONFLICT_INDEX, 2000),
+			placer = new PivotPartitioning(new GreedyPlacer(
+							GreedyPlacer.MODE_CONFLICT_INDEX, 2000),
 							PivotPartitioning.MODE_CONFLICT_INDEX, 6);
 
 		else if (placement.equalsIgnoreCase("PIVOTPART8+GREEDY2K-CI"))
-			placer = new PivotPartitioning(new GreedyFiller(
-							GreedyFiller.MODE_CONFLICT_INDEX, 2000),
+			placer = new PivotPartitioning(new GreedyPlacer(
+							GreedyPlacer.MODE_CONFLICT_INDEX, 2000),
 							PivotPartitioning.MODE_CONFLICT_INDEX, 8);
 		
 		// **************************
 
 		else if (placement.equalsIgnoreCase("PIVOTPART2+GREEDY1K-BL"))
-			placer = new PivotPartitioning(new GreedyFiller(
-							GreedyFiller.MODE_BORDER_LENGTH, 1000),
+			placer = new PivotPartitioning(new GreedyPlacer(
+							GreedyPlacer.MODE_BORDER_LENGTH, 1000),
 							PivotPartitioning.MODE_BORDER_LENGTH, 2);
 
 		else if (placement.equalsIgnoreCase("PIVOTPART4+GREEDY1K-BL"))
-			placer = new PivotPartitioning(new GreedyFiller(
-							GreedyFiller.MODE_BORDER_LENGTH, 1000),
+			placer = new PivotPartitioning(new GreedyPlacer(
+							GreedyPlacer.MODE_BORDER_LENGTH, 1000),
 							PivotPartitioning.MODE_BORDER_LENGTH, 4);
 
 		else if (placement.equalsIgnoreCase("PIVOTPART6+GREEDY1K-BL"))
-			placer = new PivotPartitioning(new GreedyFiller(
-							GreedyFiller.MODE_BORDER_LENGTH, 1000),
+			placer = new PivotPartitioning(new GreedyPlacer(
+							GreedyPlacer.MODE_BORDER_LENGTH, 1000),
 							PivotPartitioning.MODE_BORDER_LENGTH, 6);
 
 		else if (placement.equalsIgnoreCase("PIVOTPART8+GREEDY1K-BL"))
-			placer = new PivotPartitioning(new GreedyFiller(
-							GreedyFiller.MODE_BORDER_LENGTH, 1000),
+			placer = new PivotPartitioning(new GreedyPlacer(
+							GreedyPlacer.MODE_BORDER_LENGTH, 1000),
 							PivotPartitioning.MODE_BORDER_LENGTH, 8);
 
 		else if (placement.equalsIgnoreCase("PIVOTPART2+GREEDY1K-CI"))
-			placer = new PivotPartitioning(new GreedyFiller(
-							GreedyFiller.MODE_CONFLICT_INDEX, 1000),
+			placer = new PivotPartitioning(new GreedyPlacer(
+							GreedyPlacer.MODE_CONFLICT_INDEX, 1000),
 							PivotPartitioning.MODE_CONFLICT_INDEX, 2);
 
 		else if (placement.equalsIgnoreCase("PIVOTPART4+GREEDY1K-CI"))
-			placer = new PivotPartitioning(new GreedyFiller(
-							GreedyFiller.MODE_CONFLICT_INDEX, 1000),
+			placer = new PivotPartitioning(new GreedyPlacer(
+							GreedyPlacer.MODE_CONFLICT_INDEX, 1000),
 							PivotPartitioning.MODE_CONFLICT_INDEX, 4);
 
 		else if (placement.equalsIgnoreCase("PIVOTPART6+GREEDY1K-CI"))
-			placer = new PivotPartitioning(new GreedyFiller(
-							GreedyFiller.MODE_CONFLICT_INDEX, 1000),
+			placer = new PivotPartitioning(new GreedyPlacer(
+							GreedyPlacer.MODE_CONFLICT_INDEX, 1000),
 							PivotPartitioning.MODE_CONFLICT_INDEX, 6);
 
 		else if (placement.equalsIgnoreCase("PIVOTPART8+GREEDY1K-CI"))
-			placer = new PivotPartitioning(new GreedyFiller(
-							GreedyFiller.MODE_CONFLICT_INDEX, 1000),
+			placer = new PivotPartitioning(new GreedyPlacer(
+							GreedyPlacer.MODE_CONFLICT_INDEX, 1000),
 							PivotPartitioning.MODE_CONFLICT_INDEX, 8);
 		
 		// **************************
 
 		else if (placement.equalsIgnoreCase("PIVOTPART2+GREEDY100-BL"))
-			placer = new PivotPartitioning(new GreedyFiller(
-							GreedyFiller.MODE_BORDER_LENGTH, 100),
+			placer = new PivotPartitioning(new GreedyPlacer(
+							GreedyPlacer.MODE_BORDER_LENGTH, 100),
 							PivotPartitioning.MODE_BORDER_LENGTH, 2);
 
 		else if (placement.equalsIgnoreCase("PIVOTPART4+GREEDY100-BL"))
-			placer = new PivotPartitioning(new GreedyFiller(
-							GreedyFiller.MODE_BORDER_LENGTH, 100),
+			placer = new PivotPartitioning(new GreedyPlacer(
+							GreedyPlacer.MODE_BORDER_LENGTH, 100),
 							PivotPartitioning.MODE_BORDER_LENGTH, 4);
 
 		else if (placement.equalsIgnoreCase("PIVOTPART6+GREEDY100-BL"))
-			placer = new PivotPartitioning(new GreedyFiller(
-							GreedyFiller.MODE_BORDER_LENGTH, 100),
+			placer = new PivotPartitioning(new GreedyPlacer(
+							GreedyPlacer.MODE_BORDER_LENGTH, 100),
 							PivotPartitioning.MODE_BORDER_LENGTH, 6);
 
 		else if (placement.equalsIgnoreCase("PIVOTPART8+GREEDY100-BL"))
-			placer = new PivotPartitioning(new GreedyFiller(
-							GreedyFiller.MODE_BORDER_LENGTH, 100),
+			placer = new PivotPartitioning(new GreedyPlacer(
+							GreedyPlacer.MODE_BORDER_LENGTH, 100),
 							PivotPartitioning.MODE_BORDER_LENGTH, 8);
 
 		else if (placement.equalsIgnoreCase("PIVOTPART2+GREEDY100-CI"))
-			placer = new PivotPartitioning(new GreedyFiller(
-							GreedyFiller.MODE_CONFLICT_INDEX, 100),
+			placer = new PivotPartitioning(new GreedyPlacer(
+							GreedyPlacer.MODE_CONFLICT_INDEX, 100),
 							PivotPartitioning.MODE_CONFLICT_INDEX, 2);
 
 		else if (placement.equalsIgnoreCase("PIVOTPART4+GREEDY100-CI"))
-			placer = new PivotPartitioning(new GreedyFiller(
-							GreedyFiller.MODE_CONFLICT_INDEX, 100),
+			placer = new PivotPartitioning(new GreedyPlacer(
+							GreedyPlacer.MODE_CONFLICT_INDEX, 100),
 							PivotPartitioning.MODE_CONFLICT_INDEX, 4);
 
 		else if (placement.equalsIgnoreCase("PIVOTPART6+GREEDY100-CI"))
-			placer = new PivotPartitioning(new GreedyFiller(
-							GreedyFiller.MODE_CONFLICT_INDEX, 100),
+			placer = new PivotPartitioning(new GreedyPlacer(
+							GreedyPlacer.MODE_CONFLICT_INDEX, 100),
 							PivotPartitioning.MODE_CONFLICT_INDEX, 6);
 
 		else if (placement.equalsIgnoreCase("PIVOTPART8+GREEDY100-CI"))
-			placer = new PivotPartitioning(new GreedyFiller(
-							GreedyFiller.MODE_CONFLICT_INDEX, 100),
+			placer = new PivotPartitioning(new GreedyPlacer(
+							GreedyPlacer.MODE_CONFLICT_INDEX, 100),
 							PivotPartitioning.MODE_CONFLICT_INDEX, 8);
 		
 		// **************************
 
 		else if (placement.equalsIgnoreCase("CLUSTER-SEQ-BL"))
-			placer = new ClusterPartitioning(new SequentialFiller(),
+			placer = new ClusterPartitioning(new SequentialPlacer(),
 							PivotPartitioning.MODE_BORDER_LENGTH);
 
 		else if (placement.equalsIgnoreCase("CLUSTER-SEQ-CI"))
-			placer = new ClusterPartitioning(new SequentialFiller(),
+			placer = new ClusterPartitioning(new SequentialPlacer(),
 							PivotPartitioning.MODE_CONFLICT_INDEX);
 
 		// **************************
 
 		else if (placement.equalsIgnoreCase("PIVOTPART8+GREEDY50-CI"))
-			placer = new PivotPartitioning(new GreedyFiller(
-							GreedyFiller.MODE_CONFLICT_INDEX, 50),
+			placer = new PivotPartitioning(new GreedyPlacer(
+							GreedyPlacer.MODE_CONFLICT_INDEX, 50),
 							PivotPartitioning.MODE_CONFLICT_INDEX, 8);
 
 		
 		// ****************** GRASP Sparse ******************
 		
 		else if (placement.equalsIgnoreCase("GRASPS-BL"))
-			placer = new QAPOptimization (
-							new GraspSparse(), QAPOptimization.MODE_BORDER_LENGTH
+			placer = new QuadraticAssignmentPlacer (
+							new GraspSparse(), QuadraticAssignmentPlacer.MODE_BORDER_LENGTH
 						);
 
 		else if (placement.equalsIgnoreCase("GRASPS-INV-BL"))
 		{
 			QAPSolverAlgorithm qapsolver = new GraspSparse();
 			qapsolver.setSwapMatrices(true);
-			placer = new QAPOptimization (
-							qapsolver, QAPOptimization.MODE_BORDER_LENGTH
+			placer = new QuadraticAssignmentPlacer (
+							qapsolver, QuadraticAssignmentPlacer.MODE_BORDER_LENGTH
 						);
 		}
 
 		else if (placement.equalsIgnoreCase("GRASPS-CI"))
-			placer = new QAPOptimization (
-							new GraspSparse(), QAPOptimization.MODE_CONFLICT_INDEX
+			placer = new QuadraticAssignmentPlacer (
+							new GraspSparse(), QuadraticAssignmentPlacer.MODE_CONFLICT_INDEX
 						);
 
 		else if (placement.equalsIgnoreCase("GRASPS-INV-CI"))
 		{
 			QAPSolverAlgorithm qapsolver = new GraspSparse();
 			qapsolver.setSwapMatrices(true);
-			placer = new QAPOptimization (
-							qapsolver, QAPOptimization.MODE_CONFLICT_INDEX
+			placer = new QuadraticAssignmentPlacer (
+							qapsolver, QuadraticAssignmentPlacer.MODE_CONFLICT_INDEX
 						);
 		}
 
 		// ****************** GRASP Dense ******************
 		
 		else if (placement.equalsIgnoreCase("GRASPD-BL"))
-			placer = new QAPOptimization (
-							new GraspDense(), QAPOptimization.MODE_BORDER_LENGTH
+			placer = new QuadraticAssignmentPlacer (
+							new GraspDense(), QuadraticAssignmentPlacer.MODE_BORDER_LENGTH
 						);
 
 		else if (placement.equalsIgnoreCase("GRASPD-INV-BL"))
 		{
 			QAPSolverAlgorithm qapsolver = new GraspDense();
 			qapsolver.setSwapMatrices(true);
-			placer = new QAPOptimization (
-							qapsolver, QAPOptimization.MODE_BORDER_LENGTH
+			placer = new QuadraticAssignmentPlacer (
+							qapsolver, QuadraticAssignmentPlacer.MODE_BORDER_LENGTH
 						);
 		}
 
 		else if (placement.equalsIgnoreCase("GRASPD-CI"))
-			placer = new QAPOptimization (
-							new GraspDense(), QAPOptimization.MODE_CONFLICT_INDEX
+			placer = new QuadraticAssignmentPlacer (
+							new GraspDense(), QuadraticAssignmentPlacer.MODE_CONFLICT_INDEX
 						);
 
 		else if (placement.equalsIgnoreCase("GRASPD-INV-CI"))
 		{
 			QAPSolverAlgorithm qapsolver = new GraspDense();
 			qapsolver.setSwapMatrices(true);
-			placer = new QAPOptimization (
-							qapsolver, QAPOptimization.MODE_CONFLICT_INDEX
+			placer = new QuadraticAssignmentPlacer (
+							qapsolver, QuadraticAssignmentPlacer.MODE_CONFLICT_INDEX
 						);
 		}
 		
@@ -629,8 +629,8 @@ public class ArrayOpt
 
 		else if (optimization.equalsIgnoreCase("GRASPPR32-BL"))
 		{
-			optimizer = new QAPOptimization (
-							new GraspPathRelinking(1,32), QAPOptimization.MODE_BORDER_LENGTH
+			optimizer = new QuadraticAssignmentPlacer (
+							new GraspPathRelinking(1,32), QuadraticAssignmentPlacer.MODE_BORDER_LENGTH
 						);
 		}
 
@@ -638,15 +638,15 @@ public class ArrayOpt
 		{
 			QAPSolverAlgorithm qapsolver = new GraspPathRelinking(1,32);
 			qapsolver.setSwapMatrices(true);
-			optimizer = new QAPOptimization (
-							qapsolver, QAPOptimization.MODE_BORDER_LENGTH
+			optimizer = new QuadraticAssignmentPlacer (
+							qapsolver, QuadraticAssignmentPlacer.MODE_BORDER_LENGTH
 						);
 		}
 
 		else if (optimization.equalsIgnoreCase("GRASPPR32-CI"))
 		{
-			optimizer = new QAPOptimization (
-							new GraspPathRelinking(1,32), QAPOptimization.MODE_CONFLICT_INDEX
+			optimizer = new QuadraticAssignmentPlacer (
+							new GraspPathRelinking(1,32), QuadraticAssignmentPlacer.MODE_CONFLICT_INDEX
 						);
 		}
 
@@ -654,8 +654,8 @@ public class ArrayOpt
 		{
 			QAPSolverAlgorithm qapsolver = new GraspPathRelinking(1,32);
 			qapsolver.setSwapMatrices(true);
-			optimizer = new QAPOptimization (
-							qapsolver, QAPOptimization.MODE_CONFLICT_INDEX
+			optimizer = new QuadraticAssignmentPlacer (
+							qapsolver, QuadraticAssignmentPlacer.MODE_CONFLICT_INDEX
 						);
 		}
 
@@ -663,8 +663,8 @@ public class ArrayOpt
 
 		else if (optimization.equalsIgnoreCase("GRASPPR128-BL"))
 		{
-			optimizer = new QAPOptimization (
-							new GraspPathRelinking(1, 128), QAPOptimization.MODE_BORDER_LENGTH
+			optimizer = new QuadraticAssignmentPlacer (
+							new GraspPathRelinking(1, 128), QuadraticAssignmentPlacer.MODE_BORDER_LENGTH
 						);
 		}
 
@@ -672,15 +672,15 @@ public class ArrayOpt
 		{
 			QAPSolverAlgorithm qapsolver = new GraspPathRelinking(1, 128);
 			qapsolver.setSwapMatrices(true);
-			optimizer = new QAPOptimization (
-							qapsolver, QAPOptimization.MODE_BORDER_LENGTH
+			optimizer = new QuadraticAssignmentPlacer (
+							qapsolver, QuadraticAssignmentPlacer.MODE_BORDER_LENGTH
 						);
 		}
 
 		else if (optimization.equalsIgnoreCase("GRASPPR128-CI"))
 		{
-			optimizer = new QAPOptimization (
-							new GraspPathRelinking(1, 128), QAPOptimization.MODE_CONFLICT_INDEX
+			optimizer = new QuadraticAssignmentPlacer (
+							new GraspPathRelinking(1, 128), QuadraticAssignmentPlacer.MODE_CONFLICT_INDEX
 						);
 		}
 
@@ -688,8 +688,8 @@ public class ArrayOpt
 		{
 			QAPSolverAlgorithm qapsolver = new GraspPathRelinking(1, 128);
 			qapsolver.setSwapMatrices(true);
-			optimizer = new QAPOptimization (
-							qapsolver, QAPOptimization.MODE_CONFLICT_INDEX
+			optimizer = new QuadraticAssignmentPlacer (
+							qapsolver, QuadraticAssignmentPlacer.MODE_CONFLICT_INDEX
 						);
 		}
 
