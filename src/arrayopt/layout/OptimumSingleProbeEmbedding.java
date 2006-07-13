@@ -472,6 +472,10 @@ public abstract class OptimumSingleProbeEmbedding
 		
 		protected int start_row;
 		
+		protected int start_col[];
+		
+		protected int last_col[];
+		
 		protected char probe[];
 
 		protected double mask_cost[];
@@ -487,6 +491,12 @@ public abstract class OptimumSingleProbeEmbedding
 			this.chip = chip;
 			this.matrix = new double [probe_len + 1][embed_len + 1];
 			
+			this.start_col = new int [probe_len + 1];
+			this.start_col[0] = 0;
+
+			this.last_col = new int [probe_len + 1];
+			this.last_col[probe_len] = embed_len;
+
 			this.probe = new char [probe_len];
 			this.num_embed = new long [probe_len];
 			
@@ -537,8 +547,12 @@ public abstract class OptimumSingleProbeEmbedding
 
 		protected void decodeEmbedding (int id)
 		{
-			int i, pos, word, bitmask = 0;
+			int i, c, pos, word, bitmask = 0;
+			boolean update_start_col = false;
 			
+			// decode probe sequence, checking which rows from the previous
+			// computed matrix can be reused (start_row), and from which column
+			// computations need to start
 			for (i = 0, word = - 1, pos = 0; pos < embed_len; pos++)
 			{
 				if (pos % Integer.SIZE == 0)
@@ -551,23 +565,48 @@ public abstract class OptimumSingleProbeEmbedding
 				
 				if ((chip.embed[id][word] & bitmask) != 0)
 				{
-					if (start_row <= i)
+					if (probe[i] != chip.dep_seq[pos])
 					{
-						probe[i++] = chip.dep_seq[pos];
+						probe[i] = chip.dep_seq[pos];
+						
+						update_start_col = true;
+						
+						if (start_row > i + 1) start_row = i + 1;
 					}
 					else
 					{
-						if (probe[i] == chip.dep_seq[pos])
-						{
-							i++;
-						}
-						else
-						{
-							start_row = i + 1;
-							probe[i++] = chip.dep_seq[pos];
-						}
+						if (start_row <= i) update_start_col = true;
 					}
+					
+					if (update_start_col)
+					{
+						// check where the computations of row i+1 need to start
+						for (c = start_col[i]; c <= embed_len; c++)
+							if (chip.dep_seq[c] == probe[i])
+								break;
+						start_col[i+1] = c + 1;
+						
+						update_start_col = false;
+					}
+										
+					i++;
 				}
+			}
+			
+			// examine the probe sequence from right to left, marking the last
+			// column of the matrix that needs to be computed for each row
+			for (int r = probe_len - 1; r >= 0; r--)
+			{
+				for (c = last_col[r + 1] - 1; c >= 0; c--)
+					if (probe[r] == chip.dep_seq[c])
+						break;
+				
+				// row needs to be re-computed if some of its
+				// columns were not computed in the last time
+				if (last_col[r] < c && start_row > r)
+					start_row = r;
+				
+				last_col[r] = c;
 			}
 		}
 		
@@ -669,32 +708,22 @@ public abstract class OptimumSingleProbeEmbedding
 			protected double computeMatrix ()
 			{
 				double	mask, unmask;
-				int 	r, c, start_col = 1;
+				int 	r, c;
 				
 				if (start_row == 0)
 				{
 					matrix[0][0] = 0;
-					for (c = 1; c <= embed_len; c++)
+					for (c = 1; c <= last_col[0]; c++)
 						matrix[0][c] = matrix[0][c - 1] + mask_cost[c -1];
 					
 					start_row = 1;
 				}
-				else if (start_row > 1 && start_row <= probe_len)
-				{
-					// find first non-infinite number from right to left
-					for (c = embed_len; c >= start_row - 1; c--)
-						if (matrix[start_row -1][c] == Double.POSITIVE_INFINITY)
-							break;
-					
-					// set starting column
-					start_col = c + 2;
-				}
 				
-				for (r = start_row; r <= probe_len; r++, start_col++)
+				for (r = start_row; r <= probe_len; r++)
 				{
-					matrix[r][start_col - 1] = Double.POSITIVE_INFINITY;
+					matrix[r][start_col[r] - 1] = Double.POSITIVE_INFINITY;
 					
-					for (c = start_col; c <= embed_len; c++)
+					for (c = start_col[r]; c <= last_col[r]; c++)
 					{
 						mask = matrix[r][c - 1] + mask_cost[c -1];
 						
@@ -704,8 +733,6 @@ public abstract class OptimumSingleProbeEmbedding
 							unmask = Double.POSITIVE_INFINITY;
 						
 						matrix[r][c] = Math.min(mask, unmask);
-						
-						if (Double.isInfinite(matrix[r][c])) start_col++;
 					}
 				}
 				
@@ -840,33 +867,23 @@ public abstract class OptimumSingleProbeEmbedding
 			protected double computeMatrix ()
 			{
 				double	mask, unmask;
-				int 	r, c, start_col = 1;
+				int 	r, c;
 				
 				if (start_row == 0)
 				{
 					matrix[0][0] = 0;
-					for (c = 1; c <= embed_len; c++)
+					for (c = 1; c <= last_col[0]; c++)
 						matrix[0][c] = matrix[0][c - 1] +
 										pos_mult[0] * mask_cost[c -1];
 					
 					start_row = 1;
 				}
-				else if (start_row > 1 && start_row <= probe_len)
-				{
-					// find first non-infinite number from right to left
-					for (c = embed_len; c >= start_row - 1; c--)
-						if (matrix[start_row -1][c] == Double.POSITIVE_INFINITY)
-							break;
-					
-					// set starting column
-					start_col = c + 2;
-				}
 				
-				for (r = start_row; r <= probe_len; r++, start_col++)
+				for (r = start_row; r <= probe_len; r++)
 				{
-					matrix[r][start_col - 1] = Double.POSITIVE_INFINITY;
+					matrix[r][start_col[r] - 1] = Double.POSITIVE_INFINITY;
 					
-					for (c = start_col; c <= embed_len; c++)
+					for (c = start_col[r]; c <= last_col[r]; c++)
 					{
 						mask = matrix[r][c - 1] + pos_mult[r] * mask_cost[c -1];
 						
@@ -876,8 +893,6 @@ public abstract class OptimumSingleProbeEmbedding
 							unmask = Double.POSITIVE_INFINITY;
 						
 						matrix[r][c] = Math.min(mask, unmask);
-						
-						if (Double.isInfinite(matrix[r][c])) start_col++;
 					}
 				}
 				
