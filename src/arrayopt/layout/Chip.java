@@ -569,6 +569,69 @@ public abstract class Chip implements Cloneable
 			throw new IllegalArgumentException ("unexpected probe length: " +
 				len);
 	}
+	
+	/**
+	 * Computes a rank for each probe based on the probe's sequence, which can
+	 * be used to sort the probes lexicographically.
+	 * 
+	 * @param pid array of probe IDs
+	 * @param start starting position in the array 
+	 * @param end last position in the array
+	 * @return an array of numbers corresponding to each input probe
+	 */
+	public long[] computeProbeRanks (int pid[], int start, int end)
+	{
+		int  i, word, step, bitmask = 0;
+		long base_mask, rank[];
+		
+		rank = new long[end - start + 1];
+		
+		for (i = start; i <= end; i++)
+			rank[i - start] = 0;
+		
+		for (word = -1, step = 0; step < embed_len; step++)
+		{
+			if (step % Integer.SIZE == 0)
+			{
+				bitmask = 0x01 << (Integer.SIZE - 1);
+				word++;
+			}
+			else
+				bitmask >>>= 1;
+
+			switch (dep_seq[step])
+			{
+				case 'A':
+					base_mask = 0x00;
+					break;
+					
+				case 'C':
+					base_mask = 0x01;
+					break;
+
+				case 'G':
+					base_mask = 0x02;
+					break;
+					
+				case 'T':
+					base_mask = 0x03;
+					break;
+				
+				default:
+					throw new IllegalArgumentException
+						("Illegal deposition sequence.");
+			}
+			
+			for (i = start; i <= end; i++)
+				if ((bitmask & embed[pid[i]][word]) != 0)
+				{
+					rank[i - start] <<= 2;
+					rank[i - start] |= base_mask;
+				}
+		}
+		
+		return rank;
+	}
 
 	/**
 	 * Print the specification of the chip's current layout. This method should
