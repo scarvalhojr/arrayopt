@@ -232,6 +232,22 @@ public abstract class OptimumSingleProbeEmbedding
 	
 	/**
 	 * Computes the minimum distance between any valid embedding of a probe
+	 * (<CODE>id_1</CODE>) and the current embedding of the probe or set of
+	 * probes for which a distance has been last computed, stopping as soon as
+	 * the minimum distance gets over a given threshold.
+	 * @param id_1 the ID of the probe
+	 * @param max_dist maximum distance wanted
+	 * @return the minimum distance of any embedding of id_1 if there exists
+	 * an embedding with a distance less than the given threshold; positive
+	 * infinity otherwise
+	 */
+	double minDistanceProbe (int id_1, double max_dist)
+	{
+		return computeMinDistance(id_1, max_dist);
+	}
+	
+	/**
+	 * Computes the minimum distance between any valid embedding of a probe
 	 * (<CODE>id_1</CODE>) and the current embedding of <CODE>id_2</CODE>.
 	 * @param id_1 the ID of the first probe
 	 * @param id_2 the ID of the probe with a fixed embedding
@@ -425,6 +441,8 @@ public abstract class OptimumSingleProbeEmbedding
 	
 	protected abstract double computeMinDistance (int id);
 	
+	protected abstract double computeMinDistance (int id, double max);
+	
 	protected abstract double reembedOptimally (int id);
 
 	protected long numberOfEmbeddings (char probe[], char dep_seq[], long m[])
@@ -522,8 +540,14 @@ public abstract class OptimumSingleProbeEmbedding
 		@Override
 		protected double computeMinDistance (int id)
 		{
+			return computeMinDistance (id, Double.POSITIVE_INFINITY);
+		}
+
+		@Override
+		protected double computeMinDistance (int id, double max)
+		{
 			decodeEmbedding (id);
-			return computeMatrix ();
+			return computeMatrix (max);
 		}
 
 		@Override
@@ -532,7 +556,7 @@ public abstract class OptimumSingleProbeEmbedding
 			double d;
 			
 			decodeEmbedding (id);
-			d = computeMatrix ();
+			d = computeMatrix (Double.POSITIVE_INFINITY);
 			encodeEmbedding (id);
 			return d;
 		}
@@ -610,7 +634,7 @@ public abstract class OptimumSingleProbeEmbedding
 			}
 		}
 		
-		protected abstract double computeMatrix ();
+		protected abstract double computeMatrix (double max_dist);
 		
 		protected abstract void encodeEmbedding (int id);
 
@@ -705,9 +729,9 @@ public abstract class OptimumSingleProbeEmbedding
 			}
 			
 			@Override
-			protected double computeMatrix ()
+			protected double computeMatrix (double max_dist)
 			{
-				double	mask, unmask;
+				double	mask, unmask, min = 0;
 				int 	r, c;
 				
 				if (start_row == 0)
@@ -721,7 +745,7 @@ public abstract class OptimumSingleProbeEmbedding
 				
 				for (r = start_row; r <= probe_len; r++)
 				{
-					matrix[r][start_col[r] - 1] = Double.POSITIVE_INFINITY;
+					min = matrix[r][start_col[r] -1] = Double.POSITIVE_INFINITY;
 					
 					for (c = start_col[r]; c <= last_col[r]; c++)
 					{
@@ -732,11 +756,20 @@ public abstract class OptimumSingleProbeEmbedding
 						else
 							unmask = Double.POSITIVE_INFINITY;
 						
-						matrix[r][c] = Math.min(mask, unmask);
+						if ((matrix[r][c] = Math.min(mask, unmask)) < min)
+							min = matrix[r][c];
+					}
+					
+					// stop as soon as the minimum distance
+					// gets over the maximum wanted
+					if (min > max_dist)
+					{
+						start_row = r;
+						return min;
 					}
 				}
 				
-				start_row = probe_len + 1;
+				start_row = r;
 				
 				return matrix[probe_len][embed_len];
 			}
@@ -864,10 +897,12 @@ public abstract class OptimumSingleProbeEmbedding
 			}
 			
 			@Override
-			protected double computeMatrix ()
+			protected double computeMatrix (double max_dist)
 			{
 				double	mask, unmask;
 				int 	r, c;
+				
+				// TODO stop when min distance gets over max threshold
 				
 				if (start_row == 0)
 				{
@@ -937,6 +972,8 @@ public abstract class OptimumSingleProbeEmbedding
 
 	protected static abstract class Affymetrix extends OptimumSingleProbeEmbedding
 	{
+		// TODO implement optimizations for the computation of the matrix
+		
 		protected AffymetrixChip chip;
 
 		protected double matrix_1[][];
@@ -1001,6 +1038,12 @@ public abstract class OptimumSingleProbeEmbedding
 		
 		@Override
 		protected double computeMinDistance (int id)
+		{
+			return computeMinDistance (id, Double.POSITIVE_INFINITY);
+		}
+
+		@Override
+		protected double computeMinDistance (int id, double max)
 		{
 			double	d1, d2;
 			int		mid = AffymetrixChip.AFFY_MIDDLE_BASE;
