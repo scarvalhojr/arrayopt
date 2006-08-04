@@ -191,17 +191,44 @@ public class ArrayOpt
 		else if (placement.equalsIgnoreCase("GREEDY-CI"))
 			placer = new GreedyPlacer(GreedyPlacer.MODE_CONFLICT_INDEX);
 
+		else if (placement.equalsIgnoreCase("GREEDY-BL-5K-S"))
+			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 5000, GreedyPlacer.SORT_EMBEDDINGS);
+		
+		else if (placement.equalsIgnoreCase("GREEDY-BL-10K-S"))
+			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 10000, GreedyPlacer.SORT_EMBEDDINGS);
+
+		else if (placement.equalsIgnoreCase("GREEDY-BL-20K-S"))
+			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 20000, GreedyPlacer.SORT_EMBEDDINGS);
+
+		else if (placement.equalsIgnoreCase("GREEDYEMB-BL-100-S"))
+			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.BORDER_LENGTH_MIN, 100, GreedyEmbeddingsPlacer.SORT_PROBES);
+
+		else if (placement.equalsIgnoreCase("GREEDYEMB-BL-300-S"))
+			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.BORDER_LENGTH_MIN, 300, GreedyEmbeddingsPlacer.SORT_PROBES);
+
+		else if (placement.equalsIgnoreCase("GREEDYEMB-BL-1K-S"))
+			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.BORDER_LENGTH_MIN, 1000, GreedyEmbeddingsPlacer.SORT_PROBES);
+		
 		else if (placement.equalsIgnoreCase("GREEDY-BL-20K"))
 			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 20000);
 
 		else if (placement.equalsIgnoreCase("GREEDY-BL-10K"))
 			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 10000);
 
+		else if (placement.equalsIgnoreCase("GREEDYEMB-BL-10K"))
+			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.BORDER_LENGTH_MIN, 10000);
+
 		else if (placement.equalsIgnoreCase("GREEDY-BL-5K"))
 			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 5000);
 
+		else if (placement.equalsIgnoreCase("GREEDYEMB-BL-5K"))
+			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.BORDER_LENGTH_MIN, 5000);
+
 		else if (placement.equalsIgnoreCase("GREEDY-BL-2K"))
 			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 2000);
+
+		else if (placement.equalsIgnoreCase("GREEDYEMB-BL-2K"))
+			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.BORDER_LENGTH_MIN, 2000);
 
 		else if (placement.equalsIgnoreCase("GREEDY-BL-2K-S"))
 			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 2000,
@@ -214,8 +241,14 @@ public class ArrayOpt
 		else if (placement.equalsIgnoreCase("GREEDY-BL-1K"))
 			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 1000);
 
+		else if (placement.equalsIgnoreCase("GREEDYEMB-BL-1K"))
+			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.BORDER_LENGTH_MIN, 1000);
+
 		else if (placement.equalsIgnoreCase("GREEDY-BL-100"))
 			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 100);		
+
+		else if (placement.equalsIgnoreCase("GREEDYEMB-CI-100-S"))
+			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.CONFLICT_INDEX_MIN, 100, GreedyEmbeddingsPlacer.SORT_PROBES);
 
 		else if (placement.equalsIgnoreCase("GREEDYBL-50"))
 			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 50);		
@@ -699,10 +732,14 @@ public class ArrayOpt
 		
 		if (filename.equalsIgnoreCase("RANDOM"))
 		{
+			System.err.println("Generating random chip...");
+			
 			chip.createRandomLayout();
 		}
 		else
 		{
+			System.err.println("Reading input file '" + filename + "'...");
+			
 			try
 			{
 				// create a file reader for the input
