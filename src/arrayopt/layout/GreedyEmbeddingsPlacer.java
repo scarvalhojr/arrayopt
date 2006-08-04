@@ -55,6 +55,14 @@ public class GreedyEmbeddingsPlacer implements PlacementAlgorithm, FillingAlgori
 	public static final int CONFLICT_INDEX_MIN =
 								OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN;
 		
+	private static final int NO_PREPROCESSING = 0;
+	
+	public static final int SORT_PROBES = 1;
+
+	public static final int RANDOMIZE_INPUT = 2;
+	
+	private boolean sort_probes;
+	
 	private boolean randomize_input;
 	
 	private OptimumSingleProbeEmbedding ospe;
@@ -75,10 +83,10 @@ public class GreedyEmbeddingsPlacer implements PlacementAlgorithm, FillingAlgori
 
 	public GreedyEmbeddingsPlacer (int mode, int window_size)
 	{
-		this(mode, window_size, false);
+		this(mode, window_size, NO_PREPROCESSING);
 	}
 
-	public GreedyEmbeddingsPlacer (int mode, int window_size, boolean randomize)
+	public GreedyEmbeddingsPlacer (int mode, int window_size, int options)
 	{
 		switch (mode)
 		{
@@ -92,7 +100,10 @@ public class GreedyEmbeddingsPlacer implements PlacementAlgorithm, FillingAlgori
 					("Illegal value for argument 'mode'.");
 		}
 
-		this.randomize_input = randomize;
+		// set pre-processing options
+		this.sort_probes = (options == SORT_PROBES ? true : false);
+		this.randomize_input = (options == RANDOMIZE_INPUT ? true : false);
+
 		this.window_size = window_size;
 	}
 
@@ -126,36 +137,53 @@ public class GreedyEmbeddingsPlacer implements PlacementAlgorithm, FillingAlgori
 	public int fillRegion (Chip chip, Region region, int probe_id[], int start,
 		int end)
 	{
+		MyLinkedList last, curr, list;
 		RectangularRegion r;
+		
+		if (end < start) return 0;
 
 		if (!(region instanceof RectangularRegion))
 			throw new IllegalArgumentException
 				("Only rectangular regions are supported.");
 
 		r = (RectangularRegion) region;
-		
-		if (randomize_input)
+
+		// create OSPE object
+		ospe = OptimumSingleProbeEmbedding.createEmbedder(chip, mode);
+
+		if (sort_probes)
+		{
+			// sort probes lexicographically
+			probe_rank = chip.computeProbeRanks(probe_id, 0, probe_id.length - 1);
+			probe_sort = new ProbeSorting (probe_id, probe_rank);
+			QuickSort.sort(probe_sort, start, end - start + 1);
+
+			// release memory used for sorting
+			probe_rank = null;
+			probe_sort = null;			
+		}
+		else if (randomize_input)
 		{
 			randomizeInput (probe_id, start, end);
 		}
 
-		// create OSPE object
-		ospe = OptimumSingleProbeEmbedding.createEmbedder(chip, mode);
-		
-		// sort probes lexicographically
-		probe_rank = chip.computeProbeRanks(probe_id, 0, probe_id.length - 1);
-		probe_sort = new ProbeSorting (probe_id, probe_rank);
-		QuickSort.sort(probe_sort, start, end - start + 1);
-		
+		// create a linked list with the probe IDs
+		list = last = new MyLinkedList (probe_id[start]);
+		for (int i = start + 1; i <= end; i++)
+		{
+			curr = new MyLinkedList (probe_id[i]);
+			last.setNext(curr);
+			last = curr;
+		}
+
 		if (chip instanceof SimpleChip)
 		{
-			return fillRegion ((SimpleChip) chip, r, probe_id, start, end);
-		}
+			return fillRegion ((SimpleChip) chip, r, list);
+		}		
 		else if (chip instanceof AffymetrixChip)
 		{
 			// TODO this case needs to be tested!
-			
-			return fillRegion ((AffymetrixChip) chip, r, probe_id, start, end);
+			return fillRegion ((AffymetrixChip) chip, r, list);
 		}
 		else
 			throw new IllegalArgumentException ("Unsupported chip type.");
@@ -165,9 +193,9 @@ public class GreedyEmbeddingsPlacer implements PlacementAlgorithm, FillingAlgori
 	 *
 	 */
 	private int fillRegion (SimpleChip chip, RectangularRegion region,
-		int probe_id[], int start, int end)
+			MyLinkedList list)
 	{
-		int opt;
+		int count = 0;
 		
 		// TODO place first a pivot (probe with min number of embeddings)
 		
@@ -183,34 +211,32 @@ public class GreedyEmbeddingsPlacer implements PlacementAlgorithm, FillingAlgori
 				if (chip.isFixedSpot(r, c))
 					continue;
 
-				// find probe whose embedding produce minimum conflicts
-				opt = findOptimalEmbedding (r, c, probe_id, start, end);
+				// place probe whose embedding produce minimum conflicts
+				list = findOptimalEmbedding (chip, r, c, list);
 				
-				// swap selected probe with the first element of the list
-				probe_sort.swap(start, opt);
-				
-				// place selected probe
-				chip.spot[r][c] = probe_id[start];
-				
-				start ++;
-
-				if (start > end)
+				if (list == null)
 					// all probes were placed
 					return 0;
 			}
 		}
 
-		// some probe could not be placed
-		return (end - start + 1);
+		// count how many elements are left in the list
+		while (list != null)
+		{
+			count++;
+			list = list.next;
+		}
+		
+		return count;
 	}
 
 	/**
 	 *
 	 */
 	private int fillRegion (AffymetrixChip chip, RectangularRegion region,
-		int probe_id[], int start, int end)
+			MyLinkedList list)
 	{
-		int opt;
+		int count = 0;
 		
 		// TODO place first a pivot (probe with min number of embeddings)
 		
@@ -227,65 +253,131 @@ public class GreedyEmbeddingsPlacer implements PlacementAlgorithm, FillingAlgori
 				if (chip.isFixedSpot(r, c) || chip.isFixedSpot(r+1, c))
 					continue;
 
-				// find probe pair whose embeddings produce minimum conflicts
-				opt = findOptimalEmbedding (r, c, probe_id, start, end);
-
-				// swap selected probe with the first element of the list
-				probe_sort.swap(start, opt);
+				// place probe pair whose embedding produce minimum conflicts
+				list = findOptimalEmbedding (chip, r, c, list);
 				
-				// place selected probe pair
-				chip.spot[r][c] = probe_id[start];
-				chip.spot[r+1][c] = probe_id[start] + 1;
-				
-				start ++;
-
-				if (start > end)
+				if (list == null)
 					// all probes were placed
 					return 0;
 			}
 		}
 
-		// some probe pairs could not be placed
-		return 2 * (end - start + 1);
-	}
-
-	private int findOptimalEmbedding (int row, int col, int probe_id[],
-			int start, int end)
-	{
-		double	cost, min;
-		int		best;
-		
-		if (window_size > 0)
+		// count how many elements are left in the list
+		while (list != null)
 		{
-			// limit search space if probe list is larger than window
-			end = end - start + 1 > window_size ? start + window_size - 1 : end;
+			count++;
+			list = list.next;
 		}
 		
-		// compute cost of placing first element in the spot
-		min = ospe.minDistanceSpot(row, col, probe_id[start]);
-		
-		// if min conflict is zero, probably the spot has only empty neighbors,
-		// and all probes will have zero cost 
-		if (min <= 0) return start;
-		
-		best = start;
-		for (int i = start + 1; i <= end; i++)
-		{
-			cost = ospe.minDistanceProbe(probe_id[i]);
+		return count;
+	}
 
-			if (cost < min)
+	private MyLinkedList findOptimalEmbedding (SimpleChip chip, int row,
+			int col, MyLinkedList head)
+	{
+		MyLinkedList best, last, curr;
+		double cost, min;
+		int best_id, count = 1;
+		
+		// compute cost of placing first element in the spot
+		min = ospe.minDistanceSpot(row, col, head.info);
+		
+		best = null;
+		last = head;
+		curr = head.next;
+		
+		if (min > 0)
+		{
+			while (curr != null)
 			{
-				min = cost;
-				best = i;
+				cost = ospe.minDistanceProbe(curr.info, min);
+				
+				if (cost < min)
+				{
+					min = cost;
+					best = last;
+				}
+				
+				if (++count > window_size) break;
+				
+				last = curr;
+				curr = last.next;
 			}
 		}
 		
-		// re-embed best probe optimally
-		ospe.reembedOptimally(probe_id[best]);
+		if (best == null)
+		{
+			best_id = head.info;
+			head = head.next;
+		}
+		else
+		{
+			best_id = best.next.info;
+			best.next = best.next.next;
+		}
 		
-		return best;
+		// place best probe on the spot
+		chip.spot[row][col] = best_id;
+		
+		// and re-embed it optimally
+		ospe.reembedOptimally(best_id);
+		
+		return head;
 	}
 	
+	private MyLinkedList findOptimalEmbedding (AffymetrixChip chip, int row,
+			int col, MyLinkedList head)
+	{
+		MyLinkedList best, last, curr;
+		double cost, min;
+		int best_id, count = 1;
+		
+		// compute cost of placing first element in the spot
+		min = ospe.minDistanceSpot(row, col, head.info);
+		
+		best = null;
+		last = head;
+		curr = head.next;
+		
+		if (min > 0)
+		{
+			while (curr != null)
+			{
+				cost = ospe.minDistanceProbe(curr.info);
+				
+				if (cost < min)
+				{
+					min = cost;
+					best = last;
+				}
+				
+				if (++count > window_size) break;
+				
+				last = curr;
+				curr = last.next;
+			}
+		}
+		
+		if (best == null)
+		{
+			best_id = head.info;
+			head = head.next;
+		}
+		else
+		{
+			best_id = best.next.info;
+			best.next = best.next.next;
+		}
+		
+		// place best probe on the spot
+		chip.spot[row][col] = best_id;
+		chip.spot[row + 1][col] = best_id + 1;
+		
+		// and re-embed them optimally
+		ospe.reembedOptimally(best_id);
+		
+		return head;
+	}
 	
 	private void randomizeInput (int probe_id[], int start, int end)
 	{
@@ -357,6 +449,24 @@ public class GreedyEmbeddingsPlacer implements PlacementAlgorithm, FillingAlgori
 			return rank_i < rank_j ?
 					(rank_j < rank_k ? j : (rank_i < rank_k ? k : i)) :
 					(rank_j > rank_k ? j : (rank_i > rank_k ? k : i));
+		}
+	}
+	
+	private class MyLinkedList
+	{
+		public MyLinkedList next;
+		
+		public int info;
+		
+		MyLinkedList (int info)
+		{
+			this.info = info;
+			this.next = null;
+		}
+		
+		void setNext (MyLinkedList next)
+		{
+			this.next = next;
 		}
 	}
 }
