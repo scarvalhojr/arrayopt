@@ -155,6 +155,118 @@ public abstract class OptimumSingleProbeEmbedding
 	public static final int CONFLICT_INDEX_MIN = 1;
 	
 	/**
+	 * Internal bit mask for configuring the constants and querying the
+	 * variables that restrict the selection of neighborg spots.
+	 */
+	private static final int ALL_LEFT = 0x80;
+	
+	/**
+	 * Internal bit mask for configuring the constants and querying the
+	 * variables that restrict the selection of neighborg spots.
+	 */
+	private static final int ALL_RIGHT = 0x40;
+	
+	/**
+	 * Internal bit mask for configuring the constants and querying the
+	 * variables that restrict the selection of neighborg spots.
+	 */
+	private static final int ALL_ABOVE = 0x20;
+	
+	/**
+	 * Internal bit mask for configuring the constants and querying the
+	 * variables that restrict the selection of neighborg spots.
+	 */
+	private static final int ALL_BELOW = 0x10;
+	
+	/**
+	 * Internal bit mask for configuring the constants and querying the
+	 * variables that restrict the selection of neighborg spots.
+	 */
+	private static final int SAMEROW_LEFT = 0x08;
+	
+	/**
+	 * Internal bit mask for configuring the constants and querying the
+	 * variables that restrict the selection of neighborg spots.
+	 */
+	private static final int SAMEROW_RIGHT = 0x04;
+	
+	/**
+	 * Internal bit mask for configuring the constants and querying the
+	 * variables that restrict the selection of neighborg spots.
+	 */
+	private static final int SAMECOL_ABOVE = 0x02;
+	
+	/**
+	 * Internal bit mask for configuring the constants and querying the
+	 * variables that restrict the selection of neighborg spots.
+	 */
+	private static final int SAMECOL_BELOW = 0x01;
+
+	/**
+	 * Constant to indicate that only probes placed above or on the same row but
+	 * to the left of the spot are considered for computing its conflicts. This
+	 * is used to restrict which neighboring spots enter in the computation of
+	 * minimum conflicts.
+	 */
+	public static final int ABOVE_OR_LEFT = ALL_ABOVE | SAMEROW_LEFT;
+	
+	/**
+	 * Constant to indicate that only probes placed above or on the same row but
+	 * to the right of the spot are considered for computing its conflicts. This
+	 * is used to restrict which neighboring spots enter in the computation of
+	 * minimum conflicts.
+	 */
+	public static final int ABOVE_OR_RIGHT = ALL_ABOVE | SAMEROW_RIGHT;
+	
+	/**
+	 * Constant to indicate that only probes placed below or on the same row but
+	 * to the left of the spot are considered for computing its conflicts. This
+	 * is used to restrict which neighboring spots enter in the computation of
+	 * minimum conflicts.
+	 */
+	public static final int BELOW_OR_LEFT = ALL_BELOW | SAMEROW_LEFT;
+	
+	/**
+	 * Constant to indicate that only probes placed below or on the same row but
+	 * to the right of the spot are considered for computing its conflicts. This
+	 * is used to restrict which neighboring spots enter in the computation of
+	 * minimum conflicts.
+	 */
+	public static final int BELOW_OR_RIGHT = ALL_BELOW | SAMEROW_RIGHT;
+
+	/**
+	 * Constant to indicate that only probes placed to the left or on the same
+	 * column but above the spot are considered for computing its conflicts.
+	 * This is used to restrict which neighboring spots enter in the computation
+	 * of minimum conflicts.
+	 */
+	public static final int LEFT_OR_ABOVE = ALL_LEFT | SAMECOL_ABOVE;
+
+	/**
+	 * Constant to indicate that only probes placed to the left or on the same
+	 * column but below the spot are considered for computing its conflicts.
+	 * This is used to restrict which neighboring spots enter in the computation
+	 * of minimum conflicts.
+	 */
+	public static final int LEFT_OR_BELOW = ALL_LEFT | SAMECOL_BELOW;
+
+	/**
+	 * Constant to indicate that only probes placed to the right or on the same
+	 * column but above the spot are considered for computing its conflicts.
+	 * This is used to restrict which neighboring spots enter in the computation
+	 * of minimum conflicts.
+	 */
+	public static final int RIGHT_OR_ABOVE = ALL_RIGHT | SAMECOL_ABOVE;
+
+	/**
+	 * Constant to indicate that only probes placed to the right or on the same
+	 * column but below the spot are considered for computing its conflicts.
+	 * This is used to restrict which neighboring spots enter in the computation
+	 * of minimum conflicts.
+	 */
+	public static final int RIGHT_OR_BELOW = ALL_RIGHT | SAMECOL_BELOW;
+	
+	/**
 	 * This constructor can only be accessed internally. For instantiating
 	 * objects of this class and sub-classes, use {@link #createEmbedder}.  
 	 * @param chip a chip instance
@@ -326,6 +438,24 @@ public abstract class OptimumSingleProbeEmbedding
 	}
 
 	/**
+	 * Computes the minimum distance between any valid embedding of a probe,
+	 * when placed on a particular spot, and the current embeddings of a
+	 * selection of the neighboring probes.
+	 * @param row spot's row coordinate
+	 * @param col spot's column coordinate
+	 * @param id probe ID
+	 * @param neighbors selection of neighboring spots to be considered
+	 * @return the minimum conflict that the probe spot can cause when placed
+	 * on the spot
+	 */
+	double minDistanceSpot (int row, int col, int id, int neighbors)
+	{
+		resetCosts();
+		addSpotCost (row, col, neighbors);
+		return computeMinDistance(id);
+	}
+
+	/**
 	 * Reembeds a probe (<CODE>id_1</CODE>) so that its distance to the current
 	 * embedding of the last probe or set of probes for which a distance has
 	 * been computed is minimal.
@@ -417,6 +547,23 @@ public abstract class OptimumSingleProbeEmbedding
 		return reembedOptimally (id);
 	}
 
+	/**
+	 * Reembeds a probe so that the conflicts with a selection of the
+	 * neighboring spots are minimized.
+	 * @param row spot's row coordinate
+	 * @param col spot's column coordinate
+	 * @param id probe ID
+	 * @param neighbors selection of neighboring spots to be considered
+	 * @return the minimum conflict that the probe can cause to the neighboring
+	 * probes when placed on the spot
+	 */
+	double reembedSpot (int row, int col, int id, int neighbors)
+	{
+		resetCosts();
+		addSpotCost (row, col, neighbors);
+		return reembedOptimally (id);
+	}
+
 	// TODO move this function to another class?
 	/**
 	 * Computes the number of ways in which a probe can be embedded into the
@@ -438,6 +585,8 @@ public abstract class OptimumSingleProbeEmbedding
 	protected abstract void addProbeCost (int id[], int start, int end);
 	
 	protected abstract void addSpotCost (int row, int col);
+	
+	protected abstract void addSpotCost (int row, int col, int neighbors);
 	
 	protected abstract double computeMinDistance (int id);
 	
@@ -729,6 +878,67 @@ public abstract class OptimumSingleProbeEmbedding
 			}
 			
 			@Override
+			protected void addSpotCost (int row, int col, int selection)
+			{
+				int 	id;
+				boolean	top, down, left, right;
+				
+				start_row = 0;
+				
+				top = down = left = right = false;
+								
+				if ((selection & ALL_ABOVE) != 0)
+				{
+					if (row > chip_region.first_row) top = true;
+				}
+				else if ((selection & ALL_BELOW) != 0)
+				{
+					if (row < chip_region.last_row) down = true;
+				}
+				else if ((selection & ALL_LEFT) != 0)
+				{
+					if (col > chip_region.first_col) left = true;
+				}
+				else // ALL_RIGHT
+				{
+					if (col < chip_region.last_col) right = true;
+				}
+
+				if ((selection & SAMEROW_LEFT) != 0)
+				{
+					if (col > chip_region.first_col) left = true;
+				}
+				else if ((selection & SAMEROW_RIGHT) != 0)
+				{
+					if (col < chip_region.last_col) right = true;
+				}
+				else if ((selection & SAMECOL_ABOVE) != 0)
+				{
+					if (row > chip_region.first_row) top = true;
+				}
+				else // SAMECOL_BELOW
+				{
+					if (row < chip_region.last_row) down = true;
+				}
+				
+				if (top)
+					if ((id = chip.spot[row - 1][col]) != Chip.EMPTY_SPOT)
+						addProbeCost(id);
+				
+				if (down)
+					if ((id = chip.spot[row + 1][col]) != Chip.EMPTY_SPOT)
+						addProbeCost(id);
+
+				if (left)
+					if ((id = chip.spot[row][col - 1]) != Chip.EMPTY_SPOT)
+						addProbeCost(id);
+
+				if (right)
+					if ((id = chip.spot[row][col + 1]) != Chip.EMPTY_SPOT)
+						addProbeCost(id);
+			}
+			
+			@Override
 			protected double computeMatrix (double max_dist)
 			{
 				double	mask, unmask, min = 0;
@@ -870,6 +1080,99 @@ public abstract class OptimumSingleProbeEmbedding
 					}
 			}
 			
+			@Override
+			protected void addSpotCost (int row, int col, int selection)
+			{
+				int		r, c, id, dim, r_min, c_min, r_max, c_max;
+				double	mask_w, unmask_w;
+				boolean	rowwise = true;
+				
+				start_row = 0;
+				
+				dim = ConflictIndex.dimConflictRegion();
+				
+				r_min = Math.max(row - dim, chip_region.first_row);
+				c_min = Math.max(col - dim, chip_region.first_col);
+				r_max = Math.min(row + dim, chip_region.last_row);
+				c_max = Math.min(col + dim, chip_region.last_col);
+				
+				if ((selection & ALL_ABOVE) != 0)
+				{
+					r_max = row - 1;
+				}
+				else if ((selection & ALL_BELOW) != 0)
+				{
+					r_min = row + 1;
+				}
+				else if ((selection & ALL_LEFT) != 0)
+				{
+					c_max = col - 1;
+					rowwise = false;
+				}
+				else // ALL_RIGHT
+				{
+					c_min = col + 1;
+					rowwise = false;
+				}
+				
+				for (r = r_min; r <= r_max; r++)
+					for (c = c_min; c <= c_max; c++)
+					{
+						if ((id = chip.spot[r][c]) == Chip.EMPTY_SPOT)
+							continue;
+						
+						mask_w = ConflictIndex.distanceWeight(row, col, r, c);
+						
+						unmask_w = ConflictIndex.distanceWeight(r, c, row, col);
+						
+						if (mask_w > 0 || unmask_w > 0)
+							addSingleProbeCost (id, mask_w, unmask_w);
+					}
+				
+				if (rowwise)
+				{
+					// add probes on the same row
+					if ((selection & SAMEROW_LEFT) != 0)
+						c_max = col - 1;
+					else // SAMEROW_RIGHT
+						c_min = col + 1;
+					
+					for (c = c_min; c <= c_max; c++)
+					{
+						if ((id = chip.spot[row][c]) == Chip.EMPTY_SPOT)
+							continue;
+						
+						mask_w = ConflictIndex.distanceWeight(row, col, row, c);
+						
+						unmask_w = ConflictIndex.distanceWeight(row, c, row, col);
+						
+						if (mask_w > 0 || unmask_w > 0)
+							addSingleProbeCost (id, mask_w, unmask_w);
+					}
+				}
+				else
+				{
+					// add probes on the same column
+					if ((selection & SAMECOL_ABOVE) != 0)
+						r_max = row - 1;
+					else // SAMECOL_BELOW
+						r_min = row + 1;
+					
+					for (r = r_min; r <= r_max; r++)
+					{
+						if ((id = chip.spot[r][col]) == Chip.EMPTY_SPOT)
+							continue;
+						
+						mask_w = ConflictIndex.distanceWeight(row, col, r, col);
+						
+						unmask_w = ConflictIndex.distanceWeight(r, col, row, col);
+						
+						if (mask_w > 0 || unmask_w > 0)
+							addSingleProbeCost (id, mask_w, unmask_w);
+					}
+				}
+			}
+			
 			private void addSingleProbeCost (int id, double mask_weight,
 					double unmask_weight)
 			{
@@ -899,10 +1202,8 @@ public abstract class OptimumSingleProbeEmbedding
 			@Override
 			protected double computeMatrix (double max_dist)
 			{
-				double	mask, unmask;
+				double	mask, unmask, min = 0;
 				int 	r, c;
-				
-				// TODO stop when min distance gets over max threshold
 				
 				if (start_row == 0)
 				{
@@ -916,7 +1217,7 @@ public abstract class OptimumSingleProbeEmbedding
 				
 				for (r = start_row; r <= probe_len; r++)
 				{
-					matrix[r][start_col[r] - 1] = Double.POSITIVE_INFINITY;
+					min = matrix[r][start_col[r] - 1] = Double.POSITIVE_INFINITY;
 					
 					for (c = start_col[r]; c <= last_col[r]; c++)
 					{
@@ -927,11 +1228,20 @@ public abstract class OptimumSingleProbeEmbedding
 						else
 							unmask = Double.POSITIVE_INFINITY;
 						
-						matrix[r][c] = Math.min(mask, unmask);
+						if ((matrix[r][c] = Math.min(mask, unmask)) < min)
+							min = matrix[r][c];
+					}
+					
+					// stop as soon as the minimum distance
+					// gets over the maximum wanted
+					if (min > max_dist)
+					{
+						start_row = r;
+						return min;
 					}
 				}
 				
-				start_row = probe_len + 1;
+				start_row = r;
 				
 				return matrix[probe_len][embed_len];
 			}
@@ -972,8 +1282,6 @@ public abstract class OptimumSingleProbeEmbedding
 
 	protected static abstract class Affymetrix extends OptimumSingleProbeEmbedding
 	{
-		// TODO implement optimizations for the computation of the matrix
-		
 		protected AffymetrixChip chip;
 
 		protected double matrix_1[][];
@@ -1047,6 +1355,8 @@ public abstract class OptimumSingleProbeEmbedding
 		{
 			double	d1, d2;
 			int		mid = AffymetrixChip.AFFY_MIDDLE_BASE;
+			
+			// TODO change computeMatrix to stop when minimum distance exceeds threshold  
 			
 			decodeEmbedding (id);
 			d1 = computeMatrix (matrix_1, probe_1, mid, mid + 1);
@@ -1258,6 +1568,13 @@ public abstract class OptimumSingleProbeEmbedding
 					if ((id = chip.spot[mm_row][c]) != Chip.EMPTY_SPOT)
 						addSingleProbeCost(id, 0, 1);
 				}
+			}
+
+			@Override
+			protected void addSpotCost (int row, int col, int selection)
+			{
+				// TODO implement selection of neighbors
+				addSpotCost (row, col);
 			}
 
 			private void addSingleProbeCost (int id, int pm_mult, int mm_mult)
@@ -1525,6 +1842,13 @@ public abstract class OptimumSingleProbeEmbedding
 							addSingleProbeCost (id, mask_pm, unmask_pm,
 														mask_mm, unmask_mm);
 					}
+			}
+			
+			@Override
+			protected void addSpotCost (int row, int col, int selection)
+			{
+				// TODO implement selection of neighbors
+				addSpotCost (row, col);
 			}
 			
 			private void addSingleProbeCost (int id, double mask_pm,
