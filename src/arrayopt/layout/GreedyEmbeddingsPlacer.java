@@ -203,11 +203,14 @@ public class GreedyEmbeddingsPlacer implements PlacementAlgorithm, FillingAlgori
 		{
 			for (int c = region.first_col; c <= region.last_col; c++)
 			{
-				// skip spot if not empty
+				// if spot is not empty, re-embed its probe optimally
 				if (chip.spot[r][c] != Chip.EMPTY_SPOT)
+				{
+					ospe.reembedSpot(r, c);
 					continue;
+				}
 
-				// skip fixed spot
+				// skip (empty) fixed spots
 				if (chip.isFixedSpot(r, c))
 					continue;
 
@@ -244,12 +247,16 @@ public class GreedyEmbeddingsPlacer implements PlacementAlgorithm, FillingAlgori
 		{
 			for (int c = region.first_col; c <= region.last_col; c++)
 			{
-				// skip spot pair if not empty
+				// if spot pair is not empty, re-embed its probes optimally
 				if (chip.spot[r][c] != Chip.EMPTY_SPOT ||
 					chip.spot[r+1][c] != Chip.EMPTY_SPOT)
+				{
+					// TODO this needs to be tested!
+					// ospe.reembedSpot(r,c);
 					continue;
+				}
 
-				// skip fixed spot pair
+				// skip (empty) fixed spot pair
 				if (chip.isFixedSpot(r, c) || chip.isFixedSpot(r+1, c))
 					continue;
 
@@ -320,7 +327,7 @@ public class GreedyEmbeddingsPlacer implements PlacementAlgorithm, FillingAlgori
 		chip.spot[row][col] = best_id;
 		
 		// and re-embed it optimally
-		ospe.reembedOptimally(best_id);
+		ospe.reembedProbe(best_id);
 		
 		return head;
 	}
@@ -374,7 +381,7 @@ public class GreedyEmbeddingsPlacer implements PlacementAlgorithm, FillingAlgori
 		chip.spot[row + 1][col] = best_id + 1;
 		
 		// and re-embed them optimally
-		ospe.reembedOptimally(best_id);
+		ospe.reembedProbe(best_id);
 		
 		return head;
 	}
