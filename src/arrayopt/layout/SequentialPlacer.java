@@ -37,11 +37,35 @@
 
 package arrayopt.layout;
 
+import arrayopt.util.ArrayIndexedCollection;
+import arrayopt.util.QuickSort;
+
 /**
  *
  */
 public class SequentialPlacer implements PlacementAlgorithm, FillingAlgorithm
 {
+	/**
+	 * TODO document this
+	 */
+	private boolean sort_embeddings;
+
+	/**
+	 * TODO document this
+	 */
+	public SequentialPlacer ()
+	{
+		this(false);
+	}
+
+	/**
+	 * TODO document this
+	 */
+	public SequentialPlacer (boolean sort_embeddings)
+	{
+		this.sort_embeddings = sort_embeddings;
+	}
+	
 	/**
 	 *
 	 */
@@ -79,6 +103,13 @@ public class SequentialPlacer implements PlacementAlgorithm, FillingAlgorithm
 				("Only rectangular regions are supported.");
 
 		r = (RectangularRegion) region;
+		
+		if (sort_embeddings)
+		{
+			// sort embeddings lexicographically (as binary strings)
+			QuickSort.sort(new EmbeddingSort(chip, probe_id),
+							start, end - start +1);
+		}
 
 		if (chip instanceof SimpleChip)
 			return fillRegion ((SimpleChip) chip, r, probe_id, start, end);
@@ -152,5 +183,123 @@ public class SequentialPlacer implements PlacementAlgorithm, FillingAlgorithm
 
 		// some probe pairs could not be placed
 		return 2 * (end - start + 1);
+	}
+
+	private class EmbeddingSort implements ArrayIndexedCollection
+	{
+		private Chip chip;
+		
+		private int words;
+		
+		private int probe_id[];
+		
+		private int pivot;
+		
+		EmbeddingSort (Chip chip, int probe_id[])
+		{
+			this.chip = chip;
+			this.words = chip.embed[0].length;
+			this.probe_id = probe_id;
+		}
+		
+		public int compare (int i, int j)
+		{
+			int id_i = probe_id[i];
+			int id_j = probe_id[j];
+			
+			for (int w = 0; w < words; w++)
+			{
+				// compare first bit (signal)
+				// first bit is 1 => negative number
+				// first bit is 0 => non-negative
+				if (chip.embed[id_i][w] < 0)
+				{
+					if (chip.embed[id_j][w] >= 0)
+						return 1;
+				}
+				else
+				{
+					if (chip.embed[id_j][w] < 0)
+						return -1;
+				}
+				
+				// compare remaining bits if both have same signal
+				if (chip.embed[id_i][w] < chip.embed[id_j][w])
+					return -1;
+				else if (chip.embed[id_i][w] > chip.embed[id_j][w])
+					return 1;
+			}
+			
+			return 0;
+		}
+		
+		public void swap (int i, int j)
+		{
+			int tmp;
+			tmp = probe_id[i];
+			probe_id[i] = probe_id[j];
+			probe_id[j] = tmp;
+		}
+		
+		public void setPivot (int i)
+		{
+			this.pivot = probe_id[i];
+		}
+		
+		public int compareToPivot (int i)
+		{
+			int id_i = probe_id[i];
+
+			for (int w = 0; w < words; w++)
+			{
+				// compare first bit (signal)
+				// first bit is 1 => negative number
+				// first bit is 0 => non-negative
+				if (chip.embed[id_i][w] < 0)
+				{
+					if (chip.embed[pivot][w] >= 0)
+						return 1;
+				}
+				else
+				{
+					if (chip.embed[pivot][w] < 0)
+						return -1;
+				}
+				
+				// compare remaining bits if both have same signal
+				if (chip.embed[id_i][w] < chip.embed[pivot][w])
+					return -1;
+				else if (chip.embed[id_i][w] > chip.embed[pivot][w])
+					return 1;
+			}
+			
+			return 0;
+		}
+		
+		public int medianOfThree (int i, int j, int k)
+		{
+			int median;
+			
+			if (compare(i,j) < 0)
+			{
+				if (compare(j,k) < 0)
+					median = j;
+				else if (compare(i,k) < 0)
+					median = k;
+				else
+					median = i;
+			}
+			else
+			{
+				if (compare(j,k) > 0)
+					median = j;
+				else if (compare(i,k) > 0)
+					median = k;
+				else
+					median = i;
+			}
+			
+			return median;
+		}
 	}
 }
