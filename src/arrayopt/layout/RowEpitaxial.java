@@ -315,13 +315,13 @@ public class RowEpitaxial implements PlacementAlgorithm, FillingAlgorithm
 		for (int i = start; i < end; i++)
 		{
 			// select a random element of the list
-			rand = start + (int) ((end - start + 1) * Math.random());
+			rand = i + (int) ((end - i + 1) * Math.random());
 
 			// swap the selected element with
 			// the one at the current position
-			tmp = probe_id[rand];
+			tmp = probe_id[i];
 			probe_id[i] = probe_id[rand];
 			probe_id[rand] = tmp;
-		}		
+		}
 	}
 }
