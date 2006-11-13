@@ -44,7 +44,7 @@ import arrayopt.util.QuickSort;
  *
  */
 public class GreedyEmbeddingsPlacer implements PlacementAlgorithm, FillingAlgorithm
-{
+{	
 	private int window_size;
 	
 	private int mode;
@@ -67,10 +67,6 @@ public class GreedyEmbeddingsPlacer implements PlacementAlgorithm, FillingAlgori
 	
 	private OptimumSingleProbeEmbedding ospe;
 	
-	private ProbeSorting probe_sort;
-	
-	private long probe_rank[];
-
 	public GreedyEmbeddingsPlacer ()
 	{
 		this(BORDER_LENGTH_MIN);
@@ -137,7 +133,7 @@ public class GreedyEmbeddingsPlacer implements PlacementAlgorithm, FillingAlgori
 	public int fillRegion (Chip chip, Region region, int probe_id[], int start,
 		int end)
 	{
-		MyLinkedList last, curr, list;
+		MyLinkedList head, prev, curr;
 		RectangularRegion r;
 		
 		if (end < start) return 0;
@@ -154,13 +150,10 @@ public class GreedyEmbeddingsPlacer implements PlacementAlgorithm, FillingAlgori
 		if (sort_probes)
 		{
 			// sort probes lexicographically
-			probe_rank = chip.computeProbeRanks(probe_id, 0, probe_id.length - 1);
-			probe_sort = new ProbeSorting (probe_id, probe_rank);
-			QuickSort.sort(probe_sort, start, end - start + 1);
-
-			// release memory used for sorting
-			probe_rank = null;
-			probe_sort = null;			
+			long probe_rank[] = chip.computeProbeRanks(probe_id, 0,
+					probe_id.length - 1);
+			QuickSort.sort(new ProbeSorting (probe_id, probe_rank), start,
+					end - start + 1);
 		}
 		else if (randomize_input)
 		{
@@ -168,22 +161,22 @@ public class GreedyEmbeddingsPlacer implements PlacementAlgorithm, FillingAlgori
 		}
 
 		// create a linked list with the probe IDs
-		list = last = new MyLinkedList (probe_id[start]);
+		head = prev = new MyLinkedList (probe_id[start], null);
 		for (int i = start + 1; i <= end; i++)
 		{
-			curr = new MyLinkedList (probe_id[i]);
-			last.setNext(curr);
-			last = curr;
+			curr = new MyLinkedList (probe_id[i], prev);
+			prev.next = curr;
+			prev = curr;
 		}
 
 		if (chip instanceof SimpleChip)
 		{
-			return fillRegion ((SimpleChip) chip, r, list);
+			return fillRegion ((SimpleChip) chip, r, head);
 		}		
 		else if (chip instanceof AffymetrixChip)
 		{
 			// TODO this case needs to be tested!
-			return fillRegion ((AffymetrixChip) chip, r, list);
+			return fillRegion ((AffymetrixChip) chip, r, head);
 		}
 		else
 			throw new IllegalArgumentException ("Unsupported chip type.");
@@ -195,10 +188,13 @@ public class GreedyEmbeddingsPlacer implements PlacementAlgorithm, FillingAlgori
 	private int fillRegion (SimpleChip chip, RectangularRegion region,
 			MyLinkedList list)
 	{
-		int count = 0;
+		MyLinkedList n;
+		int count;
 		
 		// TODO place first a pivot (probe with min number of embeddings)
 		
+		// TODO fill spots using k-threading 
+
 		for (int r = region.first_row; r <= region.last_row; r ++)
 		{
 			for (int c = region.first_col; c <= region.last_col; c++)
@@ -215,7 +211,7 @@ public class GreedyEmbeddingsPlacer implements PlacementAlgorithm, FillingAlgori
 					continue;
 
 				// place probe whose embedding produce minimum conflicts
-				list = findOptimalEmbedding (chip, r, c, list);
+				list = placeOptimalEmbedding (chip, r, c, list);
 				
 				if (list == null)
 					// all probes were placed
@@ -224,11 +220,9 @@ public class GreedyEmbeddingsPlacer implements PlacementAlgorithm, FillingAlgori
 		}
 
 		// count how many elements are left in the list
-		while (list != null)
-		{
-			count++;
-			list = list.next;
-		}
+		count = 1;
+		for (n = list.prev; n != null; n = n.prev) count++;
+		for (n = list.next; n != null; n = n.next) count++;
 		
 		return count;
 	}
@@ -239,10 +233,12 @@ public class GreedyEmbeddingsPlacer implements PlacementAlgorithm, FillingAlgori
 	private int fillRegion (AffymetrixChip chip, RectangularRegion region,
 			MyLinkedList list)
 	{
-		int count = 0;
+		int count;
 		
-		// TODO place first a pivot (probe with min number of embeddings)
+		// TODO re-write with new algorithm (using double-linked list)
+		return 0;
 		
+		/*
 		for (int r = region.first_row; r < region.last_row; r ++)
 		{
 			for (int c = region.first_col; c <= region.last_col; c++)
@@ -261,7 +257,7 @@ public class GreedyEmbeddingsPlacer implements PlacementAlgorithm, FillingAlgori
 					continue;
 
 				// place probe pair whose embedding produce minimum conflicts
-				list = findOptimalEmbedding (chip, r, c, list);
+				list = placeOptimalEmbedding (chip, r, c, list);
 				
 				if (list == null)
 					// all probes were placed
@@ -270,71 +266,90 @@ public class GreedyEmbeddingsPlacer implements PlacementAlgorithm, FillingAlgori
 		}
 
 		// count how many elements are left in the list
-		while (list != null)
-		{
+		for (count = 0; list != null; list = list.next)
 			count++;
-			list = list.next;
-		}
 		
 		return count;
+		*/
 	}
 
-	private MyLinkedList findOptimalEmbedding (SimpleChip chip, int row,
-			int col, MyLinkedList head)
+	private MyLinkedList placeOptimalEmbedding (SimpleChip chip, int row,
+			int col, MyLinkedList list)
 	{
-		MyLinkedList best, last, curr;
+		MyLinkedList best, node;
 		double cost, min;
-		int best_id, count = 1;
+		int count;
+
+		// first check if there are (window_size/2) elements
+		// to the right of the last placed probe
+		count = (int) Math.floor(window_size / (double) 2);
+		for (node = list; node.next != null && count > 0; count--)
+			node = node.next;
+
+		// we want to start the search (window_size/2 - 1) elements
+		// to the left of the last placed probe
+		
+		// but if count > 0, there are only (window_size/2 - count)
+		// elements to the right of the last placed probe, so
+		// we compensate by starting the search (window_size/2 - 1 + count)
+		// to the left of the last placed probe
+		count = count + (int) Math.ceil(window_size / (double) 2) - 1; 
+		for (node = list; node.prev != null && count > 0; count--)
+			node = node.prev;
 		
 		// compute cost of placing first element in the spot
-		min = ospe.minDistanceSpot(row, col, head.info);
-		
-		best = null;
-		last = head;
-		curr = head.next;
+		min = ospe.minDistanceSpot(row, col, node.info);
+		best = node;
 		
 		if (min > 0)
 		{
-			while (curr != null)
+			node = node.next;
+			
+			for (count = 1; node != null && count < window_size; count++)
 			{
-				cost = ospe.minDistanceProbe(curr.info, min);
-				
-				if (cost < min)
+				if ((cost = ospe.minDistanceProbe(node.info, min)) < min)
 				{
 					min = cost;
-					best = last;
+					best = node;
 				}
-				
-				if (++count > window_size) break;
-				
-				last = curr;
-				curr = last.next;
+
+				node = node.next;
 			}
-		}
-		
-		if (best == null)
-		{
-			best_id = head.info;
-			head = head.next;
-		}
-		else
-		{
-			best_id = best.next.info;
-			best.next = best.next.next;
+
+			// re-embed best probe optimally
+			ospe.reembedProbe(best.info);
 		}
 		
 		// place best probe on the spot
-		chip.spot[row][col] = best_id;
+		chip.spot[row][col] = best.info;
 		
-		// and re-embed it optimally
-		ospe.reembedProbe(best_id);
+		node = null;
 		
-		return head;
+		// and delete it from the list
+		if (best.next != null)
+		{
+			best.next.prev = best.prev;
+			node = best.next;
+		}
+
+		if (best.prev != null)
+		{
+			best.prev.next = best.next;
+			node = best.prev;
+		}
+		
+		return node;
 	}
 	
-	private MyLinkedList findOptimalEmbedding (AffymetrixChip chip, int row,
+	private MyLinkedList placeOptimalEmbedding (AffymetrixChip chip, int row,
 			int col, MyLinkedList head)
 	{
+		
+		// TODO re-write with new algorithm (using double-linked list)
+		
+		return head;
+		
+		/*
 		MyLinkedList best, last, curr;
 		double cost, min;
 		int best_id, count = 1;
@@ -384,6 +399,7 @@ public class GreedyEmbeddingsPlacer implements PlacementAlgorithm, FillingAlgori
 		ospe.reembedProbe(best_id);
 		
 		return head;
+		*/
 	}
 	
 	private void randomizeInput (int probe_id[], int start, int end)
@@ -461,19 +477,16 @@ public class GreedyEmbeddingsPlacer implements PlacementAlgorithm, FillingAlgori
 	
 	private class MyLinkedList
 	{
-		public MyLinkedList next;
+		MyLinkedList prev;
+		MyLinkedList next;
 		
-		public int info;
+		int info;
 		
-		MyLinkedList (int info)
+		MyLinkedList (int info, MyLinkedList prev)
 		{
 			this.info = info;
+			this.prev = prev;
 			this.next = null;
-		}
-		
-		void setNext (MyLinkedList next)
-		{
-			this.next = next;
 		}
 	}
 }
