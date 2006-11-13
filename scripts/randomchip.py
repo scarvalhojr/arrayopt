@@ -64,10 +64,10 @@ mid_base = 12
 sync_dep_seq = 'ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT'
 
 # ------------------------------------------------------------------------------
-# Create and print on std output a random simple chip definition using
-# Affymetrix deposition sequence
+# Create and print on std output a random asynchronous chip (Affymetrix
+# deposition sequence) by randomizing a binary embedding vector
 # ------------------------------------------------------------------------------
-def simple_chip (num_rows, num_cols, num_probes):
+def gen_async_chip_rand_embed (num_rows, num_cols, num_probes):
 
 	# validate arguments
 	if (num_rows < 1 or num_cols < 1):
@@ -90,8 +90,8 @@ def simple_chip (num_rows, num_cols, num_probes):
 	embed = [1] * probe_len + [0] * (embed_len - probe_len)
 
 	# fill spots top to bottom, left to right
-	for r in range (0, num_rows):
-		for c in range (0, num_cols):
+	for r in range (num_rows):
+		for c in range (num_cols):
 
 			# print spot coordinates (column first!)
 			sys.stdout.write (str(c) + '\t' + str(r))
@@ -113,14 +113,104 @@ def simple_chip (num_rows, num_cols, num_probes):
 				random.shuffle(embed)
 
 				# print probe sequence
-				for i in range (0, embed_len):
+				for i in range (embed_len):
 					if embed[i] == 1:
 						sys.stdout.write (dep_seq[i])
 
 				sys.stdout.write ('\t')
 
 				# print probe sequence
-				for i in range (0, embed_len):
+				for i in range (embed_len):
+					if embed[i] == 0:
+						sys.stdout.write (' ')
+					else:
+						sys.stdout.write (dep_seq[i])
+
+				sys.stdout.write ('\n')
+
+				full -= 1
+
+# ------------------------------------------------------------------------------
+# Create and print on std output a random asynchronous chip (Affymetrix
+# deposition sequence) by generating random probe sequences
+# ------------------------------------------------------------------------------
+def gen_async_chip_rand_probe (num_rows, num_cols, num_probes):
+
+	# validate arguments
+	if (num_rows < 1 or num_cols < 1):
+		print "Invalid number of rows/columns:", num_rows, "x", num_cols
+		return
+	if (num_probes < 1 or num_probes > num_rows * num_cols):
+		print "Invalid number of probes:", num_probes
+		return
+
+	# number of full and empty spots (if number of
+	# probes is less than the total number of spots)
+	full = num_probes
+	empty = num_rows * num_cols - num_probes
+
+	# use Affy deposition sequence
+	dep_seq = affy_dep_seq
+	embed_len = len(dep_seq)
+
+	# pool of bases for generating random probes
+	probe = ['A'] * probe_len + ['C'] * probe_len + ['G'] * probe_len + ['T'] * probe_len
+
+	# binary array to store left-most embedding
+	embed = [0] * embed_len
+
+	# fill spots top to bottom, left to right
+	for r in range (num_rows):
+		for c in range (num_cols):
+
+			# print spot coordinates (column first!)
+			sys.stdout.write (str(c) + '\t' + str(r))
+
+			# randomly choose whether the spot is empty or full
+			if random.randint (1, empty + full) <= empty:
+
+				# print empty spot
+				sys.stdout.write ('\tEMPTY\tN\t-\t-\t-\n')
+
+				empty -= 1
+
+			else:
+
+				# print non-empty spot
+				sys.stdout.write ('\tGROUP\tN\t-\t')
+
+				ready = False
+				while not ready:
+					# generate random probe
+					random.shuffle(probe)
+
+					# compute left-most embedding (if possible)
+					base = 0
+					step = 0
+					while base < probe_len and step < embed_len:
+						if probe[base] == dep_seq[step]:
+							embed[step] = 1
+							base += 1
+						else:
+							embed[step] = 0
+						step += 1
+
+					if base == probe_len:
+						ready = True
+						# turn off remaining steps
+						while step < embed_len:
+							embed[step] = 0
+							step += 1
+
+				# print probe sequence
+				for i in range (embed_len):
+					if embed[i] == 1:
+						sys.stdout.write (dep_seq[i])
+
+				sys.stdout.write ('\t')
+
+				# print probe sequence
+				for i in range (embed_len):
 					if embed[i] == 0:
 						sys.stdout.write (' ')
 					else:
@@ -134,7 +224,7 @@ def simple_chip (num_rows, num_cols, num_probes):
 # Create and print on std output a random simple chip definition with probes
 # synchronously-embedded on a 100-base deposition sequence
 # ------------------------------------------------------------------------------
-def sync_chip (num_rows, num_cols, num_probes):
+def gen_sync_chip (num_rows, num_cols, num_probes):
 
 	# validate arguments
 	if (num_rows < 1 or num_cols < 1):
@@ -160,8 +250,8 @@ def sync_chip (num_rows, num_cols, num_probes):
 	num_cycles = embed_len / len_cycle
 
 	# fill spots top to bottom, left to right
-	for r in range (0, num_rows):
-		for c in range (0, num_cols):
+	for r in range (num_rows):
+		for c in range (num_cols):
 
 			# print spot coordinates (column first!)
 			sys.stdout.write (str(c) + '\t' + str(r))
@@ -180,19 +270,19 @@ def sync_chip (num_rows, num_cols, num_probes):
 				sys.stdout.write ('\tGROUP\tN\t-\t')
 
 				# generate random embedding
-				for c in range (0, num_cycles):
+				for c in range (num_cycles):
 					random.shuffle(rnd_cycle)
 					embed[c * len_cycle:(c + 1) * len_cycle] = rnd_cycle
 
 				# print probe sequence
-				for i in range (0, embed_len):
+				for i in range (embed_len):
 					if embed[i] == 1:
 						sys.stdout.write (dep_seq[i])
 
 				sys.stdout.write ('\t')
 
 				# print probe sequence
-				for i in range (0, embed_len):
+				for i in range (embed_len):
 					if embed[i] == 0:
 						sys.stdout.write (' ')
 					else:
@@ -205,5 +295,5 @@ def sync_chip (num_rows, num_cols, num_probes):
 # ------------------------------------------------------------------------------
 # Main
 # ------------------------------------------------------------------------------
-simple_chip (300, 300, 300 * 300)
-# sync_chip (200, 200, 200 * 200)
+# simple_chip (300, 300, 300 * 300)
+gen_async_chip_rand_probe (200, 200, 200 * 200)
