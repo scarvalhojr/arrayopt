@@ -79,16 +79,6 @@ package arrayopt.layout;
  * efficient dynamic programming approach with quadratic space and time
  * complexities. The implementation aimed at maximizing the reuse of common
  * routines by the sub-classes rather than achiving maximum speed.</P>
- * 
- * <P>Several optimizations are implemented to speed up the computation of the
- * dynamic programming matrix. One of these optimizations examines the probe
- * sequence from right to left, and checks which is the last column of each row
- * that needs to be computed (given the chip's deposition sequence). This
- * optimization, however, might slow down repeated OSPE operations under the
- * same cost context. For this reason, the OSPE object can be created with this
- * optimization enabled ({@link #SINGLE_COMPUTATION_SPEEDUP}) or disabled
- * ({@link #REPEATED_COMPUTATION_SPEEDUP}), depending on how the object will be
- * used.</P>
  *  
  * <P>This class is abstract and the implementation details are provided by
  * (inner) sub-classes for each quality measure (as well as for different types
@@ -163,48 +153,7 @@ public abstract class OptimumSingleProbeEmbedding
 	 * conflict index (see {@link ConflictIndex}.</P>
 	 */
 	public static final int CONFLICT_INDEX_MIN = 1;
-
-	/**
-	 * This constant enables an optimizaion that speeds up single OSPE
-	 * operations by skipping the computation of some cells of the dynamic
-	 * programming matrix based on the probe sequence and the deposition
-	 * sequence.
-	 * 
-	 * <P>The single computation speed up is specially helpful for algorithms
-	 * that need to compute the minimum cost of embedding of several probes
-	 * under different cost contexts (such as re-embedding algorithms:
-	 * {@link SequentialReembedding}, {@link PriorityReembedding}, etc.).</P>
-	 * 
-	 * <P>This option will slow down repeated OSPE computations of different
-	 * probes under the same cost context (considering the same neighbors of the
-	 * spot where the probes are to be placed, for instance). Therefore, it
-	 * should NOT be chosen when the following methods are likely to be
-	 * intensively used: {@link #minDistanceProbe(int)},
-	 * {@link #minDistanceProbe(int, double)}.</P>
-	 * 
-	 * @see #REPEATED_COMPUTATION_SPEEDUP
-	 */
-	public static final int SINGLE_COMPUTATION_SPEEDUP = 0;
-
-	/**
-	 * This constant speeds up repeated OSPE computations of different probes
-	 * under the same cost context (considering the same neighbors of the spot
-	 * where the probes are to be placed, for instance).
-	 * 
-	 * <P>This is achieved by disabling the single OSPE optimization
-	 * ({@link #SINGLE_COMPUTATION_SPEEDUP}), which skips the computation of
-	 * some cells of the dynamic programming matrix based on the probe sequence
-	 * and the deposition sequence.</P>
-	 * 
-	 * <P>This option should be chosen when the following methods are likely to
-	 * be intensively used: {@link #minDistanceProbe(int)},
-	 * {@link #minDistanceProbe(int, double)}. It is specially helpful for
-	 * algorithms such as {@link GreedyEmbeddingsPlacer}.
-	 * 
-	 * @see #SINGLE_COMPUTATION_SPEEDUP
-	 */
-	public static final int REPEATED_COMPUTATION_SPEEDUP = 1;
-
+	
 	/**
 	 * Internal bit mask for configuring the constants and querying the
 	 * variables that restrict the selection of neighborg spots.
@@ -355,48 +304,21 @@ public abstract class OptimumSingleProbeEmbedding
 	 */
 	static OptimumSingleProbeEmbedding createEmbedder (Chip c, int mode)
 	{
-		// TODO delete this method
-		// the caller must be forced to specify an optimization speed up
-		return createEmbedder (c, mode, SINGLE_COMPUTATION_SPEEDUP);
-	}
-
-	/**
-	 * Create an instance of the Optimum Single-Probe Embedding (OSPE) algorithm
-	 * with the desired type of minimization function
-	 * ({@link #BORDER_LENGTH_MIN} or {@link #CONFLICT_INDEX_MIN}) and the
-	 * specified speed up optimization ( or ). 
-	 * 
-	 * @param c a chip instance  
-	 * @param mode desired conflict minimization function
-	 * @param optimize desired speed up optimization
-	 * @return an instance of an OptimumSingleProbeEmbedding for the type of
-	 * chip and the selected mode 
-	 */
-	static OptimumSingleProbeEmbedding createEmbedder (Chip c, int mode,
-			int optimize)
-	{
 		if (mode != BORDER_LENGTH_MIN && mode != CONFLICT_INDEX_MIN)
 			throw new IllegalArgumentException
 				("Unknown distance mode: " + mode);
 			
-		if (optimize != SINGLE_COMPUTATION_SPEEDUP &&
-			optimize != REPEATED_COMPUTATION_SPEEDUP)
-			throw new IllegalArgumentException
-				("Unknown optimization speed up option: " + optimize);
-
 		if (c instanceof SimpleChip)
 		{
 			if (mode == BORDER_LENGTH_MIN)
-				return new Simple.BorderLengthMin ((SimpleChip) c, optimize);
+				return new Simple.BorderLengthMin ((SimpleChip) c);
 			
 			// else: CONFLICT_INDEX_MIN
-				return new Simple.ConflictIndexMin ((SimpleChip) c, optimize);
+				return new Simple.ConflictIndexMin ((SimpleChip) c);
 		}
 		
 		if (c instanceof AffymetrixChip)
 		{
-			// TODO support SINGLE_ and REPEATED_COMPUTATION_SPEEDUP
-			
 			if (mode == BORDER_LENGTH_MIN)
 				return new Affymetrix.BorderLengthMin ((AffymetrixChip) c);
 			
@@ -729,9 +651,7 @@ public abstract class OptimumSingleProbeEmbedding
 		
 		protected long num_embed[];
 		
-		protected int optimize;
-		
-		protected Simple (SimpleChip chip, int optimize)
+		protected Simple (SimpleChip chip)
 		{
 			super (chip);
 
@@ -741,33 +661,14 @@ public abstract class OptimumSingleProbeEmbedding
 			this.start_col = new int [probe_len + 1];
 			this.start_col[0] = 0;
 
+			this.last_col = new int [probe_len + 1];
+			this.last_col[probe_len] = embed_len;
+
 			this.probe = new char [probe_len];
 			this.num_embed = new long [probe_len];
 			
 			this.mask_cost = new double [embed_len];
 			this.unmask_cost = new double [embed_len];
-			
-			this.optimize = optimize;
-			
-			this.last_col = new int [probe_len + 1];
-			
-			if (optimize == REPEATED_COMPUTATION_SPEEDUP)
-			{
-				// fix the last position of each row that needs to be computed
-				// (regardless of the probe and deposition sequence)
-				int last = embed_len;
-				
-				for (int r = probe_len; r >= 0; r--)
-					this.last_col[r] = last--; 
-			}
-			else // (optimize == SINGLE_COMPUTATION_SPEEDUP)
-			{
-				this.last_col[probe_len] = embed_len;
-				
-				// for the remaining rows, the last position that needs to be
-				// computed is determined when the probe is decoded
-				// (see #decodeEmbedding)
-			}
 		}
 		
 		@Override
@@ -859,11 +760,6 @@ public abstract class OptimumSingleProbeEmbedding
 				}
 			}
 			
-			// the folowing optimization is only used with
-			// SINGLE_COMPUTATION_SPEEDUP
-			if (optimize != SINGLE_COMPUTATION_SPEEDUP)
-				return;
-			
 			// examine the probe sequence from right to left, marking the last
 			// column of the matrix that needs to be computed for each row
 			for (int r = probe_len - 1; r >= 0; r--)
@@ -887,9 +783,9 @@ public abstract class OptimumSingleProbeEmbedding
 
 		private static class BorderLengthMin extends Simple
 		{
-			public BorderLengthMin (SimpleChip chip, int optimize)
+			public BorderLengthMin (SimpleChip chip)
 			{
-				super (chip, optimize);
+				super (chip);
 			}
 
 			@Override
@@ -1118,9 +1014,9 @@ public abstract class OptimumSingleProbeEmbedding
 		{
 			private double pos_mult[];
 			
-			protected ConflictIndexMin (SimpleChip chip, int optimize)
+			protected ConflictIndexMin (SimpleChip chip)
 			{
-				super (chip, optimize);
+				super (chip);
 				
 				this.pos_mult = new double [probe_len + 1];
 				
