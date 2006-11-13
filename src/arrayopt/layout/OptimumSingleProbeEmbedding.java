@@ -746,10 +746,6 @@ public abstract class OptimumSingleProbeEmbedding
 						
 						if (start_row > i + 1) start_row = i + 1;
 					}
-					else
-					{
-						if (start_row <= i) update_start_col = true;
-					}
 					
 					if (update_start_col)
 					{
@@ -758,8 +754,6 @@ public abstract class OptimumSingleProbeEmbedding
 							if (chip.dep_seq[c] == probe[i])
 								break;
 						start_col[i+1] = c + 1;
-						
-						update_start_col = false;
 					}
 										
 					i++;
