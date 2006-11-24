@@ -142,6 +142,8 @@ public class GreedyPlacer implements PlacementAlgorithm, FillingAlgorithm
 		int end)
 	{
 		RectangularRegion r;
+		
+		if (end < start) return 0;
 
 		if (!(region instanceof RectangularRegion))
 			throw new IllegalArgumentException
