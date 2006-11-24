@@ -38,14 +38,27 @@
 package arrayopt.layout;
 
 /**
- * This class contains centered algorithm for several microarray chips.
- * The goal of centered algorithm is to align a probe more in the center of the depostion sequence.
+ * This class implements the centered re-embedding algorithm. Probes are
+ * re-embedded in such a way that the number of masked steps to the left of the
+ * first productive step is approximately equal to the number of masked steps to
+ * the right of the last productive step. This results in embeddings that
+ * reduce the number of unmasked spots on the first and last masks. 
+ *  
  * @author Anna Domanski & Ronny G?rtner
+ * @author Sergio A. de Carvalho Jr.
  */
 public class CenteredEmbedding implements SingleProbeEmbeddingAlgorithm,
 	ProbeSetEmbeddingAlgorithm
 {
 	private LeftMostEmbedding embedder = new LeftMostEmbedding();
+	
+	/**
+	 * Constant used internally to alternate between left- and right-most
+	 * preference when both result in the embedding having the same difference
+	 * of masked steps before the first productive step and after the last
+	 * productive step. 
+	 */
+	private int alternate = - 1;
 
 	/**
 	 * embedd a complete set of probes of a given chip
@@ -80,120 +93,83 @@ public class CenteredEmbedding implements SingleProbeEmbeddingAlgorithm,
 	}
 
 	/**
-	 * embeds a probe of a simple chip so that the bases of the probe will be 
-	 * aligned more in the center of the deposition sequence
-	 * @param chip simple chip
+	 * Re-embeds a single probe in a centered fashion.
+	 *  
+	 * @param chip chip
 	 * @param probe_id probe ID
-	 * @throws IllegalArgumentException if reembedding is not possible, e.g. because of former
-	 * wrong embedding
 	 */
 	public void reembedProbe (SimpleChip chip, int probe_id)
 	{
-		// to do:
-		int shift = 0, mask, int_index, pos, count_appearance = 0, cycle;
+		int cycle_len, left, right, shift;
+		int pos, idx, bitmask = 0;
+		double s;
 
-		if ((cycle = chip.depositionSequenceCycleLength()) <= 0)
+		if ((cycle_len = chip.depositionSequenceCycleLength()) <= 0)
 			throw new IllegalArgumentException
 				("Only chips with cyclical deposition sequences are supported.");
 		
-		// NOTE: Use the 'cycle' variable instead of the Chip.DEP_SEQ_CYCLE
-		// constant (which has been removed) or hardcoded numbers
-		
-		pos = chip.dep_seq.length - 1;
-		mask = 0x01 << ((Integer.SIZE-1) - (pos % Integer.SIZE));
-		int_index = (int) Math.floor((double) pos/Integer.SIZE);
-
 		// leftmost embedding with no shift
 		embedder.reembedProbe(chip,probe_id,0);
 		
-		while((chip.embed[probe_id][int_index] & mask) == 0)
+		// count number of masked steps before first productive step
+		for (left = 0, idx = -1, pos = 0; pos < chip.embed_len; pos++)
 		{
-			// throw exception if pos reaches area where bases must be for sure
-			if (--pos < chip.probe_len-1)
+			if ((pos % Integer.SIZE) == 0)
 			{
-				throw new IllegalArgumentException ("Unable to reembed probe.");
-			}
-			if (pos%Integer.SIZE == 0)
-			{
-				int_index--;
-				mask = 0x01;
+				bitmask = 0x01 << (Integer.SIZE - 1);
+				idx++;
 			}
 			else
-				mask <<= 1;
+				bitmask >>>= 1;
+				
+			if ((chip.embed[probe_id][idx] & bitmask) == 0)
+				left++;
+			else
+				break;
 		}
 		
-		// count appearance of last base in 'zero tail'
-		for (int i = pos + 1; i < chip.dep_seq.length; i++)
+		// count number of masked steps after last productive step
+		pos = chip.dep_seq.length - 1;
+		idx = (int) Math.floor(pos / (double) Integer.SIZE);
+		bitmask = 0x01 << (Integer.SIZE - (chip.dep_seq.length % Integer.SIZE));
+		for (right = 0; pos >= 0; pos--)
 		{
-			if (chip.dep_seq[i] == chip.dep_seq[pos])
-				count_appearance++;
+			if ((chip.embed[probe_id][idx] & bitmask) == 0)
+				right++;
+			else
+				break;
+			
+			if ((pos % Integer.SIZE) == 0)
+			{
+				bitmask = 0x01;
+				idx--;
+			}
+			else
+				bitmask <<= 1;
 		}
-		// compute shift by multiples of a cycle of the deposition sequence
-		shift = ((int) Math.floor((double) count_appearance/2)) * cycle;
-	
-		embedder.reembedProbe(chip, probe_id, shift);
-		// do a left-most embedding and check how many masked steps
-		// are left after the last synthesized probe, call it spaces
 
-		// do a left-most embedding with a shift = spaces / 2
+		// compute best shift
+		if (right > left)
+		{
+			s = (right - left) / (float) (2 * cycle_len);
+			
+			if (((right - left) % (2 * cycle_len)) == cycle_len)
+			{
+				if ((alternate = - alternate) == 1)
+					shift = (int) Math.floor(s);
+				else
+					shift = (int) Math.ceil(s);
+			}
+			else
+				shift = (int) Math.round(s);
+
+			embedder.reembedProbe(chip, probe_id, shift * cycle_len);
+		}
 	}
 
-	/**
-	 * reembeds a probe of an affymetrix chip in such a way that the bases of the probe will be 
-	 * aligned more to the center of the deposition sequence
-	 * 'pair-awareness' is included
-	 * @param chip affymetrix chip
-	 * @param probe_id probe ID
-	 * @throws IllegalArgumentException if reembedding is not possible, e.g. because of former
-	 * wrong embedding
-	 */
 	public void reembedProbe (AffymetrixChip chip, int probe_id)
 	{
-		int shift = 0, mask, int_index, pos, count_appearance = 0, cycle;
-
-		if ((cycle = chip.depositionSequenceCycleLength()) <= 0)
-			throw new IllegalArgumentException
-				("Only chips with cyclical deposition sequences are supported.");
-		
-		// NOTE: Use the 'cycle' variable instead of the Chip.DEP_SEQ_CYCLE
-		// constant (which has been removed) or hardcoded numbers
-		
-		pos = chip.dep_seq.length - 1;
-		mask = 0x01 << ((Integer.SIZE-1) - (pos % Integer.SIZE));
-		int_index = (int) Math.floor((double) pos/Integer.SIZE);
-
-		// leftmost embedding with no shift
-		embedder.reembedProbe(chip,probe_id,0);
-		
-		while((chip.embed[probe_id][int_index] & mask) == 0)
-		{
-			// throw exception if pos reaches area where bases must be for sure
-			if (--pos < chip.probe_len-1)
-			{
-				throw new IllegalArgumentException ("Unable to reembed probe.");
-			}
-			if (pos%Integer.SIZE == 0)
-			{
-				int_index--;
-				mask = 0x01;
-			}
-			else
-				mask <<= 1;
-		}
-		
-		// count appearance of last base in 'zero tail'
-		for (int i = pos + 1; i < chip.dep_seq.length; i++)
-		{
-			if (chip.dep_seq[i] == chip.dep_seq[pos])
-				count_appearance++;
-		}
-		// compute shift by multiples of a cycle of the deposition sequence
-        shift = ((int) Math.floor((double) count_appearance/2)) * cycle;
-	
-		embedder.reembedProbe(chip, probe_id, shift);
-		// do a left-most embedding and check how many masked steps
-		// are left after the last synthesized probe, call it spaces
-
-		// do a left-most embedding with a shift = spaces / 2
+		// TODO implement based on the SimpleChip code
+		return;
 	}
 }
