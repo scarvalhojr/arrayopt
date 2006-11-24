@@ -136,7 +136,7 @@ public class ArrayOpt
 		catch (ArrayIndexOutOfBoundsException e)
 		{
 			usage();
-			System.err.println("ERROR: All arguments are mandatory");
+			System.err.println("ERROR: Missing mandatory argument(s)");
 			System.exit(1);
 			return;
 		}
@@ -183,13 +183,53 @@ public class ArrayOpt
 			placer = new RandomPlacer();
 
 		else if (placement.equalsIgnoreCase("SEQUENTIAL"))
-			placer = new SequentialPlacer();
+			placer = new SequentialPlacer(false);
 
-		else if (placement.equalsIgnoreCase("GREEDY-BL"))
-			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH);
+		else if (placement.equalsIgnoreCase("SEQUENTIAL-S"))
+			placer = new SequentialPlacer(true);
+		
+		// k-Threading
 
-		else if (placement.equalsIgnoreCase("GREEDY-CI"))
-			placer = new GreedyPlacer(GreedyPlacer.MODE_CONFLICT_INDEX);
+		else if (placement.equalsIgnoreCase("0-THREAD-S"))
+			placer = new KThreadingPlacer(0, true);
+
+		else if (placement.equalsIgnoreCase("1-THREAD-S"))
+			placer = new KThreadingPlacer(1, true);
+
+		else if (placement.equalsIgnoreCase("2-THREAD-S"))
+			placer = new KThreadingPlacer(2, true);
+
+		else if (placement.equalsIgnoreCase("3-THREAD-S"))
+			placer = new KThreadingPlacer(3, true);
+
+		else if (placement.equalsIgnoreCase("4-THREAD-S"))
+			placer = new KThreadingPlacer(4, true);
+
+		else if (placement.equalsIgnoreCase("5-THREAD-S"))
+			placer = new KThreadingPlacer(5, true);
+
+		else if (placement.equalsIgnoreCase("6-THREAD-S"))
+			placer = new KThreadingPlacer(6, true);
+
+		else if (placement.equalsIgnoreCase("7-THREAD-S"))
+			placer = new KThreadingPlacer(7, true);
+
+		else if (placement.equalsIgnoreCase("8-THREAD-S"))
+			placer = new KThreadingPlacer(8, true);
+
+		else if (placement.equalsIgnoreCase("9-THREAD-S"))
+			placer = new KThreadingPlacer(9, true);
+
+		else if (placement.equalsIgnoreCase("10-THREAD-S"))
+			placer = new KThreadingPlacer(10, true);
+		
+		// Greedy Placer
+
+		else if (placement.equalsIgnoreCase("GREEDY-BL-100-S"))
+			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 100, GreedyPlacer.SORT_EMBEDDINGS);		
+
+		else if (placement.equalsIgnoreCase("GREEDY-BL-1K-S"))
+			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 1000, GreedyPlacer.SORT_EMBEDDINGS);
 
 		else if (placement.equalsIgnoreCase("GREEDY-BL-5K-S"))
 			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 5000, GreedyPlacer.SORT_EMBEDDINGS);
@@ -200,97 +240,179 @@ public class ArrayOpt
 		else if (placement.equalsIgnoreCase("GREEDY-BL-20K-S"))
 			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 20000, GreedyPlacer.SORT_EMBEDDINGS);
 
+		else if (placement.equalsIgnoreCase("GREEDY-BL-30K-S"))
+			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 30000, GreedyPlacer.SORT_EMBEDDINGS);
+
+		else if (placement.equalsIgnoreCase("GREEDY-BL-40K-S"))
+			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 40000, GreedyPlacer.SORT_EMBEDDINGS);
+
+		else if (placement.equalsIgnoreCase("GREEDY-CI-100-S"))
+			placer = new GreedyPlacer(GreedyPlacer.MODE_CONFLICT_INDEX, 100, GreedyPlacer.SORT_EMBEDDINGS);
+
+		else if (placement.equalsIgnoreCase("GREEDY-CI-1K-S"))
+			placer = new GreedyPlacer(GreedyPlacer.MODE_CONFLICT_INDEX, 1000, GreedyPlacer.SORT_EMBEDDINGS);
+
+		else if (placement.equalsIgnoreCase("GREEDY-CI-5K-S"))
+			placer = new GreedyPlacer(GreedyPlacer.MODE_CONFLICT_INDEX, 5000, GreedyPlacer.SORT_EMBEDDINGS);
+
+		else if (placement.equalsIgnoreCase("GREEDY-CI-10K-S"))
+			placer = new GreedyPlacer(GreedyPlacer.MODE_CONFLICT_INDEX, 10000, GreedyPlacer.SORT_EMBEDDINGS);
+
+		else if (placement.equalsIgnoreCase("GREEDY-CI-20K-S"))
+			placer = new GreedyPlacer(GreedyPlacer.MODE_CONFLICT_INDEX, 20000, GreedyPlacer.SORT_EMBEDDINGS);
+
+		else if (placement.equalsIgnoreCase("GREEDY-CI-30K-S"))
+			placer = new GreedyPlacer(GreedyPlacer.MODE_CONFLICT_INDEX, 30000, GreedyPlacer.SORT_EMBEDDINGS);
+
+		else if (placement.equalsIgnoreCase("GREEDY-CI-40K-S"))
+			placer = new GreedyPlacer(GreedyPlacer.MODE_CONFLICT_INDEX, 40000, GreedyPlacer.SORT_EMBEDDINGS);
+
+		// Greedy Plus
+
+		// TODO delete this!
+		else if (placement.equalsIgnoreCase("GREEDYPLUS-BL-5K-S"))
+			placer = new GreedyPlacerPlus(GreedyPlacerPlus.BORDER_LENGTH_MIN, 5000, GreedyPlacerPlus.SORT_EMBEDDINGS);
+
+		else if (placement.equalsIgnoreCase("GREEDYPLUS-BL-50-S"))
+			placer = new GreedyPlacerPlus(GreedyPlacerPlus.BORDER_LENGTH_MIN, 50, GreedyPlacerPlus.SORT_EMBEDDINGS);
+		
+		else if (placement.equalsIgnoreCase("GREEDYPLUS-BL-100-S"))
+			placer = new GreedyPlacerPlus(GreedyPlacerPlus.BORDER_LENGTH_MIN, 100, GreedyPlacerPlus.SORT_EMBEDDINGS);
+
+		else if (placement.equalsIgnoreCase("GREEDYPLUS-BL-200-S"))
+			placer = new GreedyPlacerPlus(GreedyPlacerPlus.BORDER_LENGTH_MIN, 200, GreedyPlacerPlus.SORT_EMBEDDINGS);
+
+		else if (placement.equalsIgnoreCase("GREEDYPLUS-BL-300-S"))
+			placer = new GreedyPlacerPlus(GreedyPlacerPlus.BORDER_LENGTH_MIN, 300, GreedyPlacerPlus.SORT_EMBEDDINGS);
+
+		else if (placement.equalsIgnoreCase("GREEDYPLUS-CI-50-S"))
+			placer = new GreedyPlacerPlus(GreedyPlacerPlus.CONFLICT_INDEX_MIN, 50, GreedyPlacerPlus.SORT_EMBEDDINGS);
+
+		else if (placement.equalsIgnoreCase("GREEDYPLUS-CI-100-S"))
+			placer = new GreedyPlacerPlus(GreedyPlacerPlus.CONFLICT_INDEX_MIN, 100, GreedyPlacerPlus.SORT_EMBEDDINGS);
+
+		else if (placement.equalsIgnoreCase("GREEDYPLUS-CI-200-S"))
+			placer = new GreedyPlacerPlus(GreedyPlacerPlus.CONFLICT_INDEX_MIN, 200, GreedyPlacerPlus.SORT_EMBEDDINGS);
+
+		else if (placement.equalsIgnoreCase("GREEDYPLUS-CI-300-S"))
+			placer = new GreedyPlacerPlus(GreedyPlacerPlus.CONFLICT_INDEX_MIN, 300, GreedyPlacerPlus.SORT_EMBEDDINGS);
+
+		else if (placement.equalsIgnoreCase("GREEDYPLUS-CI-400-S"))
+			placer = new GreedyPlacerPlus(GreedyPlacerPlus.CONFLICT_INDEX_MIN, 400, GreedyPlacerPlus.SORT_EMBEDDINGS);
+
+		// Greedy Embeddings Placer
+
+		// TODO delete this
+		else if (placement.equalsIgnoreCase("GREEDYEMB-BL-5-S"))
+			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.BORDER_LENGTH_MIN, 5, GreedyEmbeddingsPlacer.SORT_PROBES);
+
+		else if (placement.equalsIgnoreCase("GREEDYEMB-BL-50-S"))
+			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.BORDER_LENGTH_MIN, 50, GreedyEmbeddingsPlacer.SORT_PROBES);
+
 		else if (placement.equalsIgnoreCase("GREEDYEMB-BL-100-S"))
 			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.BORDER_LENGTH_MIN, 100, GreedyEmbeddingsPlacer.SORT_PROBES);
 
-		else if (placement.equalsIgnoreCase("GREEDYEMB-BL-300-S"))
-			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.BORDER_LENGTH_MIN, 300, GreedyEmbeddingsPlacer.SORT_PROBES);
+		else if (placement.equalsIgnoreCase("GREEDYEMB-BL-200-S"))
+			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.BORDER_LENGTH_MIN, 200, GreedyEmbeddingsPlacer.SORT_PROBES);
+
+		else if (placement.equalsIgnoreCase("GREEDYEMB-BL-250-S"))
+			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.BORDER_LENGTH_MIN, 250, GreedyEmbeddingsPlacer.SORT_PROBES);
+
+		else if (placement.equalsIgnoreCase("GREEDYEMB-BL-350-S"))
+			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.BORDER_LENGTH_MIN, 350, GreedyEmbeddingsPlacer.SORT_PROBES);
+
+		else if (placement.equalsIgnoreCase("GREEDYEMB-BL-400-S"))
+			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.BORDER_LENGTH_MIN, 400, GreedyEmbeddingsPlacer.SORT_PROBES);
+
+		else if (placement.equalsIgnoreCase("GREEDYEMB-BL-500-S"))
+			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.BORDER_LENGTH_MIN, 500, GreedyEmbeddingsPlacer.SORT_PROBES);
+
+		else if (placement.equalsIgnoreCase("GREEDYEMB-BL-700-S"))
+			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.BORDER_LENGTH_MIN, 700, GreedyEmbeddingsPlacer.SORT_PROBES);
+
+		else if (placement.equalsIgnoreCase("GREEDYEMB-BL-800-S"))
+			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.BORDER_LENGTH_MIN, 800, GreedyEmbeddingsPlacer.SORT_PROBES);
 
 		else if (placement.equalsIgnoreCase("GREEDYEMB-BL-1K-S"))
 			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.BORDER_LENGTH_MIN, 1000, GreedyEmbeddingsPlacer.SORT_PROBES);
 		
-		else if (placement.equalsIgnoreCase("GREEDY-BL-20K"))
-			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 20000);
-
-		else if (placement.equalsIgnoreCase("GREEDY-BL-10K"))
-			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 10000);
-
 		else if (placement.equalsIgnoreCase("GREEDYEMB-BL-10K"))
 			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.BORDER_LENGTH_MIN, 10000);
-
-		else if (placement.equalsIgnoreCase("GREEDY-BL-5K"))
-			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 5000);
 
 		else if (placement.equalsIgnoreCase("GREEDYEMB-BL-5K"))
 			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.BORDER_LENGTH_MIN, 5000);
 
-		else if (placement.equalsIgnoreCase("GREEDY-BL-2K"))
-			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 2000);
-
 		else if (placement.equalsIgnoreCase("GREEDYEMB-BL-2K"))
 			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.BORDER_LENGTH_MIN, 2000);
-
-		else if (placement.equalsIgnoreCase("GREEDY-BL-2K-S"))
-			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 2000,
-										GreedyPlacer.SORT_EMBEDDINGS);
-
-		else if (placement.equalsIgnoreCase("GREEDY-BL-2K-R"))
-			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 2000,
-										GreedyPlacer.RANDOMIZE_INPUT);
-
-		else if (placement.equalsIgnoreCase("GREEDY-BL-1K"))
-			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 1000);
 
 		else if (placement.equalsIgnoreCase("GREEDYEMB-BL-1K"))
 			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.BORDER_LENGTH_MIN, 1000);
 
-		else if (placement.equalsIgnoreCase("GREEDY-BL-100"))
-			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 100);		
+		else if (placement.equalsIgnoreCase("GREEDYEMB-CI-50-S"))
+			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.CONFLICT_INDEX_MIN, 50, GreedyEmbeddingsPlacer.SORT_PROBES);
 
 		else if (placement.equalsIgnoreCase("GREEDYEMB-CI-100-S"))
 			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.CONFLICT_INDEX_MIN, 100, GreedyEmbeddingsPlacer.SORT_PROBES);
 
+		else if (placement.equalsIgnoreCase("GREEDYEMB-CI-200-S"))
+			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.CONFLICT_INDEX_MIN, 200, GreedyEmbeddingsPlacer.SORT_PROBES);
+
+		else if (placement.equalsIgnoreCase("GREEDYEMB-CI-300-S"))
+			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.CONFLICT_INDEX_MIN, 300, GreedyEmbeddingsPlacer.SORT_PROBES);
+
+		else if (placement.equalsIgnoreCase("GREEDYEMB-CI-100"))
+			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.CONFLICT_INDEX_MIN, 100);
+
 		else if (placement.equalsIgnoreCase("GREEDYBL-50"))
 			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 50);		
 
-		else if (placement.equalsIgnoreCase("GREEDY-CI-10K"))
-			placer = new GreedyPlacer(GreedyPlacer.MODE_CONFLICT_INDEX, 10000);
+		else if (placement.equalsIgnoreCase("REPTX1K-BL"))
+			placer = new RowEpitaxial(1000, true);
 
-		else if (placement.equalsIgnoreCase("GREEDY-CI-5K"))
-			placer = new GreedyPlacer(GreedyPlacer.MODE_CONFLICT_INDEX, 5000);
+		else if (placement.equalsIgnoreCase("REPTX5K-BL"))
+			placer = new RowEpitaxial(5000, false);
 
-		else if (placement.equalsIgnoreCase("GREEDY-CI-2K"))
-			placer = new GreedyPlacer(GreedyPlacer.MODE_CONFLICT_INDEX, 2000);
-		
-		else if (placement.equalsIgnoreCase("GREEDY-CI-1K"))
-			placer = new GreedyPlacer(GreedyPlacer.MODE_CONFLICT_INDEX, 1000);
-
-		else if (placement.equalsIgnoreCase("GREEDY-CI-100"))
-			placer = new GreedyPlacer(GreedyPlacer.MODE_CONFLICT_INDEX, 100);
-
-		else if (placement.equalsIgnoreCase("GREEDY-CI-50"))
-			placer = new GreedyPlacer(GreedyPlacer.MODE_CONFLICT_INDEX, 50);
+		else if (placement.equalsIgnoreCase("REPTX10K-BL"))
+			placer = new RowEpitaxial(10000, false);
 
 		else if (placement.equalsIgnoreCase("REPTX20K-BL"))
 			placer = new RowEpitaxial(20000, false);
 
-		else if (placement.equalsIgnoreCase("2D1-SEQ"))
-			placer = new TwoDimensionalPartitioning(new SequentialPlacer(), 1);
-
-		else if (placement.equalsIgnoreCase("2D4-SEQ"))
-			placer = new TwoDimensionalPartitioning(new SequentialPlacer(), 4);
-
-		else if (placement.equalsIgnoreCase("2D1-GREEDY"))
+		else if (placement.equalsIgnoreCase("2D1-LEFT-GREEDY"))
 			placer = new TwoDimensionalPartitioning(new GreedyPlacer(), 1);
 
-		else if (placement.equalsIgnoreCase("2D4-GREEDY"))
+		else if (placement.equalsIgnoreCase("2D4-LEFT-GREEDY"))
 			placer = new TwoDimensionalPartitioning(new GreedyPlacer(), 4);
 
-		else if (placement.equalsIgnoreCase("2D8-GREEDY"))
+		else if (placement.equalsIgnoreCase("2D8-LEFT-GREEDY"))
 			placer = new TwoDimensionalPartitioning(new GreedyPlacer(), 8);
 
-		else if (placement.equalsIgnoreCase("2D64-GREEDY"))
+		else if (placement.equalsIgnoreCase("2D16-LEFT-GREEDY"))
+			placer = new TwoDimensionalPartitioning(new GreedyPlacer(), 16);
+
+		else if (placement.equalsIgnoreCase("2D32-LEFT-GREEDY"))
+			placer = new TwoDimensionalPartitioning(new GreedyPlacer(), 32);
+
+		else if (placement.equalsIgnoreCase("2D64-LEFT-GREEDY"))
 			placer = new TwoDimensionalPartitioning(new GreedyPlacer(), 64);
+
+		else if (placement.equalsIgnoreCase("2D1-CENTER-GREEDY"))
+			placer = new TwoDimensionalCenteredPartitioning(new GreedyPlacer(), 1);
+
+		else if (placement.equalsIgnoreCase("2D4-CENTER-GREEDY"))
+			placer = new TwoDimensionalCenteredPartitioning(new GreedyPlacer(), 4);
+
+		else if (placement.equalsIgnoreCase("2D8-CENTER-GREEDY"))
+			placer = new TwoDimensionalCenteredPartitioning(new GreedyPlacer(), 8);
+
+		else if (placement.equalsIgnoreCase("2D16-CENTER-GREEDY"))
+			placer = new TwoDimensionalCenteredPartitioning(new GreedyPlacer(), 16);
+
+		else if (placement.equalsIgnoreCase("2D32-CENTER-GREEDY"))
+			placer = new TwoDimensionalCenteredPartitioning(new GreedyPlacer(), 32);
+
+		else if (placement.equalsIgnoreCase("2D64-CENTER-GREEDY"))
+			placer = new TwoDimensionalCenteredPartitioning(new GreedyPlacer(), 64);
 
 		else if (placement.equalsIgnoreCase("2D8-GRASPD"))
 			placer = new TwoDimensionalPartitioning(
@@ -642,21 +764,21 @@ public class ArrayOpt
 					PriorityReembedding.PRIORITY_BALANCED,
 					false);
 
-		else if (optimization.equalsIgnoreCase("SEQREEMBED-BL-INC"))
+		else if (optimization.equalsIgnoreCase("SEQREEMBED-BL-RESET"))
 			optimizer = new SequentialReembedding(
 							OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN, true);
 		
-		else if (optimization.equalsIgnoreCase("SEQREEMBED-CI-INC"))
+		else if (optimization.equalsIgnoreCase("SEQREEMBED-CI-RESET"))
 			optimizer = new SequentialReembedding(
 							OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN, true);
 
-		else if (optimization.equalsIgnoreCase("SEQREEMBED-BL-TOT"))
+		else if (optimization.equalsIgnoreCase("SEQREEMBED-BL-NORESET"))
 			optimizer = new SequentialReembedding(
 							OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN, false);
 		
-		else if (optimization.equalsIgnoreCase("SEQREEMBED-CI-TOT"))
+		else if (optimization.equalsIgnoreCase("SEQREEMBED-CI-NORESET"))
 			optimizer = new SequentialReembedding(
-							OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN, false);
+							OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN, false, 0.005);
 
 		// ****************** GRASP Path-relinking ******************
 
