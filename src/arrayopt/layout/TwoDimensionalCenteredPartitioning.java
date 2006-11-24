@@ -88,14 +88,14 @@ public class TwoDimensionalCenteredPartitioning implements PlacementAlgorithm
 				rows_per_probe,	0, 0, id, 0, id.length - 1);
 	}
 
-	protected int horizontalDivide (Chip chip, int vstep, int hstep,
+	protected int horizontalDivide (Chip chip, int hstep, int vstep,
 			RectangularRegion r, int rows_per_probe, int hor_par, int ver_par,
 			int probe_id[],	int start, int end)
 	{
 		RectangularRegion	t_region, b_region;
 		int					row_div, probe_div, m_rows, u_rows, qt_cols, overflow, unplaced;
 		double				div_rate;
-
+		
 		if (end - start + 1 < 2)
 		{
 			// insufficient number of probes for partitioning:
@@ -120,7 +120,7 @@ public class TwoDimensionalCenteredPartitioning implements PlacementAlgorithm
 			}
 
 			// region can still be vertically partitined
-			return verticalDivide (chip, hstep, vstep, r, rows_per_probe,
+			return verticalDivide (chip, hstep - 1, vstep, r, rows_per_probe,
 					hor_par, ver_par, probe_id, start, end);
 		}
 
@@ -248,7 +248,7 @@ public class TwoDimensionalCenteredPartitioning implements PlacementAlgorithm
 			}
 
 			// region can still be horizontally partitined
-			return horizontalDivide (chip, hstep, vstep, r, rows_per_probe,
+			return horizontalDivide (chip, hstep, vstep + 1, r, rows_per_probe,
 								hor_par, ver_par, probe_id, start, end);
 		}
 
@@ -367,26 +367,9 @@ public class TwoDimensionalCenteredPartitioning implements PlacementAlgorithm
 		return start;
 	}
 	
-	private OptimumSingleProbeEmbedding ospe;
-	
 	private int fillRegion (Chip chip, RectangularRegion r, int probe_id[],
 			int start, int end)
 	{
-		/*
-		// TODO do this nicely!
-		if (ospe == null)
-			// TODO make mode configurable!
-			ospe = OptimumSingleProbeEmbedding.createEmbedder(chip,
-					OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN);
-		
-		if (end > start)
-		{
-			ospe.reembedProbe(probe_id[start+1], probe_id[start]);
-			for (int i = start + 2; i <= end; i++)
-				ospe.reembedProbe(probe_id[i]);
-		}
-		//*/
-		
 		return filler.fillRegion (chip, r, probe_id, start, end);
 	}
 }
