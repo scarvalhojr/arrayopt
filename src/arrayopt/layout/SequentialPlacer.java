@@ -37,39 +37,81 @@
 
 package arrayopt.layout;
 
-import arrayopt.util.ArrayIndexedCollection;
-import arrayopt.util.QuickSort;
-
 /**
  *
  */
-public class SequentialPlacer implements PlacementAlgorithm, FillingAlgorithm
+public class SequentialPlacer implements LayoutAlgorithm, FillingAlgorithm
 {
 	/**
-	 * TODO document this
+	 * Constant to indicate that no ordering of probes should be performed
+	 * before placement/filling.
 	 */
-	private boolean sort_embeddings;
-
+	public static final int KEEP_ORDER = 0;
+	
+	/**
+	 * Constant to indicate that the order of the probes should be randomized
+	 * before placement/filling.
+	 */
+	public static final int RANDOM = 1;
+	
+	/**
+	 * Constant to indicate that probes should be ordered lexicographically by
+	 * their sequences before placement/filling.
+	 */
+	public static final int SORT_SEQUENCES = 2;
+	
+	/**
+	 * Constant to indicate that probes should be ordered lexicographically by
+	 * their binary embeddings before placement/filling.
+	 */
+	public static final int SORT_EMBEDDINGS = 3;
+	
+	/**
+	 * Constant to indicate that a TSP-tour of the probes must be computed
+	 * before placement/filling, in order to minimize border conflicts between
+	 * neighboring probes. The TSP-tour is computed on a graph where nodes
+	 * represent the probes, and edges between two probes contain the number of
+	 * border conflicts between their embeddings.
+	 */
+	public static final int TSP_ORDER = 4;
+	
+	/**
+	 * Indicate the ordering of the probes used for placement/filling.
+	 */
+	private int order;
+	
 	/**
 	 * TODO document this
 	 */
 	public SequentialPlacer ()
 	{
-		this(false);
+		this(KEEP_ORDER);
 	}
 
 	/**
 	 * TODO document this
 	 */
-	public SequentialPlacer (boolean sort_embeddings)
+	public SequentialPlacer (int order)
 	{
-		this.sort_embeddings = sort_embeddings;
+		switch (order)
+		{
+			case KEEP_ORDER:
+			case RANDOM:
+			case SORT_SEQUENCES:
+			case SORT_EMBEDDINGS:
+			case TSP_ORDER:
+				this.order = order;
+				break;
+
+			default:
+				throw new IllegalArgumentException ("Unknown probe ordering.");
+		}
 	}
 	
 	/**
 	 *
 	 */
-	public int makeLayout (Chip chip)
+	public void changeLayout (Chip chip)
 	{
 		int		id[];
 
@@ -79,7 +121,9 @@ public class SequentialPlacer implements PlacementAlgorithm, FillingAlgorithm
 		// get list of movable probes
 		id = chip.getMovableProbes ();
 
-		return fillRegion (chip, chip.getChipRegion(), id, 0, id.length - 1);
+		fillRegion (chip, chip.getChipRegion(), id, 0, id.length - 1);
+		
+		return;
 	}
 
 	/**
@@ -96,6 +140,7 @@ public class SequentialPlacer implements PlacementAlgorithm, FillingAlgorithm
 	public int fillRegion (Chip chip, Region region, int probe_id[], int start,
 		int end)
 	{
+		ProbeOrderingAlgorithm ordering = null;
 		RectangularRegion r;
 
 		if (!(region instanceof RectangularRegion))
@@ -104,13 +149,28 @@ public class SequentialPlacer implements PlacementAlgorithm, FillingAlgorithm
 
 		r = (RectangularRegion) region;
 		
-		if (sort_embeddings)
+		switch(this.order)
 		{
-			// sort embeddings lexicographically (as binary strings)
-			QuickSort.sort(new EmbeddingSort(chip, probe_id),
-							start, end - start +1);
+			case RANDOM:
+				ordering = new RandomOrdering();
+				break;
+				
+			case SORT_SEQUENCES:
+				ordering = new SortedSequencesOrdering();
+				break;
+				
+			case SORT_EMBEDDINGS:
+				ordering = new SortedEmbeddingsOrdering();
+				break;
+				
+			case TSP_ORDER: 
+				ordering = new TSPOrdering();
+				break;				
 		}
-
+		
+		if (ordering != null)
+			ordering.orderProbes(chip, probe_id, start, end);
+		
 		if (chip instanceof SimpleChip)
 			return fillRegion ((SimpleChip) chip, r, probe_id, start, end);
 
@@ -184,122 +244,38 @@ public class SequentialPlacer implements PlacementAlgorithm, FillingAlgorithm
 		// some probe pairs could not be placed
 		return 2 * (end - start + 1);
 	}
-
-	private class EmbeddingSort implements ArrayIndexedCollection
+	
+	/**
+	 * Returns the algorithm's name together with current options.
+	 */
+	@Override
+	public String toString ()
 	{
-		private Chip chip;
+		String ordering;
 		
-		private int words;
-		
-		private int probe_id[];
-		
-		private int pivot;
-		
-		EmbeddingSort (Chip chip, int probe_id[])
+		switch (this.order)
 		{
-			this.chip = chip;
-			this.words = chip.embed[0].length;
-			this.probe_id = probe_id;
-		}
-		
-		public int compare (int i, int j)
-		{
-			int id_i = probe_id[i];
-			int id_j = probe_id[j];
-			
-			for (int w = 0; w < words; w++)
-			{
-				// compare first bit (signal)
-				// first bit is 1 => negative number
-				// first bit is 0 => non-negative
-				if (chip.embed[id_i][w] < 0)
-				{
-					if (chip.embed[id_j][w] >= 0)
-						return 1;
-				}
-				else
-				{
-					if (chip.embed[id_j][w] < 0)
-						return -1;
-				}
+			case RANDOM:
+				ordering = "-Random";
+				break;
 				
-				// compare remaining bits if both have same signal
-				if (chip.embed[id_i][w] < chip.embed[id_j][w])
-					return -1;
-				else if (chip.embed[id_i][w] > chip.embed[id_j][w])
-					return 1;
-			}
-			
-			return 0;
-		}
-		
-		public void swap (int i, int j)
-		{
-			int tmp;
-			tmp = probe_id[i];
-			probe_id[i] = probe_id[j];
-			probe_id[j] = tmp;
-		}
-		
-		public void setPivot (int i)
-		{
-			this.pivot = probe_id[i];
-		}
-		
-		public int compareToPivot (int i)
-		{
-			int id_i = probe_id[i];
-
-			for (int w = 0; w < words; w++)
-			{
-				// compare first bit (signal)
-				// first bit is 1 => negative number
-				// first bit is 0 => non-negative
-				if (chip.embed[id_i][w] < 0)
-				{
-					if (chip.embed[pivot][w] >= 0)
-						return 1;
-				}
-				else
-				{
-					if (chip.embed[pivot][w] < 0)
-						return -1;
-				}
+			case SORT_SEQUENCES:
+				ordering = "-SortSequences";
+				break;
 				
-				// compare remaining bits if both have same signal
-				if (chip.embed[id_i][w] < chip.embed[pivot][w])
-					return -1;
-				else if (chip.embed[id_i][w] > chip.embed[pivot][w])
-					return 1;
-			}
+			case SORT_EMBEDDINGS:
+				ordering = "-SortEmbeddings";
+				break;
+				
+			case TSP_ORDER: 
+				ordering = "-TSP";
+				break;
 			
-			return 0;
+			default:
+				ordering = "-KeepOrder";
+				break;
 		}
 		
-		public int medianOfThree (int i, int j, int k)
-		{
-			int median;
-			
-			if (compare(i,j) < 0)
-			{
-				if (compare(j,k) < 0)
-					median = j;
-				else if (compare(i,k) < 0)
-					median = k;
-				else
-					median = i;
-			}
-			else
-			{
-				if (compare(j,k) > 0)
-					median = j;
-				else if (compare(i,k) > 0)
-					median = k;
-				else
-					median = i;
-			}
-			
-			return median;
-		}
+		return this.getClass().getSimpleName() + ordering;
 	}
 }
