@@ -38,31 +38,41 @@
 package arrayopt.layout;
 
 /**
- *
+ * Class that implements the Sequential Placer algorithm. This algorithm fills
+ * spots sequentially, row-by-row, from top to bottom, left-to-right. The order
+ * of probes placed at each spot can be configured at instantiation time with
+ * the following constants: {@link #KEEP_ORDER}, {@link #RANDOM_ORDER},
+ * {@link #SORT_EMBEDDINGS}, {@link #SORT_SEQUENCES} and {@link #TSP_ORDER}. 
+ * 
+ * @author Sergio A. de Carvalho Jr.
  */
 public class SequentialPlacer implements LayoutAlgorithm, FillingAlgorithm
 {
 	/**
 	 * Constant to indicate that no ordering of probes should be performed
-	 * before placement/filling.
+	 * before placement/filling. This actually means that spots are filled with
+	 * probes ordered as they were received in the list.
 	 */
 	public static final int KEEP_ORDER = 0;
 	
 	/**
 	 * Constant to indicate that the order of the probes should be randomized
-	 * before placement/filling.
+	 * before placement/filling. The randomization is performed by the
+	 * {@link RandomOrdering} class.
 	 */
-	public static final int RANDOM = 1;
+	public static final int RANDOM_ORDER = 1;
 	
 	/**
 	 * Constant to indicate that probes should be ordered lexicographically by
-	 * their sequences before placement/filling.
+	 * their sequences before placement/filling. The ordering is performed by
+	 * the {@link SortedSequencesOrdering} class.
 	 */
 	public static final int SORT_SEQUENCES = 2;
 	
 	/**
 	 * Constant to indicate that probes should be ordered lexicographically by
-	 * their binary embeddings before placement/filling.
+	 * their binary embeddings before placement/filling. The ordering is
+	 * performed by the {@link SortedEmbeddingsOrdering} class.
 	 */
 	public static final int SORT_EMBEDDINGS = 3;
 	
@@ -71,7 +81,8 @@ public class SequentialPlacer implements LayoutAlgorithm, FillingAlgorithm
 	 * before placement/filling, in order to minimize border conflicts between
 	 * neighboring probes. The TSP-tour is computed on a graph where nodes
 	 * represent the probes, and edges between two probes contain the number of
-	 * border conflicts between their embeddings.
+	 * border conflicts between their embeddings. The ordering is performed by
+	 * the {@link TSPOrdering} class.
 	 */
 	public static final int TSP_ORDER = 4;
 	
@@ -81,7 +92,8 @@ public class SequentialPlacer implements LayoutAlgorithm, FillingAlgorithm
 	private int order;
 	
 	/**
-	 * TODO document this
+	 * Creates an instance of the SequentialPlacer algorithm with the default
+	 * probe ordering set to {@link #KEEP_ORDER}.
 	 */
 	public SequentialPlacer ()
 	{
@@ -89,14 +101,21 @@ public class SequentialPlacer implements LayoutAlgorithm, FillingAlgorithm
 	}
 
 	/**
-	 * TODO document this
+	 * Creates an instance of the SequentialPlacer algorithm with the specified
+	 * probe ordering.
+	 * 
+	 * @see #KEEP_ORDER
+	 * @see #RANDOM_ORDER
+	 * @see #SORT_EMBEDDINGS
+	 * @see #SORT_SEQUENCES
+	 * @see #TSP_ORDER
 	 */
 	public SequentialPlacer (int order)
 	{
 		switch (order)
 		{
 			case KEEP_ORDER:
-			case RANDOM:
+			case RANDOM_ORDER:
 			case SORT_SEQUENCES:
 			case SORT_EMBEDDINGS:
 			case TSP_ORDER:
@@ -109,7 +128,12 @@ public class SequentialPlacer implements LayoutAlgorithm, FillingAlgorithm
 	}
 	
 	/**
-	 *
+	 * Uses the Sequential placer algorithm to re-place the probes. All probes
+	 * are initially removed from the spots, and a list with the desired order
+	 * (see {@link #order}) is passed to the
+	 * {@link #fillRegion(Chip, Region, int[]) method.
+	 * 
+	 * @param chip chip instance
 	 */
 	public void changeLayout (Chip chip)
 	{
@@ -127,7 +151,11 @@ public class SequentialPlacer implements LayoutAlgorithm, FillingAlgorithm
 	}
 
 	/**
-	 *
+	 * Fills the spots sequentially with a given list a probes.
+	 * 
+	 * @param chip chip instance
+	 * @param region region of the chip to be filled
+	 * @param probe_id list of probe IDs 
 	 */
 	public int fillRegion (Chip chip, Region region, int probe_id[])
 	{
@@ -135,7 +163,14 @@ public class SequentialPlacer implements LayoutAlgorithm, FillingAlgorithm
 	}
 
 	/**
-	 *
+	 * Fills the spots sequentially with a given list a probes. The elements of
+	 * the list as bounded by the given parameters. 
+	 * 
+	 * @param chip chip instance
+	 * @param region region of the chip to be filled
+	 * @param probe_id list of probe IDs 
+	 * @param start first element of the list
+	 * @param end last element of the list
 	 */
 	public int fillRegion (Chip chip, Region region, int probe_id[], int start,
 		int end)
@@ -151,7 +186,7 @@ public class SequentialPlacer implements LayoutAlgorithm, FillingAlgorithm
 		
 		switch(this.order)
 		{
-			case RANDOM:
+			case RANDOM_ORDER:
 				ordering = new RandomOrdering();
 				break;
 				
@@ -181,9 +216,6 @@ public class SequentialPlacer implements LayoutAlgorithm, FillingAlgorithm
 			throw new IllegalArgumentException ("Unsupported chip type.");
 	}
 
-	/**
-	 *
-	 */
 	protected int fillRegion (SimpleChip chip, RectangularRegion region,
 		int probe_id[], int start, int end)
 	{
@@ -212,9 +244,6 @@ public class SequentialPlacer implements LayoutAlgorithm, FillingAlgorithm
 		return end - start + 1;
 	}
 
-	/**
-	 *
-	 */
 	protected int fillRegion (AffymetrixChip chip, RectangularRegion region,
 		int probe_id[], int start, int end)
 	{
@@ -247,6 +276,8 @@ public class SequentialPlacer implements LayoutAlgorithm, FillingAlgorithm
 	
 	/**
 	 * Returns the algorithm's name together with current options.
+	 * 
+	 * @return algorithm's name and configurable options
 	 */
 	@Override
 	public String toString ()
@@ -255,7 +286,7 @@ public class SequentialPlacer implements LayoutAlgorithm, FillingAlgorithm
 		
 		switch (this.order)
 		{
-			case RANDOM:
+			case RANDOM_ORDER:
 				ordering = "-Random";
 				break;
 				
