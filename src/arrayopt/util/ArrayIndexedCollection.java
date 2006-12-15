@@ -89,17 +89,4 @@ public interface ArrayIndexedCollection
 	 * @return -1, 0 or +1
 	 */
 	public abstract int compareToPivot (int a);
-	
-	/**
-	 * Returns the index of the median element. The three elements should be
-	 * compared and the one with the median value should have its index
-	 * returned. For instance, if <CODE>b < a < c</CODE>, then the method should
-	 * return <CODE>a</CODE>.
-	 * 
-	 * @param a index of first element
-	 * @param b index of second element
-	 * @param c index of third element
-	 * @return index of median element
-	 */
-	public abstract int medianOfThree (int a, int b, int c);
 }

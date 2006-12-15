@@ -116,13 +116,13 @@ public class QuickSort
 		    if (len >= BIG)
 		    {
 		    	k = len / 8;
-		    	i = col.medianOfThree(i, i + k, i + 2 * k);
-				m = col.medianOfThree(m - k, m, m + k);
-				j = col.medianOfThree(j - 2 * k, j - k, j);
+		    	i = medianOfThree(col, i, i + k, i + 2 * k);
+				m = medianOfThree(col, m - k, m, m + k);
+				j = medianOfThree(col, j - 2 * k, j - k, j);
 			}
 		    
-		    // mid-size: med of 3
-		    m = col.medianOfThree(i, m, j);
+		    // mid-size: median of 3
+		    m = medianOfThree(col, i, m, j);
 		}
 		
 		col.setPivot(m);
@@ -163,6 +163,45 @@ public class QuickSort
 		    sort(col, off, m);
 		if ((m = l - k) > 1)
 		    sort(col, off + len - m, m);
+	}
+	
+	/**
+	 * Returns the index of the median element. The three elements should be
+	 * compared and the one with the median value should have its index
+	 * returned. For instance, if <CODE>b < a < c</CODE>, then the method should
+	 * return <CODE>a</CODE>.
+	 * 
+	 * @param col collection containing the array
+	 * @param a index of first element
+	 * @param b index of second element
+	 * @param c index of third element
+	 * @return index of median element
+	 */
+	public static int medianOfThree (ArrayIndexedCollection col, int i, int j,
+			int k)
+	{
+		int median;
+		
+		if (col.compare(i,j) < 0)
+		{
+			if (col.compare(j,k) < 0)
+				median = j;
+			else if (col.compare(i,k) < 0)
+				median = k;
+			else
+				median = i;
+		}
+		else
+		{
+			if (col.compare(j,k) > 0)
+				median = j;
+			else if (col.compare(i,k) > 0)
+				median = k;
+			else
+				median = i;
+		}
+		
+		return median;
 	}
 	
 	/**
