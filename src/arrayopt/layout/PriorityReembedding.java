@@ -95,7 +95,7 @@ import java.util.*;
  * 
  * @author Sergio A. de Carvalho Jr.
  */
-public class PriorityReembedding implements PostPlacementAlgorithm
+public class PriorityReembedding implements LayoutAlgorithm
 {
 	public static final int PRIORITY_NUM_OF_EMBEDDINGS = 0;
 	
@@ -226,7 +226,7 @@ public class PriorityReembedding implements PostPlacementAlgorithm
 	 * 
 	 * @param chip chip instance to be optimized
 	 */
-	public void optimizeLayout (Chip chip)
+	public void changeLayout (Chip chip)
 	{		
 		this.embedder = OptimumSingleProbeEmbedding.createEmbedder(chip, mode);
 		this.num_rows = chip.getNumberOfRows();
@@ -269,9 +269,9 @@ public class PriorityReembedding implements PostPlacementAlgorithm
 		boolean reset = this.reset_first;
 		
 		if (mode == OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN)
-			last_conf = LayoutEvaluation.analyzeBorderLength(chip);
+			last_conf = LayoutEvaluation.borderLength(chip);
 		else // CONFLICT_INDEX_MIN
-			last_conf = LayoutEvaluation.analyzeConflictIndex(chip);
+			last_conf = LayoutEvaluation.averageConflictIndex(chip);
 		
 		pivot_threshold = analyzeProbes();
 		
@@ -289,9 +289,9 @@ public class PriorityReembedding implements PostPlacementAlgorithm
 			reset = false;
 
 			if (mode == OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN)
-				curr_conf = LayoutEvaluation.analyzeBorderLength(chip);
+				curr_conf = LayoutEvaluation.borderLength(chip);
 			else // CONFLICT_INDEX_MIN
-				curr_conf = LayoutEvaluation.analyzeConflictIndex(chip);
+				curr_conf = LayoutEvaluation.averageConflictIndex(chip);
 			
 			impr = (last_conf - curr_conf) / last_conf;
 			
@@ -843,6 +843,45 @@ public class PriorityReembedding implements PostPlacementAlgorithm
 	private boolean isAddedSpot (int row, int col)
 	{
 		return spot_added.get(row * num_cols + col);
+	}
+	
+	/**
+	 * Returns the algorithm's name together with current options.
+	 */
+	@Override
+	public String toString ()
+	{
+		String m, p, r;
+		
+		switch (this.mode)
+		{
+			case OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN:
+				m = "-BL";
+				break;
+				
+			case OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN:
+				m = "-CI";
+				break;
+			
+			default:
+				m = "-?";
+		}
+		
+		if (comparator instanceof EmbeddingsPriority)
+			p = "-NumOfEmbed";
+		else if (comparator instanceof NeighborsPriority)
+			p = "-NumOfNeighbors";
+		else if (comparator instanceof BalancedPriority)
+			p = "-Balanced";
+		else
+			p = "-?";
+
+		if (reset_first)
+			r = "-Reset";
+		else
+			r = "-NoReset";
+		
+		return this.getClass().getSimpleName() + m + p +r;
 	}
 
 	/**
