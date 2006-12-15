@@ -45,7 +45,7 @@ import arrayopt.util.QuickSort;
  * 
  * @author Sergio A. de Carvalho Jr.
  */
-public class ClusterPartitioning implements PlacementAlgorithm
+public class ClusterPartitioning implements LayoutAlgorithm
 {
 	private int mode;
 	
@@ -152,7 +152,7 @@ public class ClusterPartitioning implements PlacementAlgorithm
 	/**
 	 * TODO document this
 	 */
-	public int makeLayout (Chip c)
+	public void changeLayout (Chip c)
 	{
 		int pivots, nonpivots;
 		
@@ -205,8 +205,6 @@ public class ClusterPartitioning implements PlacementAlgorithm
 			dist[i] = Double.POSITIVE_INFINITY;
 		
 		makeClusters(0, pivots - 1, offset, pid.length - 1);
-		
-		return 0;
 	}
 	
 	private int selectPivots ()

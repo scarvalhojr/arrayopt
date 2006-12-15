@@ -43,7 +43,7 @@ import arrayopt.util.QuickSort;
 /**
  *
  */
-public class GreedyEmbeddingsPlacer implements PlacementAlgorithm, FillingAlgorithm
+public class GreedyEmbeddingsPlacer implements LayoutAlgorithm, FillingAlgorithm
 {	
 	private int window_size;
 	
@@ -106,7 +106,7 @@ public class GreedyEmbeddingsPlacer implements PlacementAlgorithm, FillingAlgori
 	/**
 	 *
 	 */
-	public int makeLayout (Chip chip)
+	public void changeLayout (Chip chip)
 	{
 		int		id[];
 
@@ -116,7 +116,7 @@ public class GreedyEmbeddingsPlacer implements PlacementAlgorithm, FillingAlgori
 		// get list of movable probes
 		id = chip.getMovableProbes ();
 
-		return fillRegion (chip, chip.getChipRegion(), id, 0, id.length - 1);
+		fillRegion (chip, chip.getChipRegion(), id, 0, id.length - 1);
 	}
 
 	/**

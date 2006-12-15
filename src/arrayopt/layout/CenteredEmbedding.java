@@ -48,7 +48,7 @@ package arrayopt.layout;
  * @author Sergio A. de Carvalho Jr.
  */
 public class CenteredEmbedding implements SingleProbeEmbeddingAlgorithm,
-	ProbeSetEmbeddingAlgorithm
+	LayoutAlgorithm
 {
 	private LeftMostEmbedding embedder = new LeftMostEmbedding();
 	
@@ -59,6 +59,11 @@ public class CenteredEmbedding implements SingleProbeEmbeddingAlgorithm,
 	 * productive step. 
 	 */
 	private int alternate = - 1;
+	
+	public void changeLayout (Chip chip)
+	{
+		reembedProbeSet (chip, chip.getAllProbes());
+	}
 
 	/**
 	 * embedd a complete set of probes of a given chip
@@ -171,5 +176,14 @@ public class CenteredEmbedding implements SingleProbeEmbeddingAlgorithm,
 	{
 		// TODO implement based on the SimpleChip code
 		return;
+	}
+	
+	/**
+	 * Returns the algorithm's name.
+	 */
+	@Override
+	public String toString ()
+	{
+		return this.getClass().getSimpleName();
 	}
 }

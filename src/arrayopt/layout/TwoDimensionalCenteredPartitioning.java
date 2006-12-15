@@ -40,7 +40,7 @@ package arrayopt.layout;
 /**
  *
  */
-public class TwoDimensionalCenteredPartitioning implements PlacementAlgorithm
+public class TwoDimensionalCenteredPartitioning implements LayoutAlgorithm
 {
 	public static final int DEFAULT_STOP_DIMENSION = 4;
 
@@ -64,7 +64,7 @@ public class TwoDimensionalCenteredPartitioning implements PlacementAlgorithm
 	/**
 	 *
 	 */
-	public int makeLayout (Chip chip)
+	public void changeLayout (Chip chip)
 	{
 		int		id[], m;
 		int		rows_per_probe;
@@ -84,7 +84,7 @@ public class TwoDimensionalCenteredPartitioning implements PlacementAlgorithm
 		
 		m = chip.getEmbeddingLength() / 2;
 
-		return horizontalDivide (chip, m -1, m, chip.getChipRegion(),
+		horizontalDivide (chip, m -1, m, chip.getChipRegion(),
 				rows_per_probe,	0, 0, id, 0, id.length - 1);
 	}
 

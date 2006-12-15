@@ -44,8 +44,12 @@ package arrayopt.layout;
  * @author Anna Domanski & Ronny G?rtner
  */
 public class LeftMostEmbedding implements SingleProbeEmbeddingAlgorithm,
-	ProbeSetEmbeddingAlgorithm
+	LayoutAlgorithm
 {
+	public void changeLayout (Chip chip)
+	{
+		reembedProbeSet (chip, chip.getAllProbes());
+	}
 
 	/**
 	 * embedd a complete set of probes of a given chip
@@ -366,5 +370,14 @@ public class LeftMostEmbedding implements SingleProbeEmbeddingAlgorithm,
 		// and you should use the constant called AFFY_MIDDLE_BASE to control the limits
 		// of the three steps above
 		//}
+	}
+	
+	/**
+	 * Returns the algorithm's name.
+	 */
+	@Override
+	public String toString ()
+	{
+		return this.getClass().getSimpleName();
 	}
 }

@@ -40,7 +40,7 @@ package arrayopt.layout;
 /**
  *
  */
-public class SlidingWindowOptimization implements PostPlacementAlgorithm
+public class SlidingWindowOptimization implements LayoutAlgorithm
 {
 	/**
 	 * document this
@@ -146,7 +146,7 @@ public class SlidingWindowOptimization implements PostPlacementAlgorithm
 	/**
 	 * document this
 	 */
-	public synchronized void optimizeLayout (Chip chip)
+	public synchronized void changeLayout (Chip chip)
 	{
 		RectangularRegion	region;
 		float				impr, total_impr = 0;

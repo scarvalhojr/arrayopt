@@ -40,8 +40,13 @@ package arrayopt.layout;
 /**
  * please document this
  */
-public class MultipleAlignmentEmbedding implements ProbeSetEmbeddingAlgorithm
+public class MultipleAlignmentEmbedding implements LayoutAlgorithm
 {
+	public void changeLayout (Chip chip)
+	{
+		reembedProbeSet (chip, chip.getAllProbes());
+	}
+
 	/**
 	 * please document this
 	 */
@@ -55,6 +60,16 @@ public class MultipleAlignmentEmbedding implements ProbeSetEmbeddingAlgorithm
 	 */
 	public void reembedProbeSet (Chip chip, int probe_id[], int first, int last)
 	{
-		// to do
+		// TODO implement
+		throw new IllegalStateException ("Method not implemented!");
+	}
+	
+	/**
+	 * Returns the algorithm's name.
+	 */
+	@Override
+	public String toString ()
+	{
+		return this.getClass().getSimpleName();
 	}
 }

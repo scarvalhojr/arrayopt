@@ -43,7 +43,7 @@ import arrayopt.util.QuickSort;
 /**
  *
  */
-public class KThreadingPlacer implements PlacementAlgorithm, FillingAlgorithm
+public class KThreadingPlacer implements LayoutAlgorithm, FillingAlgorithm
 {
 	/**
 	 * TODO document this
@@ -75,7 +75,7 @@ public class KThreadingPlacer implements PlacementAlgorithm, FillingAlgorithm
 	/**
 	 *
 	 */
-	public int makeLayout (Chip chip)
+	public void changeLayout (Chip chip)
 	{
 		int		id[];
 
@@ -85,7 +85,7 @@ public class KThreadingPlacer implements PlacementAlgorithm, FillingAlgorithm
 		// get list of movable probes
 		id = chip.getMovableProbes ();
 
-		return fillRegion (chip, chip.getChipRegion(), id, 0, id.length - 1);
+		fillRegion (chip, chip.getChipRegion(), id, 0, id.length - 1);
 	}
 
 	/**

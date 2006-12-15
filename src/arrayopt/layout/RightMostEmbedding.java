@@ -43,8 +43,13 @@ package arrayopt.layout;
  * @author Anna Domanski & Ronny G?rtner
  */
 public class RightMostEmbedding implements SingleProbeEmbeddingAlgorithm,
-	ProbeSetEmbeddingAlgorithm
+	LayoutAlgorithm
 {
+	public void changeLayout (Chip chip)
+	{
+		reembedProbeSet (chip, chip.getAllProbes());
+	}
+
 	/**
 	 * embedd a complete set of probes of a given chip
 	 */
@@ -345,5 +350,14 @@ public class RightMostEmbedding implements SingleProbeEmbeddingAlgorithm,
 
 		// similar to a left-most embedding, but everything goes
 		// from right to left
+	}
+	
+	/**
+	 * Returns the algorithm's name.
+	 */
+	@Override
+	public String toString ()
+	{
+		return this.getClass().getSimpleName();
 	}
 }

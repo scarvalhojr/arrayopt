@@ -72,7 +72,7 @@ import arrayopt.util.QuickSort;
  * @author Ronny Gaertner
  * @author Sergio A. de Carvalho Jr.
  */
-public class PivotPartitioning implements PlacementAlgorithm
+public class PivotPartitioning implements LayoutAlgorithm
 {
 	private int mode;
 	
@@ -197,7 +197,7 @@ public class PivotPartitioning implements PlacementAlgorithm
 	/**
 	 * TODO document this
 	 */
-	public int makeLayout (Chip c)
+	public void changeLayout (Chip c)
 	{
 		int pivots, nonpivots;
 		
@@ -235,8 +235,8 @@ public class PivotPartitioning implements PlacementAlgorithm
 		dist = new double[nonpivots];
 		dist_sort = new DistanceSorting (pid, rank, dist, offset);
 		
-		return horizontalDivide (1, chip.getChipRegion(), 0, pivots - 1, pivots,
-				pid.length - 1);
+		horizontalDivide (1, chip.getChipRegion(), 0, pivots - 1, pivots,
+			pid.length - 1);
 	}
 	
 	private int selectPivots ()

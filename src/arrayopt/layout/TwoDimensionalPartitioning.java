@@ -40,7 +40,7 @@ package arrayopt.layout;
 /**
  *
  */
-public class TwoDimensionalPartitioning implements PlacementAlgorithm
+public class TwoDimensionalPartitioning implements LayoutAlgorithm
 {
 	public static final int DEFAULT_STOP_DIMENSION = 4;
 
@@ -64,7 +64,7 @@ public class TwoDimensionalPartitioning implements PlacementAlgorithm
 	/**
 	 *
 	 */
-	public int makeLayout (Chip chip)
+	public void changeLayout (Chip chip)
 	{
 		int		id[];
 		int		rows_per_probe;
@@ -82,8 +82,8 @@ public class TwoDimensionalPartitioning implements PlacementAlgorithm
 		// get list of movable probes
 		id = chip.getMovableProbes ();
 
-		return horizontalDivide (chip, 0, chip.getChipRegion(), rows_per_probe,
-									0, 0, id, 0, id.length - 1);
+		horizontalDivide (chip, 0, chip.getChipRegion(), rows_per_probe, 0, 0,
+				id, 0, id.length - 1);
 	}
 
 	protected int horizontalDivide (Chip chip, int step, RectangularRegion r,

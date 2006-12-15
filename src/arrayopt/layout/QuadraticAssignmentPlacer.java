@@ -76,8 +76,8 @@ import arrayopt.qap.*;
  * nearest integer, which may impair the results.</P>
  *
  */
-public class QuadraticAssignmentPlacer implements PlacementAlgorithm, FillingAlgorithm,
-	PostPlacementAlgorithm, IteractiveOptimizationAlgorithm
+public class QuadraticAssignmentPlacer implements LayoutAlgorithm,
+	FillingAlgorithm, IteractiveOptimizationAlgorithm
 {
 	// TODO handle fixed spots
 	
@@ -221,7 +221,7 @@ public class QuadraticAssignmentPlacer implements PlacementAlgorithm, FillingAlg
 	 * @param chip chip to be designed
 	 * @return number of unplaced probes
 	 */
-	public int makeLayout (Chip chip)
+	public void changeLayout (Chip chip)
 	{
 		int		id[];
 
@@ -231,7 +231,7 @@ public class QuadraticAssignmentPlacer implements PlacementAlgorithm, FillingAlg
 		// get list of all probes
 		id = chip.getAllProbes ();
 		
-		return fillRegion (chip, chip.getChipRegion(), id, 0, id.length - 1);
+		fillRegion (chip, chip.getChipRegion(), id, 0, id.length - 1);
 	}
 	
 	/**

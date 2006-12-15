@@ -40,11 +40,16 @@ package arrayopt.layout;
 /**
  */
 public class EdgeEmbedding implements SingleProbeEmbeddingAlgorithm,
-	ProbeSetEmbeddingAlgorithm
+	LayoutAlgorithm
 {
 	private LeftMostEmbedding left_embed = new LeftMostEmbedding();
 	
 	private int embed[];
+	
+	public void changeLayout (Chip chip)
+	{
+		reembedProbeSet (chip, chip.getAllProbes());
+	}
 
 	public void reembedProbeSet (Chip chip, int probe_id[])
 	{
@@ -246,5 +251,14 @@ public class EdgeEmbedding implements SingleProbeEmbeddingAlgorithm,
 				rmask <<= 1;
 			
 		} while (len_right < step);
+	}
+	
+	/**
+	 * Returns the algorithm's name.
+	 */
+	@Override
+	public String toString ()
+	{
+		return this.getClass().getSimpleName();
 	}
 }
