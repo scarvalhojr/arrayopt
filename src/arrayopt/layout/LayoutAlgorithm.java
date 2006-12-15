@@ -1,5 +1,5 @@
 /*
- * ProbeSetEmbeddingAlgorithm.java
+ * LayoutAlgorithm.java
  *
  * $Revision$
  *
@@ -38,17 +38,12 @@
 package arrayopt.layout;
 
 /**
- * document this
+ *
  */
-public interface ProbeSetEmbeddingAlgorithm
+public interface LayoutAlgorithm
 {
 	/**
-	 * document this
+	 *
 	 */
-	public void reembedProbeSet (Chip chip, int probe_id[]);
-
-	/**
-	 * embedd a set of probes of a chip within a range: from first to last probe
-	 */
-	public void reembedProbeSet (Chip chip, int probe_id[], int first, int last);
+	public void changeLayout (Chip chip);
 }
