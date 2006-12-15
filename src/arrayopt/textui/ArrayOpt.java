@@ -53,20 +53,35 @@ public class ArrayOpt
 						"ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT" +
 						"ACGTACGTACGTACGTACGT";
 
+	private static int SIMPLE_CHIP = 0;
+	
+	private static int AFFY_CHIP = 1;
+	
 	public static void main (String args[])
 	{
-		PostPlacementAlgorithm	optimizer = null;
-		PlacementAlgorithm		placer = null;
+		LayoutAlgorithm alg[];
 		Chip	chip, copy = null;
-		String	type, filename, dep_seq, placement, optimization;
-		int		rows, cols, probes, probe_len, unplaced;
+		String	filename, dep_seq;
+		int		i, type, rows, cols, probes, probe_len, num_alg, a;
 		boolean	ignore_fixed, check, calc_bl, calc_ci, print_chip;
-		long	start, end;
+		long	start, end, total = 0;
 
 		try
 		{
 			// get command-line arguments
-			type = args[0];
+			
+			// chip type: 'simple' or 'affy' 
+			if (args[0].equalsIgnoreCase("simple"))
+			{
+				type = SIMPLE_CHIP;
+			}
+			else if (args[0].equalsIgnoreCase("affy"))
+			{
+				type = AFFY_CHIP;
+			}
+			else
+				throw new IllegalArgumentException ("unknown chip type '" +
+					args[0] + "'");
 			
 			// ignore fixed spots?
 			if (args[1].equalsIgnoreCase("fix"))
@@ -74,56 +89,54 @@ public class ArrayOpt
 			else if (args[1].equalsIgnoreCase("nofix"))
 				ignore_fixed = true;
 			else
-				throw new IllegalArgumentException
-					("Illegal argument: " + args[1]); 
-
+				throw new IllegalArgumentException ("'" + args[1] +
+					"' (expected 'fix' or 'nofix')");
+			
 			filename     = args[2];
 			rows         = Integer.parseInt(args[3]);
 			cols         = Integer.parseInt(args[4]);
 			probes       = Integer.parseInt(args[5]);
 			probe_len    = Integer.parseInt(args[6]);
 			dep_seq	     = args[7];
-			placement    = args[8];
-			optimization = args[9];
 
 			// perform validation checks?
-			if (args[10].equalsIgnoreCase("check"))
+			if (args[8].equalsIgnoreCase("check"))
 				check = true;
-			else if (args[10].equalsIgnoreCase("no-check"))
+			else if (args[8].equalsIgnoreCase("no-check"))
 				check = false;
 			else
-				throw new IllegalArgumentException
-					("Illegal argument '" + args[10] + "'"); 
+				throw new IllegalArgumentException ("'" + args[8] +
+					"' (expected 'check' or 'no-check')");
 
 			// compute and print total border
 			// length or average conflict indices? 
-			if (args[11].equalsIgnoreCase("calc-bl"))
+			if (args[9].equalsIgnoreCase("calc-bl"))
 			{
 				calc_bl = true;
 				calc_ci = false;
 			}
-			else if (args[11].equalsIgnoreCase("calc-ci"))
+			else if (args[9].equalsIgnoreCase("calc-ci"))
 			{
 				calc_bl = false;
 				calc_ci = true;
 			}
-			else if (args[11].equalsIgnoreCase("no-calc"))
+			else if (args[9].equalsIgnoreCase("no-calc"))
 			{
 				calc_bl = false;
 				calc_ci = false;
 			}
 			else
-				throw new IllegalArgumentException
-					("Illegal argument '" + args[11] + "'"); 
+				throw new IllegalArgumentException ("'" + args[9] +
+					"' (expected 'calc-bl' or 'calc-ci' or 'no-calc')");
 			
 			// print produced layout?
-			if (args[12].equalsIgnoreCase("print"))
+			if (args[10].equalsIgnoreCase("print"))
 				print_chip = true;
-			else if (args[12].equalsIgnoreCase("no-print"))
+			else if (args[10].equalsIgnoreCase("no-print"))
 				print_chip = false;
 			else
-				throw new IllegalArgumentException
-					("Illegal argument '" + args[12] + "'"); 
+				throw new IllegalArgumentException ("'" + args[10] +
+					"' (expected 'print' or 'no-print')");
 		}
 		catch (NumberFormatException e)
 		{
@@ -143,23 +156,23 @@ public class ArrayOpt
 		catch (IllegalArgumentException e)
 		{
 			usage();
-			System.err.println("ERROR: " + e.getMessage());
+			System.err.println("Illegal argument: " + e.getMessage());
 			System.exit(1);
 			return;
 		}
 		
-		// standard deposition sequences
+		// check use of standard deposition sequences
 		if (dep_seq.equalsIgnoreCase("AFFY"))
 			dep_seq = AFFY_DEP_SEQ;
 		else if (dep_seq.equalsIgnoreCase("SYNC"))
 			dep_seq = SYNC_DEP_SEQ;		
 
 		// create chip
-		if (type.equalsIgnoreCase("simple"))
+		if (type == SIMPLE_CHIP)
 		{
 			chip = new SimpleChip (rows, cols, probes, probe_len, dep_seq);
 		}
-		else if (type.equalsIgnoreCase("affy"))
+		else // if (type == AFFY_CHIP)
 		{
 			if (probe_len != AffymetrixChip.AFFY_PROBE_LENGTH)
 				throw new IllegalArgumentException
@@ -168,9 +181,294 @@ public class ArrayOpt
 
 			chip = new AffymetrixChip (rows, cols, probes, dep_seq);
 		}
+		
+		// create array of algorithms
+		num_alg = args.length - 11;
+		if (num_alg > 0)
+		{
+			alg = new LayoutAlgorithm[num_alg];
+			
+			// create an instance of each algorithm
+			for (i = 11, a = 0; i < args.length; a++, i++)
+				alg[a] = parseAlgorithmName(args[i]);
+		}
+		else
+		{
+			alg = null;
+			check = false;
+		}
+		
+		if (filename.equalsIgnoreCase("RANDOM"))
+		{
+			System.err.println("Generating random chip...");
+			
+			chip.createRandomLayout();
+		}
+		else
+		{
+			System.err.println("Reading input file '" + filename + "'...");
+			
+			try
+			{
+				FileReader file = new FileReader(filename);
+				chip.readLayout (file, ignore_fixed);
+				file.close();
+	
+			}
+			catch (Exception e)
+			{
+				e.printStackTrace ();
+				System.exit(1);
+				return;
+			}
+		}
+
+		if (check)
+		{
+			// make a copy of the chip before modifying its layout
+			if (chip instanceof SimpleChip)
+			{
+				copy = ((SimpleChip) chip).clone();
+			}
+			else
+			{
+				copy = ((AffymetrixChip) chip).clone();
+			}
+		}
+		
+		for (a = 0; a < num_alg; a++)
+		{
+			if (calc_bl)
+			{
+				System.err.println("Current total border length: " +
+						LayoutEvaluation.borderLength(chip));
+			}
+			else if (calc_ci)
+			{
+				System.err.println("Current average conflict index: " +
+						LayoutEvaluation.averageConflictIndex(chip));
+			}
+			
+			System.err.println("Running " + alg[a] + "...");
+			
+			start = System.nanoTime();
+
+			// re-place probes on the chip
+			alg[a].changeLayout(chip);
+			
+			end = System.nanoTime();
+			
+			total += end - start;
+			
+			System.err.println("Elapsed time: " +
+					(end - start)/Math.pow(10,9) + " sec");
+		}
+
+		if (calc_bl)
+		{
+			System.err.println("Final total border length: " +
+					LayoutEvaluation.borderLength(chip));
+		}
+		else if (calc_ci)
+		{
+			System.err.println("Final average conflict index: " +
+					LayoutEvaluation.averageConflictIndex(chip));
+		}
+
+		System.err.println("Total time: " + total/Math.pow(10,9) + " sec");
+
+		if (copy != null)
+		{
+			if (chip.equals(copy))
+				System.err.println("WARNING: new layout is equal to the "+
+						"original specification.");
+			else
+				System.err.println("New layout is not equal to the " +
+						"original specification.");
+
+			if (!chip.compatible(copy))
+				System.err.println("WARNING: new layout is NOT compatible " +
+						"with the original specification.");
+			else
+				System.err.println("New layout is compatible " +
+						"with the original specification.");
+		}
+
+		if (print_chip)
+		{
+			try
+			{
+				// print chip layout
+				chip.writeLayout(new PrintWriter(System.out));
+			}
+			catch (IOException e)
+			{
+				e.printStackTrace();
+			}
+		}
+
+		System.exit(0);
+	}
+	
+	private static LayoutAlgorithm parseAlgorithmName (String name)
+	{
+		LayoutAlgorithm alg;
+
+		// *****************
+		// Sequential placer
+		// *****************
+		if (name.equalsIgnoreCase("SEQPLACER-KEEP"))
+			alg = new SequentialPlacer(SequentialPlacer.KEEP_ORDER);
+		
+		else if (name.equalsIgnoreCase("SEQPLACER-RANDOM"))
+			alg = new SequentialPlacer(SequentialPlacer.RANDOM);
+		
+		else if (name.equalsIgnoreCase("SEQPLACER-SORTEMBED"))
+			alg = new SequentialPlacer(SequentialPlacer.SORT_EMBEDDINGS);
+		
+		else if (name.equalsIgnoreCase("SEQPLACER-SORTSEQ"))
+			alg = new SequentialPlacer(SequentialPlacer.SORT_SEQUENCES);
+		
+		else if (name.equalsIgnoreCase("SEQPLACER-TSP"))
+			alg = new SequentialPlacer(SequentialPlacer.TSP_ORDER);
+
+		// ********************************************************
+		// Leftmost, Rightmost and Centered re-embedding algorithms
+		// ********************************************************
+		else if (name.equalsIgnoreCase("LEFT-EMBED"))
+			alg = new LeftMostEmbedding();
+		
+		else if (name.equalsIgnoreCase("RIGHT-EMBED"))
+			alg = new RightMostEmbedding();
+		
+		else if (name.equalsIgnoreCase("CENTERED-EMBED"))
+			alg = new CenteredEmbedding();
+		
+		// ***********************
+		// Sequential re-embedding
+		// ***********************
+		else if (name.equalsIgnoreCase("SEQREEMBED-BL-RESET"))
+			alg = new SequentialReembedding(
+				OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN, true);
+		
+		else if (name.equalsIgnoreCase("SEQREEMBED-BL-NORESET"))
+			alg = new SequentialReembedding(
+				OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN, false);
+		
+		else if (name.equalsIgnoreCase("SEQREEMBED-CI-RESET"))
+			alg = new SequentialReembedding(
+				OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN, true);
+		
+		else if (name.equalsIgnoreCase("SEQREEMBED-CI-NORESET"))
+			alg = new SequentialReembedding(
+				OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN, false);
+
+		// *********************
+		// Priority re-embedding
+		// *********************
+		else if (name.equalsIgnoreCase("PRIORITYREEMBED-BL-NUMEMBED-RESET"))
+			alg = new PriorityReembedding(
+					OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN,
+					PriorityReembedding.PRIORITY_NUM_OF_EMBEDDINGS, true);
+
+		else if (name.equalsIgnoreCase("PRIORITYREEMBED-BL-NUMEMBED-NORESET"))
+			alg = new PriorityReembedding(
+					OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN,
+					PriorityReembedding.PRIORITY_NUM_OF_EMBEDDINGS, false);
+
+		else if (name.equalsIgnoreCase("PRIORITYREEMBED-BL-NUMNEIGHBORS-RESET"))
+			alg = new PriorityReembedding(
+					OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN,
+					PriorityReembedding.PRIORITY_NUM_OF_NEIGHBORS, true);
+
+		else if (name.equalsIgnoreCase("PRIORITYREEMBED-BL-NUMNEIGHBORS-NORESET"))
+			alg = new PriorityReembedding(
+					OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN,
+					PriorityReembedding.PRIORITY_NUM_OF_NEIGHBORS, false);
+
+		else if (name.equalsIgnoreCase("PRIORITYREEMBED-BL-BALANCED-RESET"))
+			alg = new PriorityReembedding(
+					OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN,
+					PriorityReembedding.PRIORITY_BALANCED, true);
+
+		else if (name.equalsIgnoreCase("PRIORITYREEMBED-BL-BALANCED-NORESET"))
+			alg = new PriorityReembedding(
+					OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN,
+					PriorityReembedding.PRIORITY_BALANCED, false);
+
+		else if (name.equalsIgnoreCase("PRIORITYREEMBED-CI-NUMEMBED-RESET"))
+			alg = new PriorityReembedding(
+					OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN,
+					PriorityReembedding.PRIORITY_NUM_OF_EMBEDDINGS, true);
+
+		else if (name.equalsIgnoreCase("PRIORITYREEMBED-CI-NUMEMBED-NORESET"))
+			alg = new PriorityReembedding(
+					OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN,
+					PriorityReembedding.PRIORITY_NUM_OF_EMBEDDINGS, false);
+
+		else if (name.equalsIgnoreCase("PRIORITYREEMBED-CI-NUMNEIGHBORS-RESET"))
+			alg = new PriorityReembedding(
+					OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN,
+					PriorityReembedding.PRIORITY_NUM_OF_NEIGHBORS, true);
+
+		else if (name.equalsIgnoreCase("PRIORITYREEMBED-CI-NUMNEIGHBORS-NORESET"))
+			alg = new PriorityReembedding(
+					OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN,
+					PriorityReembedding.PRIORITY_NUM_OF_NEIGHBORS, false);
+
+		else if (name.equalsIgnoreCase("PRIORITYREEMBED-CI-BALANCED-RESET"))
+			alg = new PriorityReembedding(
+					OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN,
+					PriorityReembedding.PRIORITY_BALANCED, true);
+
+		else if (name.equalsIgnoreCase("PRIORITYREEMBED-CI-BALANCED-NORESET"))
+			alg = new PriorityReembedding(
+					OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN,
+					PriorityReembedding.PRIORITY_BALANCED, false);
+
+
 		else
 			throw new IllegalArgumentException
-				("Unknown chip type '" + type + "'");
+				("Unknown layout algorithm '" + name + "'");
+		
+		return alg;
+	}
+
+	private static void usage ()
+	{
+		System.err.println (
+	"--------------------------\n" +
+	"ArrayOpt Microarray Design\n" +
+	"--------------------------\n\n" +
+	"Usage: ArrayOpt (affy | simple) (fix | nofix) <input> <rows> <columns>\n" +
+	"          <probes> <length> <dep-seq> (check | no-check)\n" +
+	"          (calc-bl | calc-ci | no-calc) (print | no-print) <alg>*\n");
+		System.err.println (
+	"where: 'affy'      indicates an Affymetrix chip type\n" +
+	"       'simple'    indicates a simple chip type\n" +
+	"       'fix'       considers fixed spots\n" +
+	"       'no-fix'    ignores fixed spots in the input\n" +
+	"       <input>     is a file name or RANDOM for a randomly generated\n" +
+	"                      chip\n" +
+	"       <rows>      is the number of rows in the chip\n" +
+	"       <columns>   is the number of columns in the chip\n" +
+	"       <probes>    is the number of probe in the chip\n" +
+	"       <length>    is the length of probes sequences\n" +
+	"       <dep-seq>   is the deposition sequence or\n" +
+	"                      AFFY for Affymetrix's sequence or\n" +
+	"                      SYNC for a 100-step ACGT repetition\n" +
+	"       'check'     performs validation checks\n" +
+	"       'no-check'  does not perform validation checks\n" +
+	"       'calc-bl'   computes and prints total border length\n" +
+	"       'calc-ci'   computes and prints average conflict indices\n" +
+	"       'no-calc'   does not compute/print any quality measure\n" +
+	"       'print'     prints the resulting layout on standard output\n" +
+	"       'no-print'  does not print the resulting layout\n" +
+	"       <alg>*      zero or more layout algorithms\n");
+	
+	}
+	
+	/*
 
 		// ******************************************************
 		// placement algorithm selection
@@ -851,179 +1149,6 @@ public class ArrayOpt
 		else
 			throw new IllegalArgumentException
 				("Unknown post-placement algorithm '" + optimization + "'");
-		
-		if (filename.equalsIgnoreCase("RANDOM"))
-		{
-			System.err.println("Generating random chip...");
-			
-			chip.createRandomLayout();
-		}
-		else
-		{
-			System.err.println("Reading input file '" + filename + "'...");
-			
-			try
-			{
-				// create a file reader for the input
-				FileReader file = new FileReader(filename);
-	
-				// read input
-				chip.readLayout (file, ignore_fixed);
-	
-				// close reader
-				file.close();
-	
-			}
-			catch (Exception e)
-			{
-				e.printStackTrace ();
-				System.exit(1);
-				return;
-			}
-		}
 
-		if (check)
-		{
-			// make a copy of the chip before modifying its layout
-			if (chip instanceof SimpleChip)
-			{
-				copy = ((SimpleChip) chip).clone();
-			}
-			else
-			{
-				copy = ((AffymetrixChip) chip).clone();
-			}
-		}
-		
-		if (placer != null)
-		{
-			System.err.println("Running " + placement + " placement algorithm...");
-			
-			if (calc_bl)
-			{
-				System.err.println("Border length before placement: " +
-						LayoutEvaluation.borderLength(chip));
-			}
-			else if (calc_ci)
-			{
-				System.err.println("Conflict index before placement: " +
-						LayoutEvaluation.averageConflictIndex(chip));
-			}
-			
-			start = System.nanoTime();
-
-			// re-place probes on the chip
-			unplaced = placer.makeLayout(chip);
-			
-			end = System.nanoTime();
-			
-			System.err.println("Elapsed time (placement): " +
-					(end - start)/Math.pow(10,9) + " sec");
-			
-			if (unplaced > 0)
-				System.err.println("WARNING: " + unplaced +
-					" unplaced probe(s)");
-		}
-
-		if (optimizer != null)
-		{
-			if (calc_bl)
-			{
-				System.err.println("Border length before optimization: " +
-						LayoutEvaluation.borderLength(chip));
-			}
-			else if (calc_ci)
-			{
-				System.err.println("Conflict index before optimization: " +
-						LayoutEvaluation.averageConflictIndex(chip));
-			}
-			
-			start = System.nanoTime();
-			
-			optimizer.optimizeLayout (chip);
-
-			end = System.nanoTime();
-			
-			System.err.println("Elapsed time (optimization): " +
-					(end - start)/Math.pow(10,9) + " sec");
-		}
-
-		if (calc_bl)
-		{
-			System.err.println("Final border length: " +
-					LayoutEvaluation.borderLength(chip));
-		}
-		else if (calc_ci)
-		{
-			System.err.println("Final conflict index: " +
-					LayoutEvaluation.averageConflictIndex(chip));
-		}
-
-		if (copy != null)
-		{
-			if (chip.equals(copy))
-				System.err.println("WARNING: new layout is equal to the "+
-						"original specification.");
-			else
-				System.err.println("New layout is not equal to the " +
-						"original specification.");
-
-			if (!chip.compatible(copy))
-				System.err.println("WARNING: new layout is NOT compatible " +
-						"with the original specification.");
-			else
-				System.err.println("New layout is compatible " +
-						"with the original specification.");
-		}
-
-		if (print_chip)
-		{
-			try
-			{
-				// print chip layout
-				chip.writeLayout(new PrintWriter(System.out));
-			}
-			catch (IOException e)
-			{
-				e.printStackTrace();
-			}
-		}
-
-		System.exit(0);
-	}
-
-	private static void usage ()
-	{
-		System.err.println (
-	"--------------------------\n" +
-	"ArrayOpt Microarray Design\n" +
-	"--------------------------\n\n" +
-	"Usage: ArrayOpt (affy | simple) (fix | nofix) <input> <rows> <columns>\n" +
-	"          <probes> <length> <dep-seq> <placer> <optimizer>\n" +
-	"          (check | no-check) (calc-bl | calc-ci | no-calc)\n" +
-	"          (print | no-print)\n");
-		System.err.println (
-	"where: 'affy'      indicates an Affymetrix chip type\n" +
-	"       'simple'    indicates a simple chip type\n" +
-	"       'fix'       considers fixed spots\n" +
-	"       'no-fix'    ignores fixed spots in the input\n" +
-	"       <input>     is a file name or RANDOM for a randomly generated\n" +
-	"                      chip\n" +
-	"       <rows>      is the number of rows in the chip\n" +
-	"       <columns>   is the number of columns in the chip\n" +
-	"       <probes>    is the number of probe in the chip\n" +
-	"       <length>    is the length of probes sequences\n" +
-	"       <dep-seq>   is the deposition sequence or\n" +
-	"                      AFFY for Affymetrix's sequence or\n" +
-	"                      SYNC for a 100-step ACGT repetition\n" +
-	"       <placer>    is a placement algorithm or NONE\n" +
-	"       <optimizer> is a post-placement optimization or NONE\n" +
-	"       'check'     performs validation checks\n" +
-	"       'no-check'  does not perform validation checks\n" +
-	"       'calc-bl'   computes and prints total border length\n" +
-	"       'calc-ci'   computes and prints average conflict indices\n" +
-	"       'no-calc'   does not compute/print any quality measure\n" +
-	"       'print'     prints the resulting layout on standard output\n" +
-	"       'no-print'  does not print the resulting layout\n");
-	}
+	 */
 }
