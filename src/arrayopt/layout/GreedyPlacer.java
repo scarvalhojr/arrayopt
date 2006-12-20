@@ -37,31 +37,113 @@
 
 package arrayopt.layout;
 
-import arrayopt.util.ArrayIndexedCollection;
-import arrayopt.util.QuickSort;
-
 /**
- *
+ * This class implements the Greedy placement algorithm.
+ * 
+ * <P>The Greedy algorithm creates a new layout by filling spots sequentially
+ * using a k-threading pattern identical to the one implemented in
+ * {@link KThreadingPlacer}. The amplitude of the k-threading is set with the
+ * {@link #kvalue} variable (at instantiation time). For every spot
+ * <CODE>s</CODE>, it finds a probe <CODE>p</CODE> with minimum cost to fill
+ * <CODE>s</CODE>. The cost is either the sum of border conflicts
+ * ({@link #BORDER_LENGTH_MIN}) or sum of conflict indices
+ * ({@link #CONFLICT_INDEX_MIN}) with filled neighbors.</P>
+ * 
+ * <P>The algorithm looks at {@link #window_size} probe candidate for filling
+ * each spot. All probes are initially ordered according to the specified order
+ * and a doubly-linked list is created, where each node of the list contains a
+ * single probe ID. Once a probe is placed, it is removed from the list, and the
+ * next search of probe candidates starts at the next or previous element in the
+ * list. The search will examine at most {@link #window_size} elements,
+ * preferably <CODE>window_size/2</CODE> to the left and
+ * <CODE>window_size/2</CODE> to the right of the last placed probe. This
+ * effectively improves the chances of finding probes similar to its neighbors
+ * to fill a given spot.</P>
+ * 
+ * The doubly-linked list is used to maintain the desired order, which must be
+ * specified at instantiation time with the following constants:
+ * {@link #KEEP_ORDER}, {@link #RANDOM_ORDER}, {@link #SORT_EMBEDDINGS},
+ * {@link #SORT_SEQUENCES} and {@link #TSP_ORDER}.</P>
+ * 
+ * @author Sergio A. de Carvalho Jr.
  */
 public class GreedyPlacer implements LayoutAlgorithm, FillingAlgorithm
 {
-	private int window_size;
+	/**
+	 * Constant used to indicate that the algorithm should try to minimize the
+	 * total border length of the microarray layout.
+	 */
+	public static final int BORDER_LENGTH_MIN = 0;
 	
-	private int mode;
-	
-	public static final int MODE_BORDER_LENGTH = 0;
-	
-	public static final int MODE_CONFLICT_INDEX = 1;
-	
-	private static final int NO_PREPROCESSING = 0;
-	
-	public static final int SORT_EMBEDDINGS = 1;
+	/**
+	 * Constant used to indicate that the algorithm should try to minimize the
+	 * sum of conflict indices of the microarray layout.
+	 */
+	public static final int CONFLICT_INDEX_MIN = 1;
 
-	public static final int RANDOMIZE_INPUT = 2;
+	/**
+	 * Constant to indicate that no ordering of probes should be performed
+	 * before placement/filling. This actually means that spots are filled with
+	 * probes ordered as they were received in the list.
+	 */
+	public static final int KEEP_ORDER = 0;
 	
-	private boolean sort_embeddings;
+	/**
+	 * Constant to indicate that the order of the probes should be randomized
+	 * before placement/filling. The randomization is performed by the
+	 * {@link RandomOrdering} class.
+	 */
+	public static final int RANDOM_ORDER = 1;
 	
-	private boolean randomize_input;
+	/**
+	 * Constant to indicate that probes should be ordered lexicographically by
+	 * their sequences before placement/filling. The ordering is performed by
+	 * the {@link SortedSequencesOrdering} class.
+	 */
+	public static final int SORT_SEQUENCES = 2;
+	
+	/**
+	 * Constant to indicate that probes should be ordered lexicographically by
+	 * their binary embeddings before placement/filling. The ordering is
+	 * performed by the {@link SortedEmbeddingsOrdering} class.
+	 */
+	public static final int SORT_EMBEDDINGS = 3;
+	
+	/**
+	 * Constant to indicate that a TSP-tour of the probes must be computed
+	 * before placement/filling, in order to minimize border conflicts between
+	 * neighboring probes. The TSP-tour is computed on a graph where nodes
+	 * represent the probes, and edges between two probes contain the number of
+	 * border conflicts between their embeddings. The ordering is performed by
+	 * the {@link TSPOrdering} class.
+	 */
+	public static final int TSP_ORDER = 4;
+	
+	/**
+	 * This variable stores the current minimization mode used by the algorithm.
+	 * Possible values are {@link #BORDER_LENGTH_MIN} and
+	 * {@link #CONFLICT_INDEX_MIN}. 
+	 */
+	private int mode;
+
+	/**
+	 * Indicate the ordering of the probes used for placement/filling.
+	 */
+	private int order;
+	
+	/**
+	 * Maximum number of probe candidades considered for each spot.
+	 */
+	private int window_size;
+		
+	/**
+	 * The amplitude of the k-threading. This gives the number of upward and
+	 * downward movements between the right-to-left and left-to-right paths over
+	 * the chip.
+	 */
+	private int kvalue;
+	
+	private ProbeOrderingAlgorithm ordering;
 	
 	private RectangularRegion chip_region;
 	
@@ -73,29 +155,32 @@ public class GreedyPlacer implements LayoutAlgorithm, FillingAlgorithm
 	
 	private double pos_weight[];
 	
-	private double conflict[];
-
-	public GreedyPlacer ()
-	{
-		this(MODE_BORDER_LENGTH);
-	}
-
-	public GreedyPlacer (int mode)
-	{
-		this(mode, 0);
-	}
-
-	public GreedyPlacer (int mode, int window_size)
-	{
-		this(mode, window_size, NO_PREPROCESSING);
-	}
-
-	public GreedyPlacer (int mode, int window_size, int options)
+	private double m_cost[];
+	
+	private double u_cost[];
+	
+	/**
+	 * Creates an instance of the Greedy placement algorithm with the desired
+	 * minimization mode, probe ordering and window size.
+	 * 
+	 * @see #BORDER_LENGTH_MIN
+	 * @see #CONFLICT_INDEX_MIN
+	 * @see #KEEP_ORDER
+	 * @see #RANDOM_ORDER
+	 * @see #SORT_EMBEDDINGS
+	 * @see #SORT_SEQUENCES
+	 * @see #TSP_ORDER
+	 * @see #window_size
+	 * @param mode minimization mode, either border length or conflict index
+	 * @param order order of probes during placement/filling
+	 * @param window_size maximum number of candidades examined for each spot
+	 */
+	public GreedyPlacer (int mode, int window_size, int kvalue, int order)
 	{
 		switch (mode)
 		{
-			case MODE_BORDER_LENGTH:
-			case MODE_CONFLICT_INDEX:
+			case BORDER_LENGTH_MIN:
+			case CONFLICT_INDEX_MIN:
 				this.mode = mode;
 				break;
 				
@@ -103,16 +188,46 @@ public class GreedyPlacer implements LayoutAlgorithm, FillingAlgorithm
 				throw new IllegalArgumentException
 					("Illegal value for argument 'mode'.");
 		}
-
-		// set pre-processing options
-		sort_embeddings = (options == SORT_EMBEDDINGS ? true : false);
-		randomize_input = (options == RANDOMIZE_INPUT ? true : false);
+		
+		switch(order)
+		{
+			case KEEP_ORDER:
+				ordering = null;
+				break;
 				
+			case RANDOM_ORDER:
+				ordering = new RandomOrdering();
+				break;
+				
+			case SORT_SEQUENCES:
+				ordering = new SortedSequencesOrdering();
+				break;
+				
+			case SORT_EMBEDDINGS:
+				ordering = new SortedEmbeddingsOrdering();
+				break;
+				
+			case TSP_ORDER: 
+				ordering = new TSPOrdering();
+				break;
+				
+			default:
+				throw new IllegalArgumentException ("Unknown probe ordering.");
+		}
+		
+		if (kvalue < 0)
+			throw new IllegalArgumentException ("Invalid k value: " + kvalue);
+		
 		this.window_size = window_size;
+		this.kvalue = kvalue;
+		this.order = order;
 	}
 
 	/**
-	 *
+	 * Creates a new layout of a microarray chip using the Greedy placement
+	 * algorithm.
+	 * 
+	 * @param chip instance of a microarray chip
 	 */
 	public void changeLayout (Chip chip)
 	{
@@ -128,7 +243,11 @@ public class GreedyPlacer implements LayoutAlgorithm, FillingAlgorithm
 	}
 
 	/**
-	 *
+	 * Fills the spots of a region with the given list of probes.
+	 * 
+	 * @param chip instance of a microarray chip
+	 * @param region region to be filled
+	 * @param probe_id list of probe IDs
 	 */
 	public int fillRegion (Chip chip, Region region, int probe_id[])
 	{
@@ -136,11 +255,19 @@ public class GreedyPlacer implements LayoutAlgorithm, FillingAlgorithm
 	}
 
 	/**
-	 *
+	 * Fills the spots of a region with the given list of probes delimited by
+	 * a starting and ending position.
+	 * 
+	 * @param chip instance of a microarray chip
+	 * @param region region to be filled
+	 * @param probe_id list of probe IDs
+	 * @param start first element of the list
+	 * @param end last element of the list
 	 */
 	public int fillRegion (Chip chip, Region region, int probe_id[], int start,
 		int end)
 	{
+		MyLinkedList head, prev, curr;
 		RectangularRegion r;
 		
 		if (end < start) return 0;
@@ -149,231 +276,248 @@ public class GreedyPlacer implements LayoutAlgorithm, FillingAlgorithm
 			throw new IllegalArgumentException
 				("Only rectangular regions are supported.");
 
+		// region to be filled
 		r = (RectangularRegion) region;
 		
-		if (sort_embeddings)
+		// saves a reference to the full chip region
+		this.chip_region = chip.getChipRegion();
+
+		// apply probe ordering
+		if (ordering != null)
+			ordering.orderProbes(chip, probe_id, start, end);
+
+		
+		// create a linked list with the probe IDs
+		head = prev = new MyLinkedList (probe_id[start], null);
+		for (int i = start + 1; i <= end; i++)
 		{
-			// sort embeddings lexicographically (as binary strings)
-			QuickSort.sort(new EmbeddingSort(chip, probe_id),
-							start, end - start +1);
-		}
-		else if (randomize_input)
-		{
-			randomizeInput (probe_id, start, end);
+			curr = new MyLinkedList (probe_id[i], prev);
+			prev.next = curr;
+			prev = curr;
 		}
 
 		if (chip instanceof SimpleChip)
-		{
-			if (mode == MODE_CONFLICT_INDEX)
-			{
-				// prepare for faster conflict index calculations
-				ci_dim = ConflictIndex.dimConflictRegion();
-				chip_region = chip.getChipRegion();
-				embed_len = chip.getEmbeddingLength();
-				probe_len = chip.getProbeLength();
-				
-				if (conflict == null)
-				{
-					conflict = new double [embed_len];
-					pos_weight = new double [probe_len + 1];
-				}
-				else if (conflict.length != embed_len)
-				{
-					conflict = new double [embed_len];
-					pos_weight = new double [probe_len + 1];
-				}
-				
-				// store position weights locally
-				for (int b = 0; b <= probe_len; b++)
-					pos_weight[b] = ConflictIndex.positionWeight(b, probe_len);
-			}
-			
-			return fillRegion ((SimpleChip) chip, r, probe_id, start, end);
+		{			
+			return fillRegion ((SimpleChip) chip, r, head);
 		}
-		else if (chip instanceof AffymetrixChip)
-		{
-			// TODO implement fast conflict index calculation for Affymetrix
-			
-			return fillRegion ((AffymetrixChip) chip, r, probe_id, start, end);
-		}
-		else
+		// else
 			throw new IllegalArgumentException ("Unsupported chip type.");
 	}
 
-	/**
-	 *
-	 */
 	private int fillRegion (SimpleChip chip, RectangularRegion region,
-		int probe_id[], int start, int end)
+			MyLinkedList list)
 	{
-		int s, tmp;
-		
-		for (int r = region.first_row; r <= region.last_row; r ++)
-		{
-			for (int c = region.first_col; c <= region.last_col; c++)
-			{
-				// skip spot if not empty
-				if (chip.spot[r][c] != Chip.EMPTY_SPOT)
-					continue;
+		int row, r, c, dir = -1;
+		int delta, move, UP = 0, DOWN = 1;
 
+		if (mode == CONFLICT_INDEX_MIN)
+			// prepare for local conflict index calculations
+			conflictIndexSetup (chip);
+		
+		for (row = region.first_row; row <= region.last_row; row += kvalue + 1)
+		{
+			// alternates filling direction
+			if ((dir = -dir) == +1)
+				// left to right
+				c = region.first_col;
+			else
+				// right to left
+				c = region.last_row;
+			
+			// k-threading
+			move = DOWN; delta = -1;
+			
+			while (true)
+			{
+				if (move == DOWN)
+				{
+					if (delta == kvalue)
+					{
+						c += dir;
+						move = UP;
+					}
+					else
+						delta++;
+				}
+				else // (move == UP)
+				{
+					if (delta == 0)
+					{
+						c += dir;
+						move = DOWN;
+					}
+					else
+						delta--;
+				}
+				
+				// stop when column gets out of region
+				if (c < region.first_col || c > region.last_col) break;
+				
+				// skip if k-threading row gets out of the region
+				if ((r = row + delta) > region.last_row) continue;
+				
+				// skip spot if not empty
+				if (chip.spot[r][c] != Chip.EMPTY_SPOT) continue;
+				
 				// skip fixed spot
-				if (chip.isFixedSpot(r, c))
-					continue;
+				if (chip.isFixedSpot(r, c)) continue;
 
 				// find probe with minimum cost
-				if (mode == MODE_BORDER_LENGTH)
-					s = findMinBorderLength (chip, r, c, probe_id, start, end);
-				else // (mode == MODE_CONFLICT_INDEX)
-					s = findMinConflictIndex (chip, r, c, probe_id, start, end);
-
-				// move selected probe to the front of the list
-				tmp = probe_id[start];
-				probe_id[start] = probe_id[s];
-				probe_id[s] = tmp;
+				if (mode == BORDER_LENGTH_MIN)
+					list = minBorderLength (chip, r, c, list);
+				else // (mode == CONFLICT_INDEX_MIN)
+					list = minConflictIndex (chip, r, c, list);
 				
 				// place selected probe
-				chip.spot[r][c] = probe_id[start];
+				list = fillSpot (chip, r, c, list);
 				
-				start ++;
-
-				if (start > end)
+				if (list == null)
 					// all probes were placed
 					return 0;
 			}
 		}
 
-		// some probe could not be placed
-		return (end - start + 1);
-	}
-
-	/**
-	 *
-	 */
-	private int fillRegion (AffymetrixChip chip, RectangularRegion region,
-		int probe_id[], int start, int end)
-	{
-		int s, tmp;
+		// count how many elements are left in the list
+		MyLinkedList n;
+		int count = 1;
+		for (n = list.prev; n != null; n = n.prev) count++;
+		for (n = list.next; n != null; n = n.next) count++;
 		
-		for (int r = region.first_row; r < region.last_row; r ++)
+		return count;
+	}
+	
+	private MyLinkedList fillSpot (SimpleChip chip, int r, int c,
+			MyLinkedList list)
+	{
+		MyLinkedList n = null;
+		
+		// place selected probe
+		chip.spot[r][c] = list.info;
+		
+		// delete element from the list
+		if (list.next != null)
 		{
-			for (int c = region.first_col; c <= region.last_col; c++)
-			{
-				// skip spot pair if not empty
-				if (chip.spot[r][c] != Chip.EMPTY_SPOT ||
-					chip.spot[r+1][c] != Chip.EMPTY_SPOT)
-					continue;
-
-				// skip fixed spot pair
-				if (chip.isFixedSpot(r, c) || chip.isFixedSpot(r+1, c))
-					continue;
-
-				// find probe pair with minimum cost
-				if (mode == MODE_BORDER_LENGTH)
-					s = findMinBorderLength (chip, r, c, probe_id, start, end);
-				else // (mode == MODE_CONFLICT_INDEX)
-					s = findMinConflictIndex (chip, r, c, probe_id, start, end);
-
-				// move selected probe pair to the front of the list
-				tmp = probe_id[start];
-				probe_id[start] = probe_id[s];
-				probe_id[s] = tmp;
-				
-				// place selected probe pair
-				chip.spot[r][c] = probe_id[start];
-				chip.spot[r+1][c] = probe_id[start] + 1;
-
-				start ++;
-
-				if (start > end)
-					// all probes were placed
-					return 0;
-			}
+			list.next.prev = list.prev;
+			n = list.next;
+		}
+		if (list.prev != null)
+		{
+			list.prev.next = list.next;
+			n = list.prev;
 		}
 
-		// some probe pairs could not be placed
-		return 2 * (end - start + 1);
+		return n;
 	}
 
-	private int findMinBorderLength (SimpleChip chip, int row, int col,
-		int probe_id[], int start, int end)
+	private MyLinkedList minBorderLength (SimpleChip chip, int row, int col,
+			MyLinkedList node)
 	{
+		MyLinkedList best;
 		long	cost, min;
-		int		best;
-
-		// if window size is limited
-		if (window_size > 0)
-		{
-			// limit search space if probe list is larger than window
-			end = end - start + 1 > window_size ? start + window_size - 1 : end;  
-		}
-
-		min = LayoutEvaluation.borderLength (chip, row, col, probe_id[start]);
-		if (min == 0) return start;
+		int		count;
 		
-		best = start;
+		// find node so that the search will examine 
+		// window_size elements around the last placed probe 
+		node = findStartingNode (node);
 
-		for (int i = start + 1; i <= end; i++)
+		// compute cost of first element
+		min = LayoutEvaluation.borderLength (chip, row, col, node.info);
+		if (min == 0) return node;
+		
+		best = node;
+		node = node.next;
+		
+		for (count = 1; node != null && count < window_size; count++)
 		{
-			cost = LayoutEvaluation.borderLength (chip, row, col, probe_id[i]);
-			
+			cost = LayoutEvaluation.borderLength (chip, row, col, node.info);
 			if (cost < min)
 			{
 				min = cost;
-				best = i;
+				best = node;
 			}
+
+			node = node.next;
 		}
 		
 		return best;
 	}
 
-	private int findMinConflictIndex (SimpleChip chip, int row, int col,
-			int probe_id[], int start, int end)
+	private MyLinkedList minConflictIndex (SimpleChip chip, int row, int col,
+			MyLinkedList node)
 	{
-		boolean	empty;
+		MyLinkedList best;
 		double	cost, min;
-		int		best;
+		int		count;
+		boolean	empty;
+		
+		// find node so that the search will examine 
+		// window_size elements around the last placed probe 
+		node = findStartingNode (node);
 		
 		// prepare conflict index costs
 		empty = examineNeighbors (chip, row, col);
 		
 		// if region around the spot is empty,
 		// place any probe and return
-		if (empty) return start;
+		if (empty) return node;
 
-		// if window size is limited
-		if (window_size > 0)
-		{
-			// limit search space if probe list is larger than window
-			end = end - start + 1 > window_size ? start + window_size - 1 : end;  
-		}
-
-		min = conflictIndex (chip, probe_id[start], Double.POSITIVE_INFINITY);
+		// compute cost of first element
+		min = conflictIndex (chip, node.info, Double.POSITIVE_INFINITY);
+		if (min == 0) return node;
 		
-		best = start;
-
-		for (int i = start + 1; i <= end; i++)
+		best = node;
+		node = node.next;
+		
+		for (count = 1; node != null && count < window_size; count++)
 		{
-			cost = conflictIndex(chip, probe_id[i], min);
-
+			cost = conflictIndex(chip, node.info, min);
 			if (cost < min)
 			{
 				min = cost;
-				best = i;
+				best = node;
 			}
+
+			node = node.next;
 		}
 		
 		return best;
+	}
+	
+	private void conflictIndexSetup (SimpleChip chip)
+	{
+		// prepare for faster conflict index calculations
+		ci_dim = ConflictIndex.dimConflictRegion();
+		embed_len = chip.getEmbeddingLength();
+		probe_len = chip.getProbeLength();
+		
+		// instantiate local arrays (if necessary)
+		if (m_cost == null)
+		{
+			m_cost = new double [embed_len];
+			u_cost = new double [embed_len];
+			pos_weight = new double [probe_len + 1];
+		}
+		else if (m_cost.length != embed_len)
+		{
+			m_cost = new double [embed_len];
+			u_cost = new double [embed_len];
+			pos_weight = new double [probe_len + 1];
+		}
+		
+		// store position weights locally
+		for (int b = 0; b <= probe_len; b++)
+			pos_weight[b] = ConflictIndex.positionWeight(b, probe_len);
 	}
 	
 	private boolean examineNeighbors (SimpleChip chip, int row, int col)
 	{
 		boolean empty = true;
 		double delta;
-		int r, c, id, step, word, bitmask = 0;
+		int r, c, id, base, step, word, bitmask = 0;
 		
 		// reset costs
 		for (step = 0; step < embed_len; step++)
-			conflict[step] = 0;
+			m_cost[step] = u_cost[step] = 0;
 		
 		// define region around the spot that needs to be examined
 		int min_row = Math.max(row - ci_dim, chip_region.first_row);
@@ -397,7 +541,7 @@ public class GreedyPlacer implements LayoutAlgorithm, FillingAlgorithm
 				
 				empty = false;
 				
-				for (step = 0, word = - 1; step < embed_len; step++)
+				for (base = 0, step = 0, word = - 1; step < embed_len; step++)
 				{
 					if (step % Integer.SIZE == 0)
 					{
@@ -411,13 +555,45 @@ public class GreedyPlacer implements LayoutAlgorithm, FillingAlgorithm
 					if ((chip.embed[id][word] & bitmask) != 0)
 					{
 						// spot is in an unmasked step
-						conflict[step] += delta;
+						m_cost[step] += delta;
+						
+						base++;
+					}
+					else
+					{
+						// spot is in a masked step
+						u_cost[step] += pos_weight[base] * delta;
 					}
 				}
 			}
 		}
 
 		return empty;
+	}
+	
+	private MyLinkedList findStartingNode (MyLinkedList list)
+	{
+		MyLinkedList node;
+		int count;
+
+		// first check if there are (window_size/2) elements
+		// to the right of the last placed probe
+		count = (int) Math.floor(window_size / (double) 2);
+		for (node = list; node.next != null && count > 0; count--)
+			node = node.next;
+
+		// we want to start the search (window_size/2 - 1) elements
+		// to the left of the last placed probe
+		
+		// but if count > 0, there are only (window_size/2 - count)
+		// elements to the right of the last placed probe, so
+		// we compensate by starting the search (window_size/2 - 1 + count)
+		// to the left of the last placed probe
+		count = count + (int) Math.ceil(window_size / (double) 2) - 1; 
+		for (node = list; node.prev != null && count > 0; count--)
+			node = node.prev;
+
+		return node;
 	}
 	
 	private double conflictIndex (SimpleChip chip, int id, double max)
@@ -439,14 +615,15 @@ public class GreedyPlacer implements LayoutAlgorithm, FillingAlgorithm
 			if ((chip.embed[id][word] & bitmask) != 0)
 			{
 				// spot is in an unmasked step
+				ci += u_cost[step];
 
 				// increment the number of synthesized bases
 				base++;
 			}
 			else
 			{
-				// masked step
-				ci += pos_weight[base] * conflict[step];
+				// spot is in a masked step
+				ci += pos_weight[base] * m_cost[step];
 				
 				// stop if CI exceeds limit
 				if (ci > max) break;
@@ -456,202 +633,70 @@ public class GreedyPlacer implements LayoutAlgorithm, FillingAlgorithm
 		return ci;
 	}
 
-	private int findMinBorderLength (AffymetrixChip chip, int row, int col,
-			int probe_id[], int start, int end)
+	/**
+	 * Returns the algorithm's name together with current options.
+	 * 
+	 * @return algorithm's name and configurable options
+	 */
+	@Override
+	public String toString ()
 	{
-		long	cost, min;
-		int		best;
-
-		// if window size is limited
-		if (window_size > 0)
-		{
-			// limit search space if probe list is larger than window
-			end = end - start + 1 > window_size ? start + window_size - 1 : end;  
-		}
-
-		min = LayoutEvaluation.borderLength (chip, row, col, probe_id[start]);
-		if (min == 0) return start;
+		String m;
+		String ord;
 		
-		best = start;
-
-		for (int i = start + 1; i <= end; i++)
+		switch (this.mode)
 		{
-			cost = LayoutEvaluation.borderLength (chip, row, col, probe_id[i]);
+			case BORDER_LENGTH_MIN:
+				m = "-BL-";
+				break;
+				
+			case CONFLICT_INDEX_MIN:
+				m = "-CI-";
+				break;
 			
-			if (cost < min)
-			{
-				min = cost;
-				best = i;
-			}
+			default:
+				m = "-?";
+				break;
 		}
 		
-		return best;
-	}
-
-	private int findMinConflictIndex (AffymetrixChip chip, int row, int col,
-			int probe_id[], int start, int end)
-	{
-		double	cost, min;
-		int		best;
-
-		// if window size is limited
-		if (window_size > 0)
+		switch (this.order)
 		{
-			// limit search space if probe list is larger than window
-			end = end - start + 1 > window_size ? start + window_size - 1 : end;  
+			case RANDOM_ORDER:
+				ord = "-Random";
+				break;
+				
+			case SORT_SEQUENCES:
+				ord = "-SortSequences";
+				break;
+				
+			case SORT_EMBEDDINGS:
+				ord = "-SortEmbeddings";
+				break;
+				
+			case TSP_ORDER: 
+				ord = "-TSP";
+				break;
+			
+			default:
+				ord = "-KeepOrder";
+				break;
 		}
 
-		min = LayoutEvaluation.conflictIndex (chip, row, col, probe_id[start]);
-		if (min == 0) return start;
-		
-		best = start;
-
-		for (int i = start + 1; i <= end; i++)
-		{
-			cost = LayoutEvaluation.conflictIndex(chip, row, col, probe_id[i]);
-
-			if (cost < min)
-			{
-				min = cost;
-				best = i;
-			}
-		}
-		
-		return best;
+		return this.getClass().getSimpleName() + m + window_size + ord;
 	}
 	
-	private void randomizeInput (int probe_id[], int start, int end)
+	private class MyLinkedList
 	{
-		int tmp, rand;
+		MyLinkedList prev;
+		MyLinkedList next;
 		
-		for (int i = start; i < end; i++)
+		int info;
+		
+		MyLinkedList (int info, MyLinkedList prev)
 		{
-			// select a random element of the list
-			rand = i + (int) ((end - i + 1) * Math.random());
-
-			// swap the selected element with
-			// the one at the current position
-			tmp = probe_id[i];
-			probe_id[i] = probe_id[rand];
-			probe_id[rand] = tmp;
-		}		
-	}
-	
-	private class EmbeddingSort implements ArrayIndexedCollection
-	{
-		private Chip chip;
-		
-		private int words;
-		
-		private int probe_id[];
-		
-		private int pivot;
-		
-		EmbeddingSort (Chip chip, int probe_id[])
-		{
-			this.chip = chip;
-			this.words = chip.embed[0].length;
-			this.probe_id = probe_id;
-		}
-		
-		public int compare (int i, int j)
-		{
-			int id_i = probe_id[i];
-			int id_j = probe_id[j];
-			
-			for (int w = 0; w < words; w++)
-			{
-				// compare first bit (signal)
-				// first bit is 1 => negative number
-				// first bit is 0 => non-negative
-				if (chip.embed[id_i][w] < 0)
-				{
-					if (chip.embed[id_j][w] >= 0)
-						return 1;
-				}
-				else
-				{
-					if (chip.embed[id_j][w] < 0)
-						return -1;
-				}
-				
-				// compare remaining bits if both have same signal
-				if (chip.embed[id_i][w] < chip.embed[id_j][w])
-					return -1;
-				else if (chip.embed[id_i][w] > chip.embed[id_j][w])
-					return 1;
-			}
-			
-			return 0;
-		}
-		
-		public void swap (int i, int j)
-		{
-			int tmp;
-			tmp = probe_id[i];
-			probe_id[i] = probe_id[j];
-			probe_id[j] = tmp;
-		}
-		
-		public void setPivot (int i)
-		{
-			this.pivot = probe_id[i];
-		}
-		
-		public int compareToPivot (int i)
-		{
-			int id_i = probe_id[i];
-
-			for (int w = 0; w < words; w++)
-			{
-				// compare first bit (signal)
-				// first bit is 1 => negative number
-				// first bit is 0 => non-negative
-				if (chip.embed[id_i][w] < 0)
-				{
-					if (chip.embed[pivot][w] >= 0)
-						return 1;
-				}
-				else
-				{
-					if (chip.embed[pivot][w] < 0)
-						return -1;
-				}
-				
-				// compare remaining bits if both have same signal
-				if (chip.embed[id_i][w] < chip.embed[pivot][w])
-					return -1;
-				else if (chip.embed[id_i][w] > chip.embed[pivot][w])
-					return 1;
-			}
-			
-			return 0;
-		}
-		
-		public int medianOfThree (int i, int j, int k)
-		{
-			int median;
-			
-			if (compare(i,j) < 0)
-			{
-				if (compare(j,k) < 0)
-					median = j;
-				else if (compare(i,k) < 0)
-					median = k;
-				else
-					median = i;
-			}
-			else
-			{
-				if (compare(j,k) > 0)
-					median = j;
-				else if (compare(i,k) > 0)
-					median = k;
-				else
-					median = i;
-			}
-			
-			return median;
+			this.info = info;
+			this.prev = prev;
+			this.next = null;
 		}
 	}
 }
