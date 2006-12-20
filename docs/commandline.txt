@@ -1,0 +1,23 @@
+set validate-layout (ON | OFF)
+set timing (ON | OFF)
+
+get validate-layout
+get timing
+
+read-chip (affy | simple) (fix | nofix) <filename> <# of rows> <# of columns> <# of probes> <probe length (AFFY | SYNC | <deposition sequence>)
+
+write-chip [<filename>]
+
+run-alg <alg. name>
+
+compute-bl
+ -> total border length
+
+compute-norm-bl
+ -> normalized border length = total border length / # of borders
+
+compute-norm-bl-per-mask
+ -> normalized border length per masking step
+
+compute-ci
+ -> min, max, average and std. deviation conflict index
