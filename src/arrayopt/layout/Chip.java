@@ -342,6 +342,21 @@ public abstract class Chip implements Cloneable
 	}
 
 	/**
+	 * Returns the number of internal borders this chip has. An internal border
+	 * separates two spots of the chip. Since the chip is a rectangular grid,
+	 * the number of internal borders equals
+	 * <CODE>r * (c - 1) + c * (r - 1)</CODE>, where <CODE>r</CODE> and
+	 * <CODE>c</CODE> are the number of rows and columns in the chip,
+	 * respectively. 
+	 *
+	 * @return number of probes on the chip
+	 */
+	public int getNumberOfBorders ()
+	{
+		return num_rows * (num_cols - 1) + num_cols * (num_rows - 1);
+	}
+
+	/**
 	 * Returns the length of the probe embeddings (which equals the length of
 	 * the deposition sequence).
 	 *
