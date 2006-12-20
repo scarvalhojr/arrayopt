@@ -37,43 +37,144 @@
 
 package arrayopt.layout;
 
-import arrayopt.util.ArrayIndexedCollection;
-import arrayopt.util.QuickSort;
-
 /**
- *
+ * This class implements the k-threading placement algorithm. The algorithm is
+ * described in the paper:</P>
+ * 
+ * <P>Hannenhalli, S.; Hubell, E.; Lipshutz, R. & Pevzner, P.A.: Combinatorial
+ * algorithms for design of DNA arrays, Adv Biochem Eng Biotechnol, 2002, 77,
+ * 1-19.</P>
+ * 
+ * <P>A k-threading is a variation of the standard row-by-row threading (see
+ * {@link SequentialPlacer}, which fills the spots in an alternating
+ * right-to-left and left-to-right paths interspaced with upward and downward
+ * movements over k sites. The parameter k (@link #kvalue} is called the
+ * amplitude of the threading.</P>
+ * 
+ * <P>The order of probes placed at each spot can be configured at instantiation
+ * time with the following constants: {@link #KEEP_ORDER},
+ * {@link #RANDOM_ORDER}, {@link #SORT_EMBEDDINGS}, {@link #SORT_SEQUENCES} and
+ * {@link #TSP_ORDER}.</P> 
+ * 
+ * @author Sergio A. de Carvalho Jr.
  */
 public class KThreadingPlacer implements LayoutAlgorithm, FillingAlgorithm
 {
 	/**
-	 * TODO document this
+	 * Constant to indicate that no ordering of probes should be performed
+	 * before placement/filling. This actually means that spots are filled with
+	 * probes ordered as they were received in the list.
+	 */
+	public static final int KEEP_ORDER = 0;
+	
+	/**
+	 * Constant to indicate that the order of the probes should be randomized
+	 * before placement/filling. The randomization is performed by the
+	 * {@link RandomOrdering} class.
+	 */
+	public static final int RANDOM_ORDER = 1;
+	
+	/**
+	 * Constant to indicate that probes should be ordered lexicographically by
+	 * their sequences before placement/filling. The ordering is performed by
+	 * the {@link SortedSequencesOrdering} class.
+	 */
+	public static final int SORT_SEQUENCES = 2;
+	
+	/**
+	 * Constant to indicate that probes should be ordered lexicographically by
+	 * their binary embeddings before placement/filling. The ordering is
+	 * performed by the {@link SortedEmbeddingsOrdering} class.
+	 */
+	public static final int SORT_EMBEDDINGS = 3;
+	
+	/**
+	 * Constant to indicate that a TSP-tour of the probes must be computed
+	 * before placement/filling, in order to minimize border conflicts between
+	 * neighboring probes. The TSP-tour is computed on a graph where nodes
+	 * represent the probes, and edges between two probes contain the number of
+	 * border conflicts between their embeddings. The ordering is performed by
+	 * the {@link TSPOrdering} class.
+	 */
+	public static final int TSP_ORDER = 4;
+	
+	/**
+	 * Indicate the ordering of the probes used for placement/filling.
+	 */
+	private int order;
+	
+	/**
+	 * The amplitude of the k-threading. This gives the number of upward and
+	 * downward movements between the right-to-left and left-to-right paths over
+	 * the chip.
 	 */
 	private int kvalue;
 	
+	private ProbeOrderingAlgorithm ordering;
+	
 	/**
-	 * TODO document this
-	 */
-	private boolean sort_embeddings;
-
-	/**
-	 * TODO document this
+	 * Creates an instance of the KThreadingPlacer algorithm with the given
+	 * value of k and the default probe ordering set to {@link #KEEP_ORDER}.
 	 */
 	public KThreadingPlacer (int kvalue)
 	{
-		this(kvalue, false);
+		this(kvalue, KEEP_ORDER);
 	}
 
 	/**
-	 * TODO document this
+	 * Creates an instance of the KThreadingPlacer algorithm with the given
+	 * value of k and probe ordering.
+	 * 
+	 * @param kvalue amplitude of k-threading
+	 * @param order order of probes during placement/filling
+	 * @see #KEEP_ORDER
+	 * @see #RANDOM_ORDER
+	 * @see #SORT_EMBEDDINGS
+	 * @see #SORT_SEQUENCES
+	 * @see #TSP_ORDER
 	 */
-	public KThreadingPlacer (int kvalue, boolean sort_embeddings)
+	public KThreadingPlacer (int kvalue, int order)
 	{
+		switch(order)
+		{
+			case KEEP_ORDER:
+				ordering = null;
+				break;
+				
+			case RANDOM_ORDER:
+				ordering = new RandomOrdering();
+				break;
+				
+			case SORT_SEQUENCES:
+				ordering = new SortedSequencesOrdering();
+				break;
+				
+			case SORT_EMBEDDINGS:
+				ordering = new SortedEmbeddingsOrdering();
+				break;
+				
+			case TSP_ORDER: 
+				ordering = new TSPOrdering();
+				break;
+				
+			default:
+				throw new IllegalArgumentException ("Unknown probe ordering.");
+		}
+		
+		if (kvalue < 0)
+			throw new IllegalArgumentException ("Invalid k value: " + kvalue);
+		
+		this.order = order;
 		this.kvalue = kvalue;
-		this.sort_embeddings = sort_embeddings;
 	}
 	
 	/**
-	 *
+	 * Uses the k-threading placement algorithm to re-place the probes. All
+	 * probes are initially removed from the spots, and a list with the desired
+	 * order (see {@link #order}) is passed to the 
+	 * {@link #fillRegion(Chip, Region, int[]) method.
+	 * 
+	 * @param chip chip instance
 	 */
 	public void changeLayout (Chip chip)
 	{
@@ -89,7 +190,11 @@ public class KThreadingPlacer implements LayoutAlgorithm, FillingAlgorithm
 	}
 
 	/**
-	 *
+	 * Fills the spots with a given list a probes.
+	 * 
+	 * @param chip chip instance
+	 * @param region region of the chip to be filled
+	 * @param probe_id list of probe IDs 
 	 */
 	public int fillRegion (Chip chip, Region region, int probe_id[])
 	{
@@ -97,7 +202,14 @@ public class KThreadingPlacer implements LayoutAlgorithm, FillingAlgorithm
 	}
 
 	/**
-	 *
+	 * Fills the spots with a given list a probes. The elements of the list as
+	 * bounded by the given parameters. 
+	 * 
+	 * @param chip chip instance
+	 * @param region region of the chip to be filled
+	 * @param probe_id list of probe IDs 
+	 * @param start first element of the list
+	 * @param end last element of the list
 	 */
 	public int fillRegion (Chip chip, Region region, int probe_id[], int start,
 		int end)
@@ -110,27 +222,17 @@ public class KThreadingPlacer implements LayoutAlgorithm, FillingAlgorithm
 
 		r = (RectangularRegion) region;
 
-		if (sort_embeddings)
-		{
-			// sort embeddings lexicographically (as binary strings)
-			QuickSort.sort(new EmbeddingSort(chip, probe_id),
-							start, end - start +1);
-		}
+		// apply probe ordering
+		if (ordering != null)
+			ordering.orderProbes(chip, probe_id, start, end);
 
 		if (chip instanceof SimpleChip)
 			return fillRegion ((SimpleChip) chip, r, probe_id, start, end);
-
-		else if (chip instanceof AffymetrixChip)
-			return fillRegion ((AffymetrixChip) chip, r, probe_id, start, end);
-
-		else
+		// else
 			throw new IllegalArgumentException ("Unsupported chip type.");
 	}
 
-	/**
-	 *
-	 */
-	protected int fillRegion (SimpleChip chip, RectangularRegion region,
+	private int fillRegion (SimpleChip chip, RectangularRegion region,
 		int probe_id[], int start, int end)
 	{
 		int row, r, c, dir = -1;
@@ -147,12 +249,10 @@ public class KThreadingPlacer implements LayoutAlgorithm, FillingAlgorithm
 				c = region.last_row;
 			
 			// k-threading
-			move = DOWN;
-			delta = -1;
+			move = DOWN; delta = -1;
 			
 			while (true)
 			{
-				// k-threading
 				if (move == DOWN)
 				{
 					if (delta == kvalue)
@@ -175,31 +275,24 @@ public class KThreadingPlacer implements LayoutAlgorithm, FillingAlgorithm
 				}
 				
 				// stop when column gets out of region
-				if (c < region.first_col || c > region.last_col)
-					break;
-				
-				// compute row with k-threading
-				r = row + delta;
+				if (c < region.first_col || c > region.last_col) break;
 				
 				// skip if k-threading row gets out of the region
-				if (r > region.last_row)
-					continue;
+				if ((r = row + delta) > region.last_row) continue;
 				
-				// skip non-empty spot
-				if (chip.spot[r][c] != Chip.EMPTY_SPOT)
-					continue;
+				// skip spot if not empty
+				if (chip.spot[r][c] != Chip.EMPTY_SPOT) continue;
 				
 				// skip fixed spot
-				if (chip.isFixedSpot(r, c))
-					continue;
+				if (chip.isFixedSpot(r, c)) continue;
 				
-				// place first probe of the list 
+				// place next element of the list
 				chip.spot[r][c] = probe_id[start];
 
 				// advance list pointer
 				if (++start > end)
-					// return if reached end of the list
-					return 0;					
+					// all probes were placed
+					return 0;
 			}
 		}
 
@@ -208,133 +301,38 @@ public class KThreadingPlacer implements LayoutAlgorithm, FillingAlgorithm
 	}
 
 	/**
-	 *
+	 * Returns the algorithm's name together with current options.
+	 * 
+	 * @return algorithm's name and configurable options
 	 */
-	protected int fillRegion (AffymetrixChip chip, RectangularRegion region,
-		int probe_id[], int start, int end)
+	@Override
+	public String toString ()
 	{
-		// TODO implement this
-		// look at this.fillRegion (SimpleChip...)
-		//     and Sequential.fillRegion (AffymetrixChip...)
+		String ord;
 		
-		return 2 * (end - start + 1);
-	}
-
-	private class EmbeddingSort implements ArrayIndexedCollection
-	{
-		private Chip chip;
-		
-		private int words;
-		
-		private int probe_id[];
-		
-		private int pivot;
-		
-		EmbeddingSort (Chip chip, int probe_id[])
+		switch (this.order)
 		{
-			this.chip = chip;
-			this.words = chip.embed[0].length;
-			this.probe_id = probe_id;
-		}
-		
-		public int compare (int i, int j)
-		{
-			int id_i = probe_id[i];
-			int id_j = probe_id[j];
-			
-			for (int w = 0; w < words; w++)
-			{
-				// compare first bit (signal)
-				// first bit is 1 => negative number
-				// first bit is 0 => non-negative
-				if (chip.embed[id_i][w] < 0)
-				{
-					if (chip.embed[id_j][w] >= 0)
-						return 1;
-				}
-				else
-				{
-					if (chip.embed[id_j][w] < 0)
-						return -1;
-				}
+			case RANDOM_ORDER:
+				ord = "-Random";
+				break;
 				
-				// compare remaining bits if both have same signal
-				if (chip.embed[id_i][w] < chip.embed[id_j][w])
-					return -1;
-				else if (chip.embed[id_i][w] > chip.embed[id_j][w])
-					return 1;
-			}
-			
-			return 0;
-		}
-		
-		public void swap (int i, int j)
-		{
-			int tmp;
-			tmp = probe_id[i];
-			probe_id[i] = probe_id[j];
-			probe_id[j] = tmp;
-		}
-		
-		public void setPivot (int i)
-		{
-			this.pivot = probe_id[i];
-		}
-		
-		public int compareToPivot (int i)
-		{
-			int id_i = probe_id[i];
-
-			for (int w = 0; w < words; w++)
-			{
-				// compare first bit (signal)
-				// first bit is 1 => negative number
-				// first bit is 0 => non-negative
-				if (chip.embed[id_i][w] < 0)
-				{
-					if (chip.embed[pivot][w] >= 0)
-						return 1;
-				}
-				else
-				{
-					if (chip.embed[pivot][w] < 0)
-						return -1;
-				}
+			case SORT_SEQUENCES:
+				ord = "-SortSequences";
+				break;
 				
-				// compare remaining bits if both have same signal
-				if (chip.embed[id_i][w] < chip.embed[pivot][w])
-					return -1;
-				else if (chip.embed[id_i][w] > chip.embed[pivot][w])
-					return 1;
-			}
+			case SORT_EMBEDDINGS:
+				ord = "-SortEmbeddings";
+				break;
+				
+			case TSP_ORDER: 
+				ord = "-TSP";
+				break;
 			
-			return 0;
+			default:
+				ord = "-KeepOrder";
+				break;
 		}
 		
-		public int medianOfThree (int i, int j, int k)
-		{
-			int median;
-			
-			if (compare(i,j) < 0)
-			{
-				if (compare(j,k) < 0)
-					median = j;
-				else if (compare(i,k) < 0)
-					median = k;
-				else
-					median = i;
-			}
-			else
-			{
-				if (compare(j,k) > 0)
-					median = j;
-				else if (compare(i,k) > 0)
-					median = k;
-				else
-					median = i;
-			}
-			
-			return median;
-		}
+		return kvalue + "-threading" + ord;
 	}
 }
