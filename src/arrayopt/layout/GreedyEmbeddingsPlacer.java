@@ -173,12 +173,7 @@ public class GreedyEmbeddingsPlacer implements LayoutAlgorithm, FillingAlgorithm
 		{
 			return fillRegion ((SimpleChip) chip, r, head);
 		}		
-		else if (chip instanceof AffymetrixChip)
-		{
-			// TODO this case needs to be tested!
-			return fillRegion ((AffymetrixChip) chip, r, head);
-		}
-		else
+		// else
 			throw new IllegalArgumentException ("Unsupported chip type.");
 	}
 
@@ -225,52 +220,6 @@ public class GreedyEmbeddingsPlacer implements LayoutAlgorithm, FillingAlgorithm
 		for (n = list.next; n != null; n = n.next) count++;
 		
 		return count;
-	}
-
-	/**
-	 *
-	 */
-	private int fillRegion (AffymetrixChip chip, RectangularRegion region,
-			MyLinkedList list)
-	{
-		int count;
-		
-		// TODO re-write with new algorithm (using double-linked list)
-		return 0;
-		
-		/*
-		for (int r = region.first_row; r < region.last_row; r ++)
-		{
-			for (int c = region.first_col; c <= region.last_col; c++)
-			{
-				// if spot pair is not empty, re-embed its probes optimally
-				if (chip.spot[r][c] != Chip.EMPTY_SPOT ||
-					chip.spot[r+1][c] != Chip.EMPTY_SPOT)
-				{
-					// TODO this needs to be tested!
-					// ospe.reembedSpot(r,c);
-					continue;
-				}
-
-				// skip (empty) fixed spot pair
-				if (chip.isFixedSpot(r, c) || chip.isFixedSpot(r+1, c))
-					continue;
-
-				// place probe pair whose embedding produce minimum conflicts
-				list = placeOptimalEmbedding (chip, r, c, list);
-				
-				if (list == null)
-					// all probes were placed
-					return 0;
-			}
-		}
-
-		// count how many elements are left in the list
-		for (count = 0; list != null; list = list.next)
-			count++;
-		
-		return count;
-		*/
 	}
 
 	private MyLinkedList placeOptimalEmbedding (SimpleChip chip, int row,
@@ -339,67 +288,6 @@ public class GreedyEmbeddingsPlacer implements LayoutAlgorithm, FillingAlgorithm
 		}
 		
 		return node;
-	}
-	
-	private MyLinkedList placeOptimalEmbedding (AffymetrixChip chip, int row,
-			int col, MyLinkedList head)
-	{
-		
-		// TODO re-write with new algorithm (using double-linked list)
-		
-		return head;
-		
-		/*
-		MyLinkedList best, last, curr;
-		double cost, min;
-		int best_id, count = 1;
-		
-		// compute cost of placing first element in the spot
-		min = ospe.minDistanceSpot(row, col, head.info);
-		
-		best = null;
-		last = head;
-		curr = head.next;
-		
-		if (min > 0)
-		{
-			while (curr != null)
-			{
-				cost = ospe.minDistanceProbe(curr.info);
-				
-				if (cost < min)
-				{
-					min = cost;
-					best = last;
-				}
-				
-				if (++count > window_size) break;
-				
-				last = curr;
-				curr = last.next;
-			}
-		}
-		
-		if (best == null)
-		{
-			best_id = head.info;
-			head = head.next;
-		}
-		else
-		{
-			best_id = best.next.info;
-			best.next = best.next.next;
-		}
-		
-		// place best probe on the spot
-		chip.spot[row][col] = best_id;
-		chip.spot[row + 1][col] = best_id + 1;
-		
-		// and re-embed them optimally
-		ospe.reembedProbe(best_id);
-		
-		return head;
-		*/
 	}
 	
 	private void randomizeInput (int probe_id[], int start, int end)
