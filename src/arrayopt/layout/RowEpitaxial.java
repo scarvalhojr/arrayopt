@@ -38,208 +38,175 @@
 package arrayopt.layout;
 
 /**
- * Row-epitaxial algorithm due to Kahng et al. This is a free implementation of
- * the algorithm described in the paper:
+ * This class implements the Row-epitaxial algorithm. This is a free
+ * implementation of the algorithm described in the paper:
  * 
- * <P>"Engineering a Scalable Placement Heuristic for DNA Probe Arrays",
- * A. Kahng, I. Mandoiu, P. Pevzer, S. Reda, and A. Zelikovsky. In Proc. 7th
- * Annual Int. Conference on Research in Computational Molecular Biology
- * (RECOMB), 2003, pp. 148–156.</P>
+ * <P>Kahng, A.B.; Mandoiu, I.; Pevzner, P.; Reda, S. & Zelikovsky, A.:
+ * Engineering a scalable placement heuristic for DNA probe arrays, Proceedings
+ * of the seventh annual international conference on research in computational
+ * molecular biology (RECOMB), ACM Press, 2003, 148-156.</P>
+ *
+ * <P>The algorithm was initially developed for border length minimization, but
+ * this implementaion can work with two types of conflict minimization:
+ * border length ({@link #BORDER_LENGTH_MIN}) or conflict index
+ * ({@link #CONFLICT_INDEX_MIN}) minimization.</P>
  * 
- * <P>This algorithm is similar to the {@linkplain GreedyPlacer} implementation.
- * The main difference is that the row-epitaxial is restricted to border length
- * minimization, while the {@linkplain GreedyPlacer} is also able produce a
- * layout reducing the overall conflict index (see {@link ConflictIndex}).</P>
- * 
- * <P>The row-epitaxial produces an initial layout placing the probes
- * sequentially on the spots in whatever order they appear. (Alternatively, it
- * is possible to force a randomization of the input; see
- * {@link #RowEpitaxial(int, boolean)}). Then, it scans the chip
- * top-to-bottom, left-to-right, and, for every non-empty spot <CODE>s</CODE>
- * with a probe <CODE>p</CODE>, it finds a probe <CODE>q</CODE> with minimum
- * cost. The cost is defined as the sum of the Hamming distances to the probes
- * placed on the top and left neighbors of <CODE>s</CODE>. Probe <CODE>q</CODE>
- * is searched on the next <CODE>n</CODE> spots of <CODE>s</CODE>
- * (<CODE>n</CODE> is the look-ahead parameter that can be specified at
- * instantiation time; default value is defined by
- * {@link #DEFAULT_LOOK_AHEAD}).</P>  
- * 
- * <P>Note that, if the region to be filled is completely empty, the layout
- * produced by the row-epitaxial algorithm will be identical to the one produced
- * by the {@linkplain GreedyPlacer} algorithm with border length minimization.
- * If some spots are non-empty, the results are likely to be different. This is
- * because the row-epitaxial only considers the top and left neighbors of a
- * spot, while {@linkplain GreedyPlacer} also considers the bottom and right
- * neighbors (if they are not empty, that is). As a result, the
- * {@linkplain GreedyPlacer} is slightly slower but it is also likely to produce
- * marginally better results in such cases.</P>
+ * <P>The row-epitaxial improves an initial layout by re-locating probes. Spots
+ * are re-filled sequentially, from top to bottom, left to right. For every
+ * spot <CODE>s</CODE> with a probe <CODE>p</CODE>, it finds a probe
+ * <CODE>q</CODE> with minimum cost to fill <CODE>s</CODE>. The cost is either
+ * the sum of border conflicts or sum of conflict indices with the re-filled
+ * neighbors. Probe <CODE>q</CODE> is searched on the next <CODE>n</CODE> spots
+ * of <CODE>s</CODE>, where <CODE>n</CODE> is the look-ahead parameter that must
+ * be specified at instantiation time.</P>
  * 
  * @author Sergio A. de Carvalho Jr.
  */
-public class RowEpitaxial implements LayoutAlgorithm, FillingAlgorithm
+public class RowEpitaxial implements LayoutAlgorithm
 {
-	public static final int DEFAULT_LOOK_AHEAD = 20000;
+	/**
+	 * Constant used to indicate that the algorithm should try to minimize the
+	 * total border length of the microarray layout.
+	 */
+	public static final int BORDER_LENGTH_MIN = 0;
 	
+	/**
+	 * Constant used to indicate that the algorithm should try to minimize the
+	 * sum of conflict indices of the microarray layout.
+	 */
+	public static final int CONFLICT_INDEX_MIN = 1;
+
+	/**
+	 * Maximum number of probe candidades considered for each spot.
+	 */
 	private int look_ahead;
 	
-	private boolean randomize_first;
+	/**
+	 * This variable stores the current minimization mode used by the algorithm.
+	 * Possible values are {@link #BORDER_LENGTH_MIN} and
+	 * {@link #CONFLICT_INDEX_MIN}. 
+	 */
+	private int mode;
 	
 	private RectangularRegion chip_region;
-
-	public RowEpitaxial ()
+	
+	private int embed_len;
+	
+	private int probe_len;
+	
+	private int ci_dim;
+	
+	private double pos_weight[];
+	
+	private double m_cost[];
+	
+	private double u_cost[];
+	
+	/**
+	 * Creates an instance of the Row-epitaxial algorithm with the desired
+	 * minimization mode and look-ahead value.
+	 * 
+	 * @see #BORDER_LENGTH_MIN
+	 * @see #CONFLICT_INDEX_MIN
+	 * @see #look_ahead
+	 * @param mode minimization mode, either border length or conflict index
+	 * @param look_ahead maximum number of candidades examined for each spot
+	 */
+	public RowEpitaxial (int mode, int look_ahead)
 	{
-		this(DEFAULT_LOOK_AHEAD);
-	}
+		switch (mode)
+		{
+			case BORDER_LENGTH_MIN:
+			case CONFLICT_INDEX_MIN:
+				this.mode = mode;
+				break;
+				
+			default:
+				throw new IllegalArgumentException
+					("Invalid minimization mode");
+		}
 
-	public RowEpitaxial (int look_ahead)
-	{
-		this(look_ahead, false);
-	}
-
-	public RowEpitaxial (int look_ahead, boolean randomize_first)
-	{
-		this.look_ahead = look_ahead > 0 ? look_ahead : DEFAULT_LOOK_AHEAD;
-		this.randomize_first = randomize_first;
+		if (look_ahead < 0)
+			throw new IllegalArgumentException ("Invalid look-ahead: " +
+					look_ahead);
+		
+		this.look_ahead = look_ahead;
 	}
 
 	/**
-	 *
+	 * Attempts to improve the layout of a microarray chip using the
+	 * Row-epitaxial algorithm.
+	 * 
+	 * @param chip instance of a microarray chip
 	 */
 	public void changeLayout (Chip chip)
 	{
-		int		id[];
-
-		// reset current layout (if any)
-		chip.resetLayout();
-
-		// get list of movable probes
-		id = chip.getMovableProbes ();
-
-		fillRegion (chip, chip.getChipRegion(), id, 0, id.length - 1);
-	}
-
-	/**
-	 *
-	 */
-	public int fillRegion (Chip chip, Region region, int probe_id[])
-	{
-		return fillRegion (chip, region, probe_id, 0, probe_id.length - 1);
-	}
-
-	/**
-	 *
-	 */
-	public int fillRegion (Chip chip, Region region, int probe_id[], int start,
-		int end)
-	{
-		RectangularRegion r;
-
-		if (!(region instanceof RectangularRegion))
-			throw new IllegalArgumentException
-				("Only rectangular regions are supported.");
-
-		r = (RectangularRegion) region;
-		
 		this.chip_region = chip.getChipRegion();
 
 		if (chip instanceof SimpleChip)
-			return fillRegion ((SimpleChip) chip, r, probe_id, start, end);
-
-		else if (chip instanceof AffymetrixChip)
-			return fillRegion ((AffymetrixChip) chip, r, probe_id, start, end);
-
+		{
+			changeLayout ((SimpleChip) chip);
+		}
 		else
 			throw new IllegalArgumentException ("Unsupported chip type.");
 	}
 
-	/**
-	 *
-	 */
-	private int fillRegion (SimpleChip chip, RectangularRegion region,
-		int probe_id[], int start, int end)
+	private void changeLayout (SimpleChip chip)
 	{
-		int id, unplaced;
+		int id;
 		
-		unplaced = initialPlacement (chip, region, probe_id, start, end);
-
-		for (int r = region.first_row; r <= region.last_row; r ++)
+		if (mode == CONFLICT_INDEX_MIN)
 		{
-			for (int c = region.first_col; c <= region.last_col; c++)
+			// prepare for faster conflict index calculations
+			ci_dim = ConflictIndex.dimConflictRegion();
+			embed_len = chip.getEmbeddingLength();
+			probe_len = chip.getProbeLength();
+			
+			if (m_cost == null)
 			{
-				// skip spot is empty
-				if ((id = chip.spot[r][c]) == Chip.EMPTY_SPOT)
-					continue;
-
+				m_cost = new double [embed_len];
+				u_cost = new double [embed_len];
+				pos_weight = new double [probe_len + 1];
+			}
+			else if (m_cost.length != embed_len)
+			{
+				m_cost = new double [embed_len];
+				u_cost = new double [embed_len];
+				pos_weight = new double [probe_len + 1];
+			}
+			
+			// store position weights locally
+			for (int b = 0; b <= probe_len; b++)
+				pos_weight[b] = ConflictIndex.positionWeight(b, probe_len);
+		}
+		
+		for (int r = chip_region.first_row; r <= chip_region.last_row; r ++)
+		{
+			for (int c = chip_region.first_col; c <= chip_region.last_col; c++)
+			{
 				// skip fixed spot
 				if (chip.isFixedSpot(r, c))
 					continue;
 
+				// TODO should empty spots be really skipped?
+				
+				// skip if spot is empty
+				if ((id = chip.spot[r][c]) == Chip.EMPTY_SPOT)
+					continue;
+
 				// replaced current probe with probe resulting in minimum cost
-				replace (chip, region, r, c, id);
+				if (mode == BORDER_LENGTH_MIN)
+					minBorderLength (chip, r, c, id);
+				else // if (mode == CONFLICT_INDEX_MIN)
+					minConflictIndex (chip, r, c, id);
 			}
 		}
-
-		return unplaced;
 	}
 
-	/**
-	 *
-	 */
-	private int fillRegion (AffymetrixChip chip, RectangularRegion region,
-		int probe_id[], int start, int end)
-	{
-		int unplaced;
-		
-		unplaced = initialPlacement (chip, region, probe_id, start, end);
-
-		// TODO implement this
-
-		return unplaced;
-	}
-
-	private int initialPlacement (SimpleChip chip, RectangularRegion region,
-			int probe_id[], int start, int end)
-	{
-		if (randomize_first) randomizeProbes (probe_id, start, end);
-		
-		for (int r = region.first_row; r <= region.last_row; r++)
-			for (int c = region.first_col; c <= region.last_col; c++)
-			{
-				// skip fixed spots
-				if (chip.isFixedSpot(r, c))
-					continue;
-				
-				// spot must be empty 
-				if (chip.spot[r][c] != Chip.EMPTY_SPOT)
-					continue;
-
-				// place probe
-				chip.spot[r][c] = probe_id[start++];
-				
-				// check if all probes have been placed
-				if (start > end)
-					// yes: zero unplaced probes
-					return 0;
-			}
-		
-		return (end - start + 1);
-	}
-
-	private int initialPlacement (AffymetrixChip chip,
-			RectangularRegion region, int probe_id[], int start, int end)
-	{
-		if (randomize_first) randomizeProbes (probe_id, start, end);
-		
-		// TODO implement this
-		
-		return 0;
-	}
-	
-	private void replace (SimpleChip chip, RectangularRegion region, int row,
-			int col, int curr_id)
+	private void minBorderLength (SimpleChip chip, int row, int col, int curr)
 	{
 		long	cost, min;
-		int		top, left, id, best_row, best_col;
+		int		r, c, id, best_row, best_col, top, left;
 		
 		// get ID of probe placed on the top spot
 		if (row > chip_region.first_row)
@@ -252,30 +219,31 @@ public class RowEpitaxial implements LayoutAlgorithm, FillingAlgorithm
 			left = chip.spot[row][col - 1];
 		else
 			left = Chip.EMPTY_SPOT;
-
-		best_row = row;
-		best_col = col;
 		
-		// compute distance of current probe to top and left spots 
+		// if region around the spot is empty,
+		// there is no criteria to choose a replacement
+		if (top == Chip.EMPTY_SPOT && left == Chip.EMPTY_SPOT) return;
+
+		// compute border conflicts of current probe with top and left neighbors 
 		min = 0;
 		if (top != Chip.EMPTY_SPOT)
-			min += LayoutEvaluation.hammingDistance(chip, curr_id, top);
+			min += LayoutEvaluation.hammingDistance(chip, curr, top);
 		if (left != Chip.EMPTY_SPOT)
-			min += LayoutEvaluation.hammingDistance(chip, curr_id, left);
-		
-		int r = row;
-		int c = col;
+			min += LayoutEvaluation.hammingDistance(chip, curr, left);
+
+		best_row = r = row;
+		best_col = c = col;
 		
 		// check probes placed on the next 'look_ahead' spots
-		for (int count = 0; count <= look_ahead; count++)
+		for (int count = 0; count <= look_ahead;)
 		{
 			// next spot
-			if (++c > region.last_col)
+			if (++c > chip_region.last_col)
 			{
-				if (++r > region.last_row)
+				if (++r > chip_region.last_row)
 					break;
 				
-				c = region.first_col;
+				c = chip_region.first_col;
 			}
 			
 			// skip fixed spots
@@ -285,6 +253,8 @@ public class RowEpitaxial implements LayoutAlgorithm, FillingAlgorithm
 			// get ID of candidate probe (skip if spot is empty) 
 			if ((id = chip.spot[r][c]) == Chip.EMPTY_SPOT)
 				continue;
+			
+			count++;
 						
 			// compute cost of candidate probe 
 			if (top != Chip.EMPTY_SPOT)
@@ -305,23 +275,193 @@ public class RowEpitaxial implements LayoutAlgorithm, FillingAlgorithm
 		
 		// swap current probe with best candidate
 		chip.spot[row][col] = chip.spot[best_row][best_col];
-		chip.spot[best_row][best_col] = curr_id;
+		chip.spot[best_row][best_col] = curr;
 	}
 
-	private void randomizeProbes (int probe_id[], int start, int end)
+	private void minConflictIndex (SimpleChip chip, int row, int col, int curr)
 	{
-		int tmp, rand;
+		boolean	empty;
+		double	cost, min;
+		int		r, c, id, best_row, best_col;
 		
-		for (int i = start; i < end; i++)
-		{
-			// select a random element of the list
-			rand = i + (int) ((end - i + 1) * Math.random());
+		// prepare conflict index costs
+		empty = examineNeighbors (chip, row, col);
+		
+		// if region around the spot is empty,
+		// there is no criteria to choose a replacement
+		if (empty) return;
 
-			// swap the selected element with
-			// the one at the current position
-			tmp = probe_id[i];
-			probe_id[i] = probe_id[rand];
-			probe_id[rand] = tmp;
+		// compute current conflict index
+		min = conflictIndex (chip, curr, Double.POSITIVE_INFINITY);
+		best_row = r = row;
+		best_col = c = col;
+		
+		// check probes placed on the next 'look_ahead' spots
+		for (int count = 0; count <= look_ahead;)
+		{
+			// next spot
+			if (++c > chip_region.last_col)
+			{
+				if (++r > chip_region.last_row)
+					break;
+				
+				c = chip_region.first_col;
+			}
+			
+			// skip fixed spots
+			if (chip.isFixedSpot(r, c))
+				continue;
+			
+			// get ID of candidate probe (skip if spot is empty) 
+			if ((id = chip.spot[r][c]) == Chip.EMPTY_SPOT)
+				continue;
+			
+			count++;
+						
+			// compute cost of candidate probe
+			cost = conflictIndex (chip, id, min);
+			
+			// check if found better option
+			if (cost < min)
+			{
+				min = cost;
+				best_row = r;
+				best_col = c;				
+			}
 		}
+		
+		// swap current probe with best candidate
+		chip.spot[row][col] = chip.spot[best_row][best_col];
+		chip.spot[best_row][best_col] = curr;
+	}
+	
+	private boolean examineNeighbors (SimpleChip chip, int row, int col)
+	{
+		boolean empty = true;
+		double delta;
+		int r, c, id, base, step, word, bitmask = 0;
+		
+		// reset costs
+		for (step = 0; step < embed_len; step++)
+			m_cost[step] = u_cost[step] = 0;
+		
+		// define region around the spot that needs to be examined
+		// (only look at spots to the left or above)
+		int min_row = Math.max(row - ci_dim, chip_region.first_row);
+		int max_row = row;
+		int min_col = Math.max(col - ci_dim, chip_region.first_col);
+		int max_col = Math.min(col + ci_dim, chip_region.last_col);
+		
+		for (r = min_row; r <= max_row; r++)
+		{
+			if (r == max_row) max_col = col - 1;
+			
+			for (c = min_col; c <= max_col; c++)
+			{
+				// skip if neighbor is empty
+				if ((id = chip.spot[r][c]) == Chip.EMPTY_SPOT)
+					continue;
+				
+				// get distance-dependent weight
+				delta = ConflictIndex.distanceWeight(r, c, row, col);
+				
+				if (delta == 0)
+					continue;
+				
+				empty = false;
+				
+				for (base = 0, step = 0, word = - 1; step < embed_len; step++)
+				{
+					if (step % Integer.SIZE == 0)
+					{
+						word++;
+						bitmask = 0x01 << (Integer.SIZE - 1);
+					}
+					else
+						bitmask >>>= 1;
+
+					// check state of embedding at current step
+					if ((chip.embed[id][word] & bitmask) != 0)
+					{
+						// spot is in an unmasked step
+						m_cost[step] += delta;
+						
+						base++;
+					}
+					else
+					{
+						// spot is in a masked step
+						u_cost[step] += pos_weight[base] * delta;
+					}
+				}
+			}
+		}
+
+		return empty;
+	}
+	
+	private double conflictIndex (SimpleChip chip, int id, double max)
+	{
+		int base, step, word, bitmask = 0;
+		double ci = 0;
+		
+		for (base = 0, step = 0, word = - 1; step < embed_len; step++)
+		{
+			if (step % Integer.SIZE == 0)
+			{
+				word++;
+				bitmask = 0x01 << (Integer.SIZE - 1);
+			}
+			else
+				bitmask >>>= 1;
+			
+			// check embedding state at current step 
+			if ((chip.embed[id][word] & bitmask) != 0)
+			{
+				// spot is in an unmasked step
+				ci += u_cost[step];
+
+				// increment the number of synthesized bases
+				base++;
+			}
+			else
+			{
+				// spot is in a masked step
+				ci += pos_weight[base] * m_cost[step];
+				
+				// stop if CI exceeds limit
+				if (ci > max) break;
+			}
+		}
+
+		return ci;
+	}
+
+	/**
+	 * Returns the algorithm's name together with current options.
+	 * 
+	 * @return algorithm's name and configurable options
+	 */
+	@Override
+	public String toString ()
+	{
+		String m;
+		
+		switch (this.mode)
+		{
+			case BORDER_LENGTH_MIN:
+				m = "-BL-";
+				break;
+				
+			case CONFLICT_INDEX_MIN:
+				m = "-CI-";
+				break;
+			
+			default:
+				m = "-?";
+				break;
+		}
+		
+		return this.getClass().getSimpleName() + m + look_ahead;
 	}
 }
