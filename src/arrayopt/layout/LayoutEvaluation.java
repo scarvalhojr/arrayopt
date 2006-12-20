@@ -290,7 +290,7 @@ public class LayoutEvaluation
 	public static double normalizedBorderLength (Chip chip)
 	{
 		return borderLength (chip, chip.getChipRegion()) /
-								chip.getNumberOfProbes();
+								chip.getNumberOfBorders();
 	}
 
 	public static long borderLength (Chip chip, RectangularRegion region)
@@ -369,7 +369,7 @@ public class LayoutEvaluation
 	{
 		// TODO implement this
 		
-		return -1;
+		throw new IllegalStateException ("Unimplemented method!");
 	}
 
 	public static double analyzeConflictIndex (Chip chip)
@@ -431,6 +431,11 @@ public class LayoutEvaluation
 					conf += conflictIndex(chip, r, c, id) / num_probes;
 		
 		return conf;
+	}
+
+	public static double totalConflictIndex (Chip chip)
+	{
+		return totalConflictIndex(chip, chip.getChipRegion());
 	}
 
 	public static double totalConflictIndex (Chip chip, RectangularRegion
@@ -584,6 +589,6 @@ public class LayoutEvaluation
 	{
 		// TODO implement this
 		
-		return -1;
+		throw new IllegalStateException ("Unimplemented method!");
 	}
 }
