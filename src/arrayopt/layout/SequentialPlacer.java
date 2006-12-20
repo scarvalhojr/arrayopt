@@ -38,11 +38,13 @@
 package arrayopt.layout;
 
 /**
- * Class that implements the Sequential Placer algorithm. This algorithm fills
- * spots sequentially, row-by-row, from top to bottom, left-to-right. The order
- * of probes placed at each spot can be configured at instantiation time with
- * the following constants: {@link #KEEP_ORDER}, {@link #RANDOM_ORDER},
- * {@link #SORT_EMBEDDINGS}, {@link #SORT_SEQUENCES} and {@link #TSP_ORDER}. 
+ * Class that implements the Sequential placement algorithm. The algorithm fills
+ * spots sequentially, row-by-row, from top to bottom, left-to-right.
+ * 
+ * <P>The order of probes placed at each spot can be configured at instantiation
+ * time with the following constants: {@link #KEEP_ORDER},
+ * {@link #RANDOM_ORDER}, {@link #SORT_EMBEDDINGS}, {@link #SORT_SEQUENCES} and
+ * {@link #TSP_ORDER}.</P> 
  * 
  * @author Sergio A. de Carvalho Jr.
  */
@@ -104,6 +106,7 @@ public class SequentialPlacer implements LayoutAlgorithm, FillingAlgorithm
 	 * Creates an instance of the SequentialPlacer algorithm with the specified
 	 * probe ordering.
 	 * 
+	 * @param order order of probes during placement
 	 * @see #KEEP_ORDER
 	 * @see #RANDOM_ORDER
 	 * @see #SORT_EMBEDDINGS
@@ -146,8 +149,6 @@ public class SequentialPlacer implements LayoutAlgorithm, FillingAlgorithm
 		id = chip.getMovableProbes ();
 
 		fillRegion (chip, chip.getChipRegion(), id, 0, id.length - 1);
-		
-		return;
 	}
 
 	/**
@@ -226,15 +227,16 @@ public class SequentialPlacer implements LayoutAlgorithm, FillingAlgorithm
 				// skip spot if not empty
 				if (chip.spot[r][c] != Chip.EMPTY_SPOT)
 					continue;
-
+				
 				// skip fixed spots
-				if (chip.isFixedSpot(r, c)) continue;
-
+				if (chip.isFixedSpot(r, c))
+					continue;
+				
+				// place next element of the list
 				chip.spot[r][c] = probe_id[start];
 
-				start ++;
-
-				if (start > end)
+				// advance list pointer
+				if (++start > end)
 					// all probes were placed
 					return 0;
 			}
@@ -258,13 +260,13 @@ public class SequentialPlacer implements LayoutAlgorithm, FillingAlgorithm
 				// skip fixed spot pairs
 				if (chip.isFixedSpot(r, c) || chip.isFixedSpot(r+1, c))
 					continue;
-
+				
+				// place next element of the list
 				chip.spot[r][c] = probe_id[start];
 				chip.spot[r+1][c] = probe_id[start] + 1;
 
-				start ++;
-
-				if (start > end)
+				// advance list pointer
+				if (++start > end)
 					// all probes were placed
 					return 0;
 			}
