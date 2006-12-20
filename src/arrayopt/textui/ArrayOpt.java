@@ -64,7 +64,8 @@ public class ArrayOpt
 		String	filename, dep_seq;
 		int		i, type, rows, cols, probes, probe_len, num_alg, a;
 		boolean	ignore_fixed, check, calc_bl, calc_ci, print_chip;
-		long	start, end, total = 0;
+		long	bl, start, end, total = 0;
+		double	norm_bl;
 
 		try
 		{
@@ -188,9 +189,19 @@ public class ArrayOpt
 		{
 			alg = new LayoutAlgorithm[num_alg];
 			
-			// create an instance of each algorithm
-			for (i = 11, a = 0; i < args.length; a++, i++)
-				alg[a] = parseAlgorithmName(args[i]);
+			try
+			{
+				// create an instance of each algorithm
+				for (i = 11, a = 0; i < args.length; a++, i++)
+					alg[a] = parseAlgorithmName(args[i]);
+			}
+			catch (Exception e)
+			{
+				usage();
+				System.err.println("Illegal argument: " + e.getMessage());
+				System.exit(1);
+				return;
+			}
 		}
 		else
 		{
@@ -240,12 +251,14 @@ public class ArrayOpt
 		{
 			if (calc_bl)
 			{
-				System.err.println("Current total border length: " +
-						LayoutEvaluation.borderLength(chip));
+				bl = LayoutEvaluation.borderLength(chip);
+				norm_bl = bl / (double) chip.getNumberOfBorders();
+				System.err.println("Total border length: " + bl +
+						" -> normalized: " + norm_bl);
 			}
 			else if (calc_ci)
 			{
-				System.err.println("Current average conflict index: " +
+				System.err.println("Average conflict index: " +
 						LayoutEvaluation.averageConflictIndex(chip));
 			}
 			
@@ -266,12 +279,14 @@ public class ArrayOpt
 
 		if (calc_bl)
 		{
-			System.err.println("Final total border length: " +
-					LayoutEvaluation.borderLength(chip));
+			bl = LayoutEvaluation.borderLength(chip);
+			norm_bl = bl / (double) chip.getNumberOfBorders();
+			System.err.println("Total border length: " + bl +
+					" -> normalized: " + norm_bl);
 		}
 		else if (calc_ci)
 		{
-			System.err.println("Final average conflict index: " +
+			System.err.println("Average conflict index: " +
 					LayoutEvaluation.averageConflictIndex(chip));
 		}
 
@@ -313,35 +328,151 @@ public class ArrayOpt
 	private static LayoutAlgorithm parseAlgorithmName (String name)
 	{
 		LayoutAlgorithm alg;
+		String args[];
+		
+		// parse algorithm options
+		args = name.split("-");
 
 		// *****************
 		// Sequential placer
 		// *****************
-		if (name.equalsIgnoreCase("SEQPLACER-KEEP"))
-			alg = new SequentialPlacer(SequentialPlacer.KEEP_ORDER);
+		if (args[0].equalsIgnoreCase("SEQPLACER") && args.length == 2)
+		{
+			int order;
+			
+			if (args[1].equalsIgnoreCase("KEEP"))
+				order = SequentialPlacer.KEEP_ORDER;
+			else if (args[1].equalsIgnoreCase("RANDOM"))
+				order = SequentialPlacer.RANDOM_ORDER;
+			else if (args[1].equalsIgnoreCase("SORTSEQ"))
+				order = SequentialPlacer.SORT_SEQUENCES;
+			else if (args[1].equalsIgnoreCase("SORTEMBED"))
+				order = SequentialPlacer.SORT_EMBEDDINGS;
+			else if (args[1].equalsIgnoreCase("TSP"))
+				order = SequentialPlacer.TSP_ORDER;
+			else
+				throw new IllegalArgumentException ("Unknown ordering '" +
+						args[1] + "' for Sequential placement algorithm.");
+			
+			alg = new SequentialPlacer(order);
+		}		
+
+		// ******************
+		// k-threading placer
+		// ******************
+		else if (args[0].equalsIgnoreCase("KTHREAD") && args.length == 3)
+		{
+			int kvalue, order;
+			
+			if (args[1].matches("[0-9]+"))
+				kvalue = Integer.parseInt(args[1]);
+			else
+				throw new IllegalArgumentException ("Invalid k-value '" +
+						args[1] + "' for k-threading placement algorithm.");
+			
+			if (args[2].equalsIgnoreCase("KEEP"))
+				order = KThreadingPlacer.KEEP_ORDER;
+			else if (args[2].equalsIgnoreCase("RANDOM"))
+				order = KThreadingPlacer.RANDOM_ORDER;
+			else if (args[2].equalsIgnoreCase("SORTSEQ"))
+				order = KThreadingPlacer.SORT_SEQUENCES;
+			else if (args[2].equalsIgnoreCase("SORTEMBED"))
+				order = KThreadingPlacer.SORT_EMBEDDINGS;
+			else if (args[2].equalsIgnoreCase("TSP"))
+				order = KThreadingPlacer.TSP_ORDER;
+			else
+				throw new IllegalArgumentException ("Unknown ordering '" +
+						args[2] + "' for k-threading placement algorithm.");
+			
+			alg = new KThreadingPlacer(kvalue, order);
+		}
+
+		// ****************
+		// Greedy placement
+		// ****************
+		else if (args[0].equalsIgnoreCase("GREEDYPLACER") && args.length == 5)
+		{
+			int mode, window, order, kvalue;
+			
+			if (args[1].equalsIgnoreCase("BL"))
+				mode = GreedyPlacer.BORDER_LENGTH_MIN;
+			else if (args[1].equalsIgnoreCase("CI"))
+				mode = GreedyPlacer.CONFLICT_INDEX_MIN;
+			else
+				throw new IllegalArgumentException ("Unknown '" + args[1] +
+						"' mode for Greedy placement algorithm.");
+			
+			if (args[2].matches("[0-9]+"))
+				window = Integer.parseInt(args[2]);
+			else if (args[2].matches("[0-9]+[Kk]"))
+				window = 1000 * Integer.parseInt(
+									args[2].substring(0,args[2].length()-1));
+			else
+				throw new IllegalArgumentException
+					("Invalid window-size value '" + args[2] +
+						"' for Greedy placement algorithm.");
+			
+			if (args[3].matches("[0-9]+"))
+				kvalue = Integer.parseInt(args[3]);
+			else
+				throw new IllegalArgumentException ("Invalid k-value '" +
+						args[3] + "' for Greedy placement algorithm.");
+			
+			if (args[4].equalsIgnoreCase("KEEP"))
+				order = GreedyPlacer.KEEP_ORDER;
+			else if (args[4].equalsIgnoreCase("RANDOM"))
+				order = GreedyPlacer.RANDOM_ORDER;
+			else if (args[4].equalsIgnoreCase("SORTSEQ"))
+				order = GreedyPlacer.SORT_SEQUENCES;
+			else if (args[4].equalsIgnoreCase("SORTEMBED"))
+				order = GreedyPlacer.SORT_EMBEDDINGS;
+			else if (args[4].equalsIgnoreCase("TSP"))
+				order = GreedyPlacer.TSP_ORDER;
+			else
+				throw new IllegalArgumentException ("Unknown ordering '" +
+						args[4] + "' for Greedy placement algorithm.");
+			
+			alg = new GreedyPlacer(mode, window, kvalue, order);
+		}		
 		
-		else if (name.equalsIgnoreCase("SEQPLACER-RANDOM"))
-			alg = new SequentialPlacer(SequentialPlacer.RANDOM);
-		
-		else if (name.equalsIgnoreCase("SEQPLACER-SORTEMBED"))
-			alg = new SequentialPlacer(SequentialPlacer.SORT_EMBEDDINGS);
-		
-		else if (name.equalsIgnoreCase("SEQPLACER-SORTSEQ"))
-			alg = new SequentialPlacer(SequentialPlacer.SORT_SEQUENCES);
-		
-		else if (name.equalsIgnoreCase("SEQPLACER-TSP"))
-			alg = new SequentialPlacer(SequentialPlacer.TSP_ORDER);
+		// *************
+		// Row-epitaxial
+		// *************
+		else if (args[0].equalsIgnoreCase("REPTX") && args.length == 3)
+		{
+			int mode, look_ahead;
+			
+			if (args[1].equalsIgnoreCase("BL"))
+				mode = RowEpitaxial.BORDER_LENGTH_MIN;
+			else if (args[1].equalsIgnoreCase("CI"))
+				mode = RowEpitaxial.CONFLICT_INDEX_MIN;
+			else
+				throw new IllegalArgumentException ("Unknown '" + args[1] +
+						"' mode for Row-epitaxial placement algorithm.");
+			
+			if (args[2].matches("[0-9]+"))
+				look_ahead = Integer.parseInt(args[2]);
+			else if (args[2].matches("[0-9]+[Kk]"))
+				look_ahead = 1000 * Integer.parseInt(
+									args[2].substring(0,args[2].length()-1));
+			else
+				throw new IllegalArgumentException
+					("Invalid look-ahead value '" + args[2] +
+						"' for Row-epitaxial placement algorithm.");
+			
+			alg = new RowEpitaxial(mode, look_ahead);
+		}		
 
 		// ********************************************************
 		// Leftmost, Rightmost and Centered re-embedding algorithms
 		// ********************************************************
-		else if (name.equalsIgnoreCase("LEFT-EMBED"))
+		else if (name.equalsIgnoreCase("LEFTMOST"))
 			alg = new LeftMostEmbedding();
 		
-		else if (name.equalsIgnoreCase("RIGHT-EMBED"))
+		else if (name.equalsIgnoreCase("RIGHTMOST"))
 			alg = new RightMostEmbedding();
 		
-		else if (name.equalsIgnoreCase("CENTERED-EMBED"))
+		else if (name.equalsIgnoreCase("CENTERED"))
 			alg = new CenteredEmbedding();
 		
 		// ***********************
@@ -474,130 +605,6 @@ public class ArrayOpt
 		// placement algorithm selection
 		// ******************************************************
 
-		if (placement.equalsIgnoreCase("NONE"))
-			placer = null;
-
-		else if (placement.equalsIgnoreCase("RANDOM"))
-			placer = new RandomPlacer();
-
-		else if (placement.equalsIgnoreCase("SEQUENTIAL"))
-			placer = new SequentialPlacer(false);
-
-		else if (placement.equalsIgnoreCase("SEQUENTIAL-S"))
-			placer = new SequentialPlacer(true);
-		
-		// k-Threading
-
-		else if (placement.equalsIgnoreCase("0-THREAD-S"))
-			placer = new KThreadingPlacer(0, true);
-
-		else if (placement.equalsIgnoreCase("1-THREAD-S"))
-			placer = new KThreadingPlacer(1, true);
-
-		else if (placement.equalsIgnoreCase("2-THREAD-S"))
-			placer = new KThreadingPlacer(2, true);
-
-		else if (placement.equalsIgnoreCase("3-THREAD-S"))
-			placer = new KThreadingPlacer(3, true);
-
-		else if (placement.equalsIgnoreCase("4-THREAD-S"))
-			placer = new KThreadingPlacer(4, true);
-
-		else if (placement.equalsIgnoreCase("5-THREAD-S"))
-			placer = new KThreadingPlacer(5, true);
-
-		else if (placement.equalsIgnoreCase("6-THREAD-S"))
-			placer = new KThreadingPlacer(6, true);
-
-		else if (placement.equalsIgnoreCase("7-THREAD-S"))
-			placer = new KThreadingPlacer(7, true);
-
-		else if (placement.equalsIgnoreCase("8-THREAD-S"))
-			placer = new KThreadingPlacer(8, true);
-
-		else if (placement.equalsIgnoreCase("9-THREAD-S"))
-			placer = new KThreadingPlacer(9, true);
-
-		else if (placement.equalsIgnoreCase("10-THREAD-S"))
-			placer = new KThreadingPlacer(10, true);
-		
-		// Greedy Placer
-
-		else if (placement.equalsIgnoreCase("GREEDY-BL-100-S"))
-			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 100, GreedyPlacer.SORT_EMBEDDINGS);		
-
-		else if (placement.equalsIgnoreCase("GREEDY-BL-1K-S"))
-			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 1000, GreedyPlacer.SORT_EMBEDDINGS);
-
-		else if (placement.equalsIgnoreCase("GREEDY-BL-5K-S"))
-			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 5000, GreedyPlacer.SORT_EMBEDDINGS);
-		
-		else if (placement.equalsIgnoreCase("GREEDY-BL-10K-S"))
-			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 10000, GreedyPlacer.SORT_EMBEDDINGS);
-
-		else if (placement.equalsIgnoreCase("GREEDY-BL-20K-S"))
-			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 20000, GreedyPlacer.SORT_EMBEDDINGS);
-
-		else if (placement.equalsIgnoreCase("GREEDY-BL-30K-S"))
-			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 30000, GreedyPlacer.SORT_EMBEDDINGS);
-
-		else if (placement.equalsIgnoreCase("GREEDY-BL-40K-S"))
-			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 40000, GreedyPlacer.SORT_EMBEDDINGS);
-
-		else if (placement.equalsIgnoreCase("GREEDY-CI-100-S"))
-			placer = new GreedyPlacer(GreedyPlacer.MODE_CONFLICT_INDEX, 100, GreedyPlacer.SORT_EMBEDDINGS);
-
-		else if (placement.equalsIgnoreCase("GREEDY-CI-1K-S"))
-			placer = new GreedyPlacer(GreedyPlacer.MODE_CONFLICT_INDEX, 1000, GreedyPlacer.SORT_EMBEDDINGS);
-
-		else if (placement.equalsIgnoreCase("GREEDY-CI-5K-S"))
-			placer = new GreedyPlacer(GreedyPlacer.MODE_CONFLICT_INDEX, 5000, GreedyPlacer.SORT_EMBEDDINGS);
-
-		else if (placement.equalsIgnoreCase("GREEDY-CI-10K-S"))
-			placer = new GreedyPlacer(GreedyPlacer.MODE_CONFLICT_INDEX, 10000, GreedyPlacer.SORT_EMBEDDINGS);
-
-		else if (placement.equalsIgnoreCase("GREEDY-CI-20K-S"))
-			placer = new GreedyPlacer(GreedyPlacer.MODE_CONFLICT_INDEX, 20000, GreedyPlacer.SORT_EMBEDDINGS);
-
-		else if (placement.equalsIgnoreCase("GREEDY-CI-30K-S"))
-			placer = new GreedyPlacer(GreedyPlacer.MODE_CONFLICT_INDEX, 30000, GreedyPlacer.SORT_EMBEDDINGS);
-
-		else if (placement.equalsIgnoreCase("GREEDY-CI-40K-S"))
-			placer = new GreedyPlacer(GreedyPlacer.MODE_CONFLICT_INDEX, 40000, GreedyPlacer.SORT_EMBEDDINGS);
-
-		// Greedy Plus
-
-		// TODO delete this!
-		else if (placement.equalsIgnoreCase("GREEDYPLUS-BL-5K-S"))
-			placer = new GreedyPlacerPlus(GreedyPlacerPlus.BORDER_LENGTH_MIN, 5000, GreedyPlacerPlus.SORT_EMBEDDINGS);
-
-		else if (placement.equalsIgnoreCase("GREEDYPLUS-BL-50-S"))
-			placer = new GreedyPlacerPlus(GreedyPlacerPlus.BORDER_LENGTH_MIN, 50, GreedyPlacerPlus.SORT_EMBEDDINGS);
-		
-		else if (placement.equalsIgnoreCase("GREEDYPLUS-BL-100-S"))
-			placer = new GreedyPlacerPlus(GreedyPlacerPlus.BORDER_LENGTH_MIN, 100, GreedyPlacerPlus.SORT_EMBEDDINGS);
-
-		else if (placement.equalsIgnoreCase("GREEDYPLUS-BL-200-S"))
-			placer = new GreedyPlacerPlus(GreedyPlacerPlus.BORDER_LENGTH_MIN, 200, GreedyPlacerPlus.SORT_EMBEDDINGS);
-
-		else if (placement.equalsIgnoreCase("GREEDYPLUS-BL-300-S"))
-			placer = new GreedyPlacerPlus(GreedyPlacerPlus.BORDER_LENGTH_MIN, 300, GreedyPlacerPlus.SORT_EMBEDDINGS);
-
-		else if (placement.equalsIgnoreCase("GREEDYPLUS-CI-50-S"))
-			placer = new GreedyPlacerPlus(GreedyPlacerPlus.CONFLICT_INDEX_MIN, 50, GreedyPlacerPlus.SORT_EMBEDDINGS);
-
-		else if (placement.equalsIgnoreCase("GREEDYPLUS-CI-100-S"))
-			placer = new GreedyPlacerPlus(GreedyPlacerPlus.CONFLICT_INDEX_MIN, 100, GreedyPlacerPlus.SORT_EMBEDDINGS);
-
-		else if (placement.equalsIgnoreCase("GREEDYPLUS-CI-200-S"))
-			placer = new GreedyPlacerPlus(GreedyPlacerPlus.CONFLICT_INDEX_MIN, 200, GreedyPlacerPlus.SORT_EMBEDDINGS);
-
-		else if (placement.equalsIgnoreCase("GREEDYPLUS-CI-300-S"))
-			placer = new GreedyPlacerPlus(GreedyPlacerPlus.CONFLICT_INDEX_MIN, 300, GreedyPlacerPlus.SORT_EMBEDDINGS);
-
-		else if (placement.equalsIgnoreCase("GREEDYPLUS-CI-400-S"))
-			placer = new GreedyPlacerPlus(GreedyPlacerPlus.CONFLICT_INDEX_MIN, 400, GreedyPlacerPlus.SORT_EMBEDDINGS);
-
 		// Greedy Embeddings Placer
 
 		// TODO delete this
@@ -661,20 +668,6 @@ public class ArrayOpt
 		else if (placement.equalsIgnoreCase("GREEDYEMB-CI-100"))
 			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.CONFLICT_INDEX_MIN, 100);
 
-		else if (placement.equalsIgnoreCase("GREEDYBL-50"))
-			placer = new GreedyPlacer(GreedyPlacer.MODE_BORDER_LENGTH, 50);		
-
-		else if (placement.equalsIgnoreCase("REPTX1K-BL"))
-			placer = new RowEpitaxial(1000, true);
-
-		else if (placement.equalsIgnoreCase("REPTX5K-BL"))
-			placer = new RowEpitaxial(5000, false);
-
-		else if (placement.equalsIgnoreCase("REPTX10K-BL"))
-			placer = new RowEpitaxial(10000, false);
-
-		else if (placement.equalsIgnoreCase("REPTX20K-BL"))
-			placer = new RowEpitaxial(20000, false);
 
 		else if (placement.equalsIgnoreCase("2D1-LEFT-GREEDY"))
 			placer = new TwoDimensionalPartitioning(new GreedyPlacer(), 1);
@@ -718,17 +711,6 @@ public class ArrayOpt
 							new GraspDense(), QuadraticAssignmentPlacer.MODE_CONFLICT_INDEX),
 						8);
 
-		else if (placement.equalsIgnoreCase("LEFT"))
-			placer = new ProbeSetEmbeddingWrapper(new LeftMostEmbedding());
-			
-		else if (placement.equalsIgnoreCase("RIGHT"))
-			placer = new ProbeSetEmbeddingWrapper(new RightMostEmbedding());
-			
-		else if (placement.equalsIgnoreCase("CENTER"))
-			placer = new ProbeSetEmbeddingWrapper(new CenteredEmbedding());
-
-		else if (placement.equalsIgnoreCase("EDGE"))
-			placer = new ProbeSetEmbeddingWrapper(new EdgeEmbedding());
 
 		else if (placement.equalsIgnoreCase("PIVOTPART"))
 			placer = new PivotPartitioning(new SequentialPlacer());
