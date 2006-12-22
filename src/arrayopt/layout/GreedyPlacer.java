@@ -159,6 +159,10 @@ public class GreedyPlacer implements LayoutAlgorithm, FillingAlgorithm
 	
 	private double u_cost[];
 	
+	private int neighbor_id[] = new int[4];
+	
+	private int num_neighbors;
+	
 	/**
 	 * Creates an instance of the Greedy placement algorithm with the desired
 	 * minimization mode, probe ordering and window size.
@@ -309,7 +313,7 @@ public class GreedyPlacer implements LayoutAlgorithm, FillingAlgorithm
 	{
 		int row, r, c, dir = -1;
 		int delta, move, UP = 0, DOWN = 1;
-
+		
 		if (mode == CONFLICT_INDEX_MIN)
 			// prepare for local conflict index calculations
 			conflictIndexSetup (chip);
@@ -415,13 +419,21 @@ public class GreedyPlacer implements LayoutAlgorithm, FillingAlgorithm
 		MyLinkedList best;
 		long	cost, min;
 		int		count;
+		boolean	empty;
 		
 		// find node so that the search will examine 
 		// window_size elements around the last placed probe 
 		node = findStartingNode (node);
 
+		// prepare for border length computation
+		empty = examineNeighbors_bl (chip, row, col);
+		
+		// return if region around the spot is empty
+		// (any probe can be placed)
+		if (empty) return node;
+		
 		// compute cost of first element
-		min = LayoutEvaluation.borderLength (chip, row, col, node.info);
+		min = borderLength (chip, node.info);
 		if (min == 0) return node;
 		
 		best = node;
@@ -429,7 +441,7 @@ public class GreedyPlacer implements LayoutAlgorithm, FillingAlgorithm
 		
 		for (count = 1; node != null && count < window_size; count++)
 		{
-			cost = LayoutEvaluation.borderLength (chip, row, col, node.info);
+			cost = borderLength (chip, node.info);
 			if (cost < min)
 			{
 				min = cost;
@@ -454,11 +466,11 @@ public class GreedyPlacer implements LayoutAlgorithm, FillingAlgorithm
 		// window_size elements around the last placed probe 
 		node = findStartingNode (node);
 		
-		// prepare conflict index costs
-		empty = examineNeighbors (chip, row, col);
+		// prepare for conflict index computation
+		empty = examineNeighbors_ci (chip, row, col);
 		
-		// if region around the spot is empty,
-		// place any probe and return
+		// return if region around the spot is empty
+		// (any probe can be placed)
 		if (empty) return node;
 
 		// compute cost of first element
@@ -509,7 +521,36 @@ public class GreedyPlacer implements LayoutAlgorithm, FillingAlgorithm
 			pos_weight[b] = ConflictIndex.positionWeight(b, probe_len);
 	}
 	
-	private boolean examineNeighbors (SimpleChip chip, int row, int col)
+	private boolean examineNeighbors_bl (SimpleChip chip, int row, int col)
+	{
+		int id;
+		
+		num_neighbors = 0;
+		
+		if (row - 1 >= chip_region.first_row)
+			if ((id = chip.spot[row - 1][col]) != Chip.EMPTY_SPOT)
+				neighbor_id[num_neighbors++] = id;
+
+		if (row + 1 <= chip_region.last_row)
+			if ((id = chip.spot[row + 1][col]) != Chip.EMPTY_SPOT)
+				neighbor_id[num_neighbors++] = id;
+
+		if (col - 1 >= chip_region.first_col)
+			if ((id = chip.spot[row][col - 1]) != Chip.EMPTY_SPOT)
+				neighbor_id[num_neighbors++] = id;
+
+		if (col + 1 <= chip_region.last_col)
+			if ((id = chip.spot[row][col + 1]) != Chip.EMPTY_SPOT)
+				neighbor_id[num_neighbors++] = id;
+		
+		if (num_neighbors == 0)
+			// no neighbors found
+			return true;
+		// else
+			return false;
+	}
+	
+	private boolean examineNeighbors_ci (SimpleChip chip, int row, int col)
 	{
 		boolean empty = true;
 		double delta;
@@ -594,6 +635,16 @@ public class GreedyPlacer implements LayoutAlgorithm, FillingAlgorithm
 			node = node.prev;
 
 		return node;
+	}
+	
+	private long borderLength (SimpleChip chip, int id)
+	{
+		long bl = 0;
+		
+		for (int i = 0; i < num_neighbors; i++)
+			bl += LayoutEvaluation.hammingDistance(chip, id, neighbor_id[i]);
+		
+		return bl;
 	}
 	
 	private double conflictIndex (SimpleChip chip, int id, double max)
