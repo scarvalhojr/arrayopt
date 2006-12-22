@@ -478,85 +478,66 @@ public class ArrayOpt
 		// ***********************
 		// Sequential re-embedding
 		// ***********************
-		else if (name.equalsIgnoreCase("SEQREEMBED-BL-RESET"))
-			alg = new SequentialReembedding(
-				OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN, true);
+		else if (args[0].equalsIgnoreCase("SEQREEMBED") && args.length == 3)
+		{
+			int mode;
+			boolean reset;
+			
+			if (args[1].equalsIgnoreCase("BL"))
+				mode = OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN;
+			else if (args[1].equalsIgnoreCase("CI"))
+				mode = OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN;
+			else
+				throw new IllegalArgumentException ("Unknown '" + args[1] +
+						"' mode for Sequential re-embedding algorithm.");
+			
+			if (args[2].equalsIgnoreCase("RESET"))
+				reset = true;
+			else if (args[2].equalsIgnoreCase("NORESET"))
+				reset = false;
+			else
+				throw new IllegalArgumentException ("Invalid argument '" +
+						args[2] + "' for Sequential re-embedding algorithm.");
+			
+			alg = new SequentialReembedding(mode, reset);
+		}
 		
-		else if (name.equalsIgnoreCase("SEQREEMBED-BL-NORESET"))
-			alg = new SequentialReembedding(
-				OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN, false);
-		
-		else if (name.equalsIgnoreCase("SEQREEMBED-CI-RESET"))
-			alg = new SequentialReembedding(
-				OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN, true);
-		
-		else if (name.equalsIgnoreCase("SEQREEMBED-CI-NORESET"))
-			alg = new SequentialReembedding(
-				OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN, false);
-
 		// *********************
 		// Priority re-embedding
 		// *********************
-		else if (name.equalsIgnoreCase("PRIORITYREEMBED-BL-NUMEMBED-RESET"))
-			alg = new PriorityReembedding(
-					OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN,
-					PriorityReembedding.PRIORITY_NUM_OF_EMBEDDINGS, true);
+		else if (args[0].equalsIgnoreCase("PRIORITY") && args.length == 4)
+		{
+			int mode, priority;
+			boolean reset;
+			
+			if (args[1].equalsIgnoreCase("BL"))
+				mode = OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN;
+			else if (args[1].equalsIgnoreCase("CI"))
+				mode = OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN;
+			else
+				throw new IllegalArgumentException ("Unknown '" + args[1] +
+						"' mode for Priority re-embedding algorithm.");
+			
+			if (args[2].equalsIgnoreCase("NUMEMBED"))
+				priority = PriorityReembedding.PRIORITY_NUM_OF_EMBEDDINGS;
+			else if (args[2].equalsIgnoreCase("NUMNEIGHBORS"))
+				priority =  PriorityReembedding.PRIORITY_NUM_OF_NEIGHBORS;
+			else if (args[2].equalsIgnoreCase("BALANCED"))
+				priority = PriorityReembedding.PRIORITY_BALANCED; 
+			else
+				throw new IllegalArgumentException ("Unknown priority '" +
+						args[2] + "' for Priority re-embedding algorithm.");
 
-		else if (name.equalsIgnoreCase("PRIORITYREEMBED-BL-NUMEMBED-NORESET"))
-			alg = new PriorityReembedding(
-					OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN,
-					PriorityReembedding.PRIORITY_NUM_OF_EMBEDDINGS, false);
-
-		else if (name.equalsIgnoreCase("PRIORITYREEMBED-BL-NUMNEIGHBORS-RESET"))
-			alg = new PriorityReembedding(
-					OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN,
-					PriorityReembedding.PRIORITY_NUM_OF_NEIGHBORS, true);
-
-		else if (name.equalsIgnoreCase("PRIORITYREEMBED-BL-NUMNEIGHBORS-NORESET"))
-			alg = new PriorityReembedding(
-					OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN,
-					PriorityReembedding.PRIORITY_NUM_OF_NEIGHBORS, false);
-
-		else if (name.equalsIgnoreCase("PRIORITYREEMBED-BL-BALANCED-RESET"))
-			alg = new PriorityReembedding(
-					OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN,
-					PriorityReembedding.PRIORITY_BALANCED, true);
-
-		else if (name.equalsIgnoreCase("PRIORITYREEMBED-BL-BALANCED-NORESET"))
-			alg = new PriorityReembedding(
-					OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN,
-					PriorityReembedding.PRIORITY_BALANCED, false);
-
-		else if (name.equalsIgnoreCase("PRIORITYREEMBED-CI-NUMEMBED-RESET"))
-			alg = new PriorityReembedding(
-					OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN,
-					PriorityReembedding.PRIORITY_NUM_OF_EMBEDDINGS, true);
-
-		else if (name.equalsIgnoreCase("PRIORITYREEMBED-CI-NUMEMBED-NORESET"))
-			alg = new PriorityReembedding(
-					OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN,
-					PriorityReembedding.PRIORITY_NUM_OF_EMBEDDINGS, false);
-
-		else if (name.equalsIgnoreCase("PRIORITYREEMBED-CI-NUMNEIGHBORS-RESET"))
-			alg = new PriorityReembedding(
-					OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN,
-					PriorityReembedding.PRIORITY_NUM_OF_NEIGHBORS, true);
-
-		else if (name.equalsIgnoreCase("PRIORITYREEMBED-CI-NUMNEIGHBORS-NORESET"))
-			alg = new PriorityReembedding(
-					OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN,
-					PriorityReembedding.PRIORITY_NUM_OF_NEIGHBORS, false);
-
-		else if (name.equalsIgnoreCase("PRIORITYREEMBED-CI-BALANCED-RESET"))
-			alg = new PriorityReembedding(
-					OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN,
-					PriorityReembedding.PRIORITY_BALANCED, true);
-
-		else if (name.equalsIgnoreCase("PRIORITYREEMBED-CI-BALANCED-NORESET"))
-			alg = new PriorityReembedding(
-					OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN,
-					PriorityReembedding.PRIORITY_BALANCED, false);
-
+			if (args[3].equalsIgnoreCase("RESET"))
+				reset = true;
+			else if (args[3].equalsIgnoreCase("NORESET"))
+				reset = false;
+			else
+				throw new IllegalArgumentException ("Invalid argument '" +
+						args[3] + "' for Priority re-embedding algorithm.");
+			
+			alg = new PriorityReembedding(mode, priority, reset);
+		}		
 
 		else
 			throw new IllegalArgumentException
@@ -971,94 +952,6 @@ public class ArrayOpt
 		
 		if (optimization.equalsIgnoreCase("NONE"))
 			optimizer = null;
-
-		else if (optimization.equalsIgnoreCase("PRIORITY-BL-E-INC"))
-			optimizer = new PriorityReembedding(
-					OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN,
-					PriorityReembedding.PRIORITY_NUM_OF_EMBEDDINGS,
-					true);
-
-		else if (optimization.equalsIgnoreCase("PRIORITY-BL-E-TOT"))
-			optimizer = new PriorityReembedding(
-					OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN,
-					PriorityReembedding.PRIORITY_NUM_OF_EMBEDDINGS,
-					false);
-
-		else if (optimization.equalsIgnoreCase("PRIORITY-BL-N-INC"))
-			optimizer = new PriorityReembedding(
-					OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN,
-					PriorityReembedding.PRIORITY_NUM_OF_NEIGHBORS,
-					true);
-
-		else if (optimization.equalsIgnoreCase("PRIORITY-BL-N-TOT"))
-			optimizer = new PriorityReembedding(
-					OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN,
-					PriorityReembedding.PRIORITY_NUM_OF_NEIGHBORS,
-					false);
-
-		else if (optimization.equalsIgnoreCase("PRIORITY-BL-B-INC"))
-			optimizer = new PriorityReembedding(
-					OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN,
-					PriorityReembedding.PRIORITY_BALANCED,
-					true);
-
-		else if (optimization.equalsIgnoreCase("PRIORITY-BL-B-TOT"))
-			optimizer = new PriorityReembedding(
-					OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN,
-					PriorityReembedding.PRIORITY_BALANCED,
-					false);
-		
-		else if (optimization.equalsIgnoreCase("PRIORITY-CI-E-INC"))
-			optimizer = new PriorityReembedding(
-					OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN,
-					PriorityReembedding.PRIORITY_NUM_OF_EMBEDDINGS,
-					true);
-
-		else if (optimization.equalsIgnoreCase("PRIORITY-CI-E-TOT"))
-			optimizer = new PriorityReembedding(
-					OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN,
-					PriorityReembedding.PRIORITY_NUM_OF_EMBEDDINGS,
-					false);
-
-		else if (optimization.equalsIgnoreCase("PRIORITY-CI-N-INC"))
-			optimizer = new PriorityReembedding(
-					OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN,
-					PriorityReembedding.PRIORITY_NUM_OF_NEIGHBORS,
-					true);
-
-		else if (optimization.equalsIgnoreCase("PRIORITY-CI-N-TOT"))
-			optimizer = new PriorityReembedding(
-					OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN,
-					PriorityReembedding.PRIORITY_NUM_OF_NEIGHBORS,
-					false);
-
-		else if (optimization.equalsIgnoreCase("PRIORITY-CI-B-INC"))
-			optimizer = new PriorityReembedding(
-					OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN,
-					PriorityReembedding.PRIORITY_BALANCED,
-					true);
-
-		else if (optimization.equalsIgnoreCase("PRIORITY-CI-B-TOT"))
-			optimizer = new PriorityReembedding(
-					OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN,
-					PriorityReembedding.PRIORITY_BALANCED,
-					false);
-
-		else if (optimization.equalsIgnoreCase("SEQREEMBED-BL-RESET"))
-			optimizer = new SequentialReembedding(
-							OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN, true);
-		
-		else if (optimization.equalsIgnoreCase("SEQREEMBED-CI-RESET"))
-			optimizer = new SequentialReembedding(
-							OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN, true);
-
-		else if (optimization.equalsIgnoreCase("SEQREEMBED-BL-NORESET"))
-			optimizer = new SequentialReembedding(
-							OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN, false);
-		
-		else if (optimization.equalsIgnoreCase("SEQREEMBED-CI-NORESET"))
-			optimizer = new SequentialReembedding(
-							OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN, false, 0.005);
 
 		// ****************** GRASP Path-relinking ******************
 
