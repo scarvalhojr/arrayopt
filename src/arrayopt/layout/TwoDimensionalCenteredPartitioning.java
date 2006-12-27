@@ -49,6 +49,10 @@ public class TwoDimensionalCenteredPartitioning implements LayoutAlgorithm
 	private int stop_dimension;
 
 	private double MIN_DIV_RATE = .1;
+	
+	private int INCREMENT = 1;
+	
+	private int DECREMENT = -1;
 
 	public TwoDimensionalCenteredPartitioning (FillingAlgorithm filler)
 	{
@@ -82,19 +86,25 @@ public class TwoDimensionalCenteredPartitioning implements LayoutAlgorithm
 		// get list of movable probes
 		id = chip.getMovableProbes ();
 		
-		m = chip.getEmbeddingLength() / 2;
+		m = (int) Math.ceil(chip.getEmbeddingLength() / (double) 2);
 
-		horizontalDivide (chip, m -1, m, chip.getChipRegion(),
-				rows_per_probe,	0, 0, id, 0, id.length - 1);
+		horizontalDivide (chip, m -1, m, DECREMENT, chip.getChipRegion(),
+			rows_per_probe,	0, 0, id, 0, id.length - 1);
 	}
 
-	protected int horizontalDivide (Chip chip, int hstep, int vstep,
+	protected int horizontalDivide (Chip chip, int dstep, int istep, int dir,
 			RectangularRegion r, int rows_per_probe, int hor_par, int ver_par,
 			int probe_id[],	int start, int end)
 	{
 		RectangularRegion	t_region, b_region;
-		int					row_div, probe_div, m_rows, u_rows, qt_cols, overflow, unplaced;
-		double				div_rate;
+		double	div_rate;
+		int		step, row_div, probe_div, m_rows, u_rows, qt_cols, overflow,
+				unplaced;
+
+		if (dir == DECREMENT)
+			step = dstep;
+		else // (dir == INCREMENT)
+			step = istep;
 		
 		if (end - start + 1 < 2)
 		{
@@ -103,7 +113,7 @@ public class TwoDimensionalCenteredPartitioning implements LayoutAlgorithm
 			return fillRegion (chip, r, probe_id, start, end);
 		}
 
-		if (hstep < 0)
+		if (step < 0 || step >= chip.getEmbeddingLength())
 		{
 			// cannot partition anymore:
 			// place probes on the specified region and return
@@ -120,20 +130,31 @@ public class TwoDimensionalCenteredPartitioning implements LayoutAlgorithm
 			}
 
 			// region can still be vertically partitined
-			return verticalDivide (chip, hstep - 1, vstep, r, rows_per_probe,
-					hor_par, ver_par, probe_id, start, end);
+			return verticalDivide (chip, dstep, istep, -dir, r, rows_per_probe,
+									hor_par, ver_par, probe_id, start, end);
 		}
-
+		
+		if (dir == DECREMENT)
+		{
+			dstep--;
+			dir = INCREMENT;
+		}
+		else // (dir == INCREMENT)
+		{
+			istep++;
+			dir = DECREMENT;
+		}
+		
 		// split the probes into two groups, M and U, according to
 		// whether they are masked or unmasked at this step
-		probe_div = divideProbes (chip, hstep, probe_id, start, end);
+		probe_div = divideProbes (chip, step, probe_id, start, end);
 
 		div_rate = ((double)(probe_div - start)) / (end - start + 1);
 
 		if (div_rate < MIN_DIV_RATE || 1 - div_rate < MIN_DIV_RATE)
 		{
-			return horizontalDivide (chip, hstep - 1, vstep, r, rows_per_probe,
-									hor_par, ver_par, probe_id, start, end);
+			return horizontalDivide (chip, dstep, istep, dir, r, rows_per_probe,
+										hor_par, ver_par, probe_id, start, end);
 		}
 
 		qt_cols = r.last_col - r.first_col + 1;
@@ -188,27 +209,25 @@ public class TwoDimensionalCenteredPartitioning implements LayoutAlgorithm
 		t_region = new RectangularRegion (r.first_row, row_div - 1, r.first_col, r.last_col);
 		b_region = new RectangularRegion (row_div, r.last_row, r.first_col, r.last_col);
 
-		hstep--;
-
 		// check horizontal parity
 		if (hor_par == 0)
 		{
 			// assign masked probes to region T
-			unplaced = verticalDivide (chip, hstep, vstep, t_region,
+			unplaced = verticalDivide (chip, dstep, istep, dir, t_region,
 					rows_per_probe,	0, ver_par, probe_id, start, probe_div - 1);
 
 			// assign unmasked probes to region B
-			unplaced += verticalDivide (chip, hstep, vstep, b_region,
+			unplaced += verticalDivide (chip, dstep, istep, dir, b_region,
 					rows_per_probe, 1, ver_par, probe_id, probe_div, end);
 		}
 		else
 		{
 			// assign masked probes to region B
-			unplaced = verticalDivide (chip, hstep, vstep, b_region,
+			unplaced = verticalDivide (chip, dstep, istep, dir, b_region,
 					rows_per_probe, 1, ver_par, probe_id, start, probe_div - 1);
 
 			// assign unmasked probes to region T
-			unplaced += verticalDivide (chip, hstep, vstep, t_region,
+			unplaced += verticalDivide (chip, dstep, istep, dir, t_region,
 					rows_per_probe, 0, ver_par, probe_id, probe_div, end);
 		}
 
@@ -216,13 +235,19 @@ public class TwoDimensionalCenteredPartitioning implements LayoutAlgorithm
 		return unplaced;
 	}
 
-	protected int verticalDivide (Chip chip, int hstep, int vstep,
+	protected int verticalDivide (Chip chip, int dstep, int istep, int dir,
 			RectangularRegion r, int rows_per_probe, int hor_par, int ver_par,
 			int probe_id[], int start, int end)
 	{
 		RectangularRegion	l_region, r_region;
-		int					col_div, probe_div, m_cols, u_cols, qt_rows, overflow, unplaced;
-		double				div_rate;
+		double	div_rate;
+		int		step, col_div, probe_div, m_cols, u_cols, qt_rows, overflow,
+				unplaced;
+		
+		if (dir == DECREMENT)
+			step = dstep;
+		else // (dir == INCREMENT)
+			step = istep;
 
 		if (end - start + 1 < 2)
 		{
@@ -231,7 +256,7 @@ public class TwoDimensionalCenteredPartitioning implements LayoutAlgorithm
 			return fillRegion (chip, r, probe_id, start, end);
 		}
 
-		if (vstep >= chip.getEmbeddingLength())
+		if (step < 0 || step >= chip.getEmbeddingLength())
 		{
 			// cannot partition anymore:
 			// place probes on the specified region and return
@@ -248,20 +273,25 @@ public class TwoDimensionalCenteredPartitioning implements LayoutAlgorithm
 			}
 
 			// region can still be horizontally partitined
-			return horizontalDivide (chip, hstep, vstep + 1, r, rows_per_probe,
-								hor_par, ver_par, probe_id, start, end);
+			return horizontalDivide (chip, dstep, istep, dir, r, rows_per_probe,
+										hor_par, ver_par, probe_id, start, end);
 		}
 
+		if (dir == DECREMENT)
+			dstep--;
+		else // (dir == INCREMENT)
+			istep++;
+		
 		// split the probes into two groups, M and U, according to
 		// whether they are masked or unmasked at this step
-		probe_div = divideProbes (chip, vstep, probe_id, start, end);
+		probe_div = divideProbes (chip, step, probe_id, start, end);
 
 		div_rate = ((double)(probe_div - start)) / (end - start + 1);
 
 		if (div_rate < MIN_DIV_RATE || 1 - div_rate < MIN_DIV_RATE)
 		{
-			return verticalDivide (chip, hstep, vstep + 1, r, rows_per_probe,
-					hor_par, ver_par, probe_id, start, end);
+			return verticalDivide (chip, dstep, istep, dir, r, rows_per_probe,
+									hor_par, ver_par, probe_id, start, end);
 		}
 
 		qt_rows = r.last_row - r.first_row + 1;
@@ -305,27 +335,25 @@ public class TwoDimensionalCenteredPartitioning implements LayoutAlgorithm
 		l_region = new RectangularRegion (r.first_row, r.last_row, r.first_col, col_div - 1);
 		r_region = new RectangularRegion (r.first_row, r.last_row, col_div, r.last_col);
 
-		vstep++;
-
 		// check vertical parity
 		if (ver_par == 0)
 		{
 			// assign masked probes to region L
-			unplaced = horizontalDivide (chip, hstep, vstep, l_region,
+			unplaced = horizontalDivide (chip, dstep, istep, dir, l_region,
 					rows_per_probe, hor_par, 0, probe_id, start, probe_div - 1);
 
 			// assign unmasked probes to region R
-			unplaced += horizontalDivide (chip, hstep, vstep, r_region,
+			unplaced += horizontalDivide (chip, dstep, istep, dir, r_region,
 					rows_per_probe, hor_par, 1, probe_id, probe_div, end);
 		}
 		else
 		{
 			// assign masked probes to region R
-			unplaced = horizontalDivide (chip, hstep, vstep, r_region,
+			unplaced = horizontalDivide (chip, dstep, istep, dir, r_region,
 					rows_per_probe, hor_par, 1, probe_id, start, probe_div - 1);
 
 			// assign unmasked probes to region L
-			unplaced += horizontalDivide (chip, hstep, vstep, l_region,
+			unplaced += horizontalDivide (chip, dstep, istep, dir, l_region,
 					rows_per_probe, hor_par, 0, probe_id, probe_div, end);
 		}
 
