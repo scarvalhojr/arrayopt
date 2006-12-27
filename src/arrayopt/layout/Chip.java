@@ -37,6 +37,7 @@
 
 package arrayopt.layout;
 
+import arrayopt.util.*;
 import java.util.*;
 import java.io.*;
 
@@ -534,9 +535,11 @@ public abstract class Chip implements Cloneable
 		char ch;
 		int  mask = 0, w, pos, len = 0;
 
-		// validate embedding length
 		if (embedding.length() != embed_len)
-			throw new IllegalArgumentException ("invalid length");
+			throw new IllegalArgumentException ("invalid embedding length");
+
+		if (probe.length() != probe_len)
+			throw new IllegalArgumentException ("invalid probe length");
 
 		// turn all bits off
 		for (w = 0; w < embed[probe_id].length; w++)
@@ -654,10 +657,61 @@ public abstract class Chip implements Cloneable
 	 * used (single probes, probe pairs, etc.).
 	 *
 	 * @param out a PrintWriter stream
+	 */
+	public abstract void writeLayout (PrintWriter out);
+
+	/**
+	 * Generates a Bitmap representation of a mask for a selected synthesis step
+	 * according to the chip's current layout.
+	 *
+	 * @param step synthesis step 
 	 * @throws IOException if an error occurs while writing on the stream
 	 */
-	public abstract void writeLayout (PrintWriter out) throws IOException;
+	public void writeMaskBMP (int step, OutputStream out) throws IOException
+	{
+		BMPFile bmp;
+		byte[]	black, red, white;
+		int		w, mask, id;
+		
+		// which 4-byte word will be interrogated?
+		w = (int) Math.floor((double) step / Integer.SIZE);
 
+		// prepare mask to interrogate corresponding bit
+		mask = 0x01 << (Integer.SIZE - 1 - (step - w * Integer.SIZE));
+		
+		// start BMP file
+		bmp = new BMPFile (num_rows, num_cols, out);
+		bmp.writeHeader();
+		
+		// get colors
+		black = BMPFile.getRGBColor (0x000000);
+		red   = BMPFile.getRGBColor (0xFF0000);
+		white = BMPFile.getRGBColor (0xFFFFFF);
+		
+		// print a colored pixel for each spot
+		// note that lines are printer from last to first
+		for (int r = num_rows - 1; r >= 0; r--)
+		{
+			for (int c = 0; c < num_cols; c++)
+			{
+				if ((id = spot[r][c]) == EMPTY_SPOT)
+					// empty spot
+					out.write(white);
+				else if ((embed[id][w] & mask) == 0)
+					// masked spot
+					out.write(black);
+				else
+					// unmasked spot
+					out.write(red);
+			}
+			
+			bmp.finishRow();
+		}
+		
+		out.flush();
+		out.close();
+	}
+	
 	/**
 	 * Prints the stored embedding of a probe on the standard error output
 	 * stream. This method serves for debugging purposes only.
