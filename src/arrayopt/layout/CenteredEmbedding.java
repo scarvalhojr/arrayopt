@@ -89,10 +89,6 @@ public class CenteredEmbedding implements SingleProbeEmbeddingAlgorithm,
 	{
 		if (chip instanceof SimpleChip)
 			reembedProbe ((SimpleChip) chip, probe_id);
-
-		else if (chip instanceof AffymetrixChip)
-			reembedProbe ((AffymetrixChip) chip, probe_id);
-
 		else
 			throw new IllegalArgumentException ("Unsupported chip type.");
 	}
@@ -172,12 +168,6 @@ public class CenteredEmbedding implements SingleProbeEmbeddingAlgorithm,
 		}
 	}
 
-	public void reembedProbe (AffymetrixChip chip, int probe_id)
-	{
-		// TODO implement based on the SimpleChip code
-		return;
-	}
-	
 	/**
 	 * Returns the algorithm's name.
 	 */
