@@ -246,7 +246,7 @@ public class KThreadingPlacer implements LayoutAlgorithm, FillingAlgorithm
 				c = region.first_col;
 			else
 				// right to left
-				c = region.last_row;
+				c = region.last_col;
 			
 			// k-threading
 			move = DOWN; delta = -1;
