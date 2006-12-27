@@ -306,9 +306,9 @@ public class PriorityReembedding implements LayoutAlgorithm
 		boolean reset = this.reset_first;
 		
 		if (mode == OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN)
-			last_conf = LayoutEvaluation.analyzeBorderLength(chip);
+			last_conf = LayoutEvaluation.borderLength(chip);
 		else // CONFLICT_INDEX_MIN
-			last_conf = LayoutEvaluation.analyzeConflictIndex(chip);
+			last_conf = LayoutEvaluation.averageConflictIndex(chip);
 		
 		pivot_threshold = analyzeProbes(chip);
 				
@@ -326,9 +326,9 @@ public class PriorityReembedding implements LayoutAlgorithm
 			reset = false;
 
 			if (mode == OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN)
-				curr_conf = LayoutEvaluation.analyzeBorderLength(chip);
+				curr_conf = LayoutEvaluation.borderLength(chip);
 			else // CONFLICT_INDEX_MIN
-				curr_conf = LayoutEvaluation.analyzeConflictIndex(chip);
+				curr_conf = LayoutEvaluation.averageConflictIndex(chip);
 			
 			impr = (last_conf - curr_conf) / last_conf;
 			
