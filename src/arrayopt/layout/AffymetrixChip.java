@@ -462,6 +462,7 @@ public class AffymetrixChip extends Chip
 	public void createRandomLayout ()
 	{
 		// TODO implement this
+		throw new IllegalStateException ("Method not implemented.");
 	}
 
 	/**
@@ -542,7 +543,6 @@ public class AffymetrixChip extends Chip
 	 * {@link #readLayout} method.
 	 *
 	 * @param out a PrintWriter stream
-	 * @throws IOException if an error occurs while writing on the stream
 	 */
 	@Override
 	public void writeLayout (PrintWriter out)
