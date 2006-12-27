@@ -37,6 +37,8 @@
 
 package arrayopt.layout;
 
+import java.io.PrintWriter;
+
 /**
  *
  */
@@ -210,32 +212,57 @@ public class LayoutEvaluation
 		return hammingDistance(chip, id_1, id_2);
 	}
 	
-	public static double analyzeBorderLength (Chip chip)
+	public static void analyzeBorderLength (Chip chip, PrintWriter out)
 	{
 		RectangularRegion region;
-		int embed_len, num_probes, r, c, id1, id2, step, word, bitmask = 0;
-		int border[], total_bl = 0;
-		double norm_bl[], total_norm_bl = 0;
+		int r, c, id1, id2, w, step, bitmask = 0;
+		int embed_len, num_borders, border;
+		int b, mbase, mbases[];
+		double norm_bl;
 		
 		region = chip.getChipRegion();
 		embed_len = chip.getEmbeddingLength();
-		num_probes = chip.getNumberOfProbes();
+		num_borders = chip.getNumberOfBorders();
+		mbase = chip.getProbeLength() / 2;
+		mbases = new int [embed_len];
 		
-		border = new int [embed_len];
-		norm_bl = new double [embed_len];
+		for (step = 0; step < embed_len; step++)
+			mbases[step] = 0;
 		
-		for (word = -1, step = 0; step < embed_len; step++)
+		for (r = region.first_row; r <= region.last_row; r ++)
+			for (c = region.first_col; c <= region.last_col; c++)
+			{
+				if ((id1 = chip.spot[r][c]) == Chip.EMPTY_SPOT)
+					continue;
+				
+				for (b = 0, w = -1, step = 0; b <= mbase; step++)
+				{
+					if (step % Integer.SIZE == 0)
+					{
+						bitmask = 0x01 << (Integer.SIZE - 1);
+						w++;
+					}
+					else
+						bitmask >>>= 1;
+					
+					if ((chip.embed[id1][w] & bitmask) != 0) b++;
+				}
+				
+				mbases[step - 1]++;
+			}		
+		
+		for (w = -1, step = 0; step < embed_len; step++)
 		{
 			if (step % Integer.SIZE == 0)
 			{
-				word++;
 				bitmask = 0x01 << (Integer.SIZE - 1);
+				w++;
 			}
 			else
 				bitmask >>>= 1;
 			
 			// compute current mask's border length
-			border[step] = 0;
+			border = 0;
 			
 			// first, conflicts in the vertical borders between spots
 			for (r = region.first_row; r <= region.last_row; r ++)
@@ -247,9 +274,9 @@ public class LayoutEvaluation
 					if ((id2 = chip.spot[r][c + 1]) == Chip.EMPTY_SPOT)
 						continue;
 					
-					if (((chip.embed[id1][word] ^ chip.embed[id2][word])
+					if (((chip.embed[id1][w] ^ chip.embed[id2][w])
 							& bitmask) != 0)
-						border[step]++;
+						border++;
 				}
 
 			// now, conflicts in the horizontal borders between spots
@@ -262,24 +289,17 @@ public class LayoutEvaluation
 					if ((id2 = chip.spot[r + 1][c]) == Chip.EMPTY_SPOT)
 						continue;
 					
-					if (((chip.embed[id1][word] ^ chip.embed[id2][word])
+					if (((chip.embed[id1][w] ^ chip.embed[id2][w])
 							& bitmask) != 0)
-						border[step]++;
+						border++;
 				}
 			
-			norm_bl[step] = border[step] / (double) num_probes;
-			total_bl += border[step];
-			total_norm_bl += norm_bl[step]; 
-			
-			System.err.println("Step " + step + " => border length: " +
-					border[step] + " (normalized: " + norm_bl[step] +
-					")");
+			norm_bl = border / (double) num_borders;
+			out.println((step+1) + "\t" + mbases[step] + "\t" + border +
+						"\t" + norm_bl);
 		}
 		
-		System.err.println("Total border length: " + total_bl +
-				" (normalized: " + total_norm_bl + ")");
-		
-		return total_norm_bl;
+		out.flush();
 	}
 
 	public static long borderLength (Chip chip)
