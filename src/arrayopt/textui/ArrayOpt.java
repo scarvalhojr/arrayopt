@@ -63,7 +63,7 @@ public class ArrayOpt
 		Chip	chip, copy = null;
 		String	filename, dep_seq;
 		int		i, type, rows, cols, probes, probe_len, num_alg, a;
-		boolean	ignore_fixed, check, calc_bl, calc_ci, print_chip;
+		boolean	ignore_fixed, check, calc_bl, calc_blpm, calc_ci, print_chip;
 		long	bl, start, end, total = 0;
 		double	norm_bl;
 
@@ -113,22 +113,31 @@ public class ArrayOpt
 			// length or average conflict indices? 
 			if (args[9].equalsIgnoreCase("calc-bl"))
 			{
-				calc_bl = true;
-				calc_ci = false;
+				calc_bl   = true;
+				calc_blpm = false;
+				calc_ci   = false;
+			}
+			else if (args[9].equalsIgnoreCase("calc-blpm"))
+			{
+				calc_bl   = false;
+				calc_blpm = true;
+				calc_ci   = false;
 			}
 			else if (args[9].equalsIgnoreCase("calc-ci"))
 			{
-				calc_bl = false;
-				calc_ci = true;
+				calc_bl   = false;
+				calc_blpm = false;
+				calc_ci   = true;
 			}
 			else if (args[9].equalsIgnoreCase("no-calc"))
 			{
-				calc_bl = false;
-				calc_ci = false;
+				calc_bl   = false;
+				calc_blpm = false;
+				calc_ci   = false;
 			}
 			else
 				throw new IllegalArgumentException ("'" + args[9] +
-					"' (expected 'calc-bl' or 'calc-ci' or 'no-calc')");
+				"' (expected 'calc-bl', 'calc-blpm', 'calc-ci' or 'no-calc')");
 			
 			// print produced layout?
 			if (args[10].equalsIgnoreCase("print"))
@@ -236,6 +245,8 @@ public class ArrayOpt
 
 		if (check)
 		{
+			System.err.println("Cloning chip for later checks...");
+			
 			// make a copy of the chip before modifying its layout
 			if (chip instanceof SimpleChip)
 			{
@@ -290,7 +301,8 @@ public class ArrayOpt
 					LayoutEvaluation.averageConflictIndex(chip));
 		}
 
-		System.err.println("Total time: " + total/Math.pow(10,9) + " sec");
+		if (total > 0)
+			System.err.println("Total time: " + total/Math.pow(10,9) + " sec");
 
 		if (copy != null)
 		{
@@ -308,20 +320,20 @@ public class ArrayOpt
 				System.err.println("New layout is compatible " +
 						"with the original specification.");
 		}
-
+		
 		if (print_chip)
 		{
-			try
-			{
-				// print chip layout
-				chip.writeLayout(new PrintWriter(System.out));
-			}
-			catch (IOException e)
-			{
-				e.printStackTrace();
-			}
+			// print chip layout
+			chip.writeLayout(new PrintWriter(System.out));
 		}
-
+		
+		if (calc_blpm)
+		{
+			// print border length per masking step
+			LayoutEvaluation.analyzeBorderLength(chip,
+					new PrintWriter(System.out));
+		}
+		
 		System.exit(0);
 	}
 	
@@ -336,9 +348,13 @@ public class ArrayOpt
 		// *****************
 		// Sequential placer
 		// *****************
-		if (args[0].equalsIgnoreCase("SEQPLACER") && args.length == 2)
+		if (args[0].equalsIgnoreCase("SEQPLACER"))
 		{
 			int order;
+			
+			if (args.length != 2)
+				throw new IllegalArgumentException
+					("Missing arguments for Sequential placement algorithm.");
 			
 			if (args[1].equalsIgnoreCase("KEEP"))
 				order = SequentialPlacer.KEEP_ORDER;
@@ -360,11 +376,15 @@ public class ArrayOpt
 		// ******************
 		// k-threading placer
 		// ******************
-		else if (args[0].equalsIgnoreCase("KTHREAD") && args.length == 3)
+		else if (args[0].equalsIgnoreCase("KTHREAD"))
 		{
 			int kvalue, order;
 			
-			if (args[1].matches("[0-9]+"))
+			if (args.length != 3)
+				throw new IllegalArgumentException
+					("Missing arguments for k-threading placement algorithm.");
+			
+			if (args[1].matches("\\A\\d+\\z"))
 				kvalue = Integer.parseInt(args[1]);
 			else
 				throw new IllegalArgumentException ("Invalid k-value '" +
@@ -390,9 +410,13 @@ public class ArrayOpt
 		// ****************
 		// Greedy placement
 		// ****************
-		else if (args[0].equalsIgnoreCase("GREEDYPLACER") && args.length == 5)
+		else if (args[0].equalsIgnoreCase("GREEDYPLACER"))
 		{
 			int mode, window, order, kvalue;
+			
+			if (args.length != 5)
+				throw new IllegalArgumentException
+					("Missing arguments for Greedy placement algorithm.");
 			
 			if (args[1].equalsIgnoreCase("BL"))
 				mode = GreedyPlacer.BORDER_LENGTH_MIN;
@@ -402,9 +426,9 @@ public class ArrayOpt
 				throw new IllegalArgumentException ("Unknown '" + args[1] +
 						"' mode for Greedy placement algorithm.");
 			
-			if (args[2].matches("[0-9]+"))
+			if (args[2].matches("\\A\\d+\\z"))
 				window = Integer.parseInt(args[2]);
-			else if (args[2].matches("[0-9]+[Kk]"))
+			else if (args[2].matches("\\A\\d+[Kk]\\z"))
 				window = 1000 * Integer.parseInt(
 									args[2].substring(0,args[2].length()-1));
 			else
@@ -412,7 +436,7 @@ public class ArrayOpt
 					("Invalid window-size value '" + args[2] +
 						"' for Greedy placement algorithm.");
 			
-			if (args[3].matches("[0-9]+"))
+			if (args[3].matches("\\A\\d+\\z"))
 				kvalue = Integer.parseInt(args[3]);
 			else
 				throw new IllegalArgumentException ("Invalid k-value '" +
@@ -435,12 +459,54 @@ public class ArrayOpt
 			alg = new GreedyPlacer(mode, window, kvalue, order);
 		}		
 		
+		// *********************
+		// Greedy Plus placement
+		// *********************
+		else if (args[0].equalsIgnoreCase("GREEDYPLUS"))
+		{
+			int mode, window, kvalue;
+			
+			if (args.length != 4)
+				throw new IllegalArgumentException
+					("Missing arguments for Greedy Plus placement algorithm.");
+			
+			if (args[1].equalsIgnoreCase("BL"))
+				mode = OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN;
+			else if (args[1].equalsIgnoreCase("CI"))
+				mode = OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN;
+			else
+				throw new IllegalArgumentException ("Unknown '" + args[1] +
+						"' mode for Greedy Plus placement algorithm.");
+			
+			if (args[2].matches("\\A\\d+\\z"))
+				window = Integer.parseInt(args[2]);
+			else if (args[2].matches("[0-9]+[Kk]"))
+				window = 1000 * Integer.parseInt(
+									args[2].substring(0,args[2].length()-1));
+			else
+				throw new IllegalArgumentException
+					("Invalid window-size value '" + args[2] +
+						"' for Greedy Plus placement algorithm.");
+			
+			if (args[3].matches("[0-9]+"))
+				kvalue = Integer.parseInt(args[3]);
+			else
+				throw new IllegalArgumentException ("Invalid k-value '" +
+						args[3] + "' for Greedy PLus placement algorithm.");
+			
+			alg = new GreedyPlusPlacer(mode, window, kvalue);
+		}		
+		
 		// *************
 		// Row-epitaxial
 		// *************
-		else if (args[0].equalsIgnoreCase("REPTX") && args.length == 3)
+		else if (args[0].equalsIgnoreCase("REPTX"))
 		{
 			int mode, look_ahead;
+			
+			if (args.length != 3)
+				throw new IllegalArgumentException
+				("Missing arguments for Row-epitaxial placement algorithm.");
 			
 			if (args[1].equalsIgnoreCase("BL"))
 				mode = RowEpitaxial.BORDER_LENGTH_MIN;
@@ -463,9 +529,135 @@ public class ArrayOpt
 			alg = new RowEpitaxial(mode, look_ahead);
 		}		
 
-		// ********************************************************
-		// Leftmost, Rightmost and Centered re-embedding algorithms
-		// ********************************************************
+		// ***************
+		// 1D-Partitioning
+		// ***************
+		else if (args[0].equalsIgnoreCase("1DPART"))
+		{
+			FillingAlgorithm filler;
+			String filler_name;
+			int stop_dim, idx;
+			
+			if (args.length < 3)
+				throw new IllegalArgumentException
+					("Missing arguments for 1D Partitioning.");
+			
+			if (args[1].matches("[0-9]+"))
+				stop_dim = Integer.parseInt(args[1]);
+			else
+				throw new IllegalArgumentException ("Invalid stop dimension " +
+						args[1] + " for 1D Partitioning.");
+			
+			// get filling algorithm's name
+			idx = args[0].length() + args[1].length() + 2;
+			filler_name = name.substring(idx);
+			
+			try
+			{
+				filler = (FillingAlgorithm) parseAlgorithmName(filler_name);
+			}
+			catch (ClassCastException e)
+			{
+				throw new IllegalArgumentException ("Cannot use '" + filler_name
+						+ "' as a filling algorithm for 1D Partitioning.");
+			}
+			catch (Exception e)
+			{
+				throw new IllegalArgumentException ("Unable to instantiate " +
+						"filling algorithm for 1D Partitioning: " +
+						e.getMessage());				
+			}
+			
+			alg = new OneDimensionalPartitioning (filler, stop_dim);
+		}
+		
+		// ***************
+		// 2D-Partitioning
+		// ***************
+		else if (args[0].equalsIgnoreCase("2DPART"))
+		{
+			FillingAlgorithm filler;
+			String filler_name;
+			int stop_dim, idx;
+			
+			if (args.length < 3)
+				throw new IllegalArgumentException
+					("Missing arguments for 2D Partitioning.");
+			
+			if (args[1].matches("[0-9]+"))
+				stop_dim = Integer.parseInt(args[1]);
+			else
+				throw new IllegalArgumentException ("Invalid stop dimension " +
+						args[1] + " for 2D Partitioning.");
+			
+			// get filling algorithm's name
+			idx = args[0].length() + args[1].length() + 2;
+			filler_name = name.substring(idx);
+			
+			try
+			{
+				filler = (FillingAlgorithm) parseAlgorithmName(filler_name);
+			}
+			catch (ClassCastException e)
+			{
+				throw new IllegalArgumentException ("Cannot use '" + filler_name
+						+ "' as a filling algorithm for 2D Partitioning.");
+			}
+			catch (Exception e)
+			{
+				throw new IllegalArgumentException ("Unable to instantiate " +
+						"filling algorithm for 2D Partitioning: " +
+						e.getMessage());				
+			}
+			
+			alg = new TwoDimensionalPartitioning (filler, stop_dim);
+		}
+		
+		// **********************************************
+		// 2D-Partitioning with central mask optimization
+		// **********************************************
+		else if (args[0].equalsIgnoreCase("2DCENTRALPART"))
+		{
+			FillingAlgorithm filler;
+			String filler_name;
+			int stop_dim, idx;
+			
+			if (args.length < 3)
+				throw new IllegalArgumentException
+					("Missing arguments for 2D Partitioning.");
+			
+			if (args[1].matches("[0-9]+"))
+				stop_dim = Integer.parseInt(args[1]);
+			else
+				throw new IllegalArgumentException ("Invalid stop dimension " +
+						args[1] + " for 2D Partitioning.");
+			
+			// get filling algorithm's name
+			idx = args[0].length() + args[1].length() + 2;
+			filler_name = name.substring(idx);
+			
+			try
+			{
+				filler = (FillingAlgorithm) parseAlgorithmName(filler_name);
+			}
+			catch (ClassCastException e)
+			{
+				throw new IllegalArgumentException ("Cannot use '" + filler_name
+						+ "' as a filling algorithm for 2D Partitioning.");
+			}
+			catch (Exception e)
+			{
+				throw new IllegalArgumentException ("Unable to instantiate " +
+						"filling algorithm for 2D Partitioning: " +
+						e.getMessage());				
+			}
+			
+			alg = new TwoDimensionalCentralPartitioning (filler, stop_dim);
+		}
+		
+		// ******************************
+		// Simple re-embedding algorithms
+		// ******************************
 		else if (name.equalsIgnoreCase("LEFTMOST"))
 			alg = new LeftMostEmbedding();
 		
@@ -475,13 +667,20 @@ public class ArrayOpt
 		else if (name.equalsIgnoreCase("CENTERED"))
 			alg = new CenteredEmbedding();
 		
+		else if (name.equalsIgnoreCase("ALIGNED"))
+			alg = new AlignedEmbedding();
+		
 		// ***********************
 		// Sequential re-embedding
 		// ***********************
-		else if (args[0].equalsIgnoreCase("SEQREEMBED") && args.length == 3)
+		else if (args[0].equalsIgnoreCase("SEQREEMBED"))
 		{
 			int mode;
 			boolean reset;
+			
+			if (args.length != 3)
+				throw new IllegalArgumentException
+					("Missing arguments for Sequential re-embedding.");
 			
 			if (args[1].equalsIgnoreCase("BL"))
 				mode = OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN;
@@ -505,10 +704,14 @@ public class ArrayOpt
 		// *********************
 		// Priority re-embedding
 		// *********************
-		else if (args[0].equalsIgnoreCase("PRIORITY") && args.length == 4)
+		else if (args[0].equalsIgnoreCase("PRIORITY"))
 		{
 			int mode, priority;
 			boolean reset;
+			
+			if (args.length != 4)
+				throw new IllegalArgumentException
+					("Missing arguments for Priority re-embedding.");
 			
 			if (args[1].equalsIgnoreCase("BL"))
 				mode = OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN;
@@ -541,7 +744,7 @@ public class ArrayOpt
 
 		else
 			throw new IllegalArgumentException
-				("Unknown layout algorithm '" + name + "'");
+				("Unknown algorithm '" + name + "'");
 		
 		return alg;
 	}
@@ -552,10 +755,10 @@ public class ArrayOpt
 	"--------------------------\n" +
 	"ArrayOpt Microarray Design\n" +
 	"--------------------------\n\n" +
-	"Usage: ArrayOpt (affy | simple) (fix | nofix) <input> <rows> <columns>\n" +
-	"          <probes> <length> <dep-seq> (check | no-check)\n" +
-	"          (calc-bl | calc-ci | no-calc) (print | no-print) <alg>*\n");
-		System.err.println (
+	"Usage: ArrayOpt (affy | simple) (fix | nofix) <input> <rows> <columns> " +
+	                                          "<probes> <length> <dep-seq>\n" +
+	"          (calc-bl | calc-blpm | calc-ci | no-calc) (print | no-print) " +
+	                                                             "<alg>*\n\n" +
 	"where: 'affy'      indicates an Affymetrix chip type\n" +
 	"       'simple'    indicates a simple chip type\n" +
 	"       'fix'       considers fixed spots\n" +
@@ -571,459 +774,12 @@ public class ArrayOpt
 	"                      SYNC for a 100-step ACGT repetition\n" +
 	"       'check'     performs validation checks\n" +
 	"       'no-check'  does not perform validation checks\n" +
-	"       'calc-bl'   computes and prints total border length\n" +
-	"       'calc-ci'   computes and prints average conflict indices\n" +
-	"       'no-calc'   does not compute/print any quality measure\n" +
+	"       'calc-bl'   prints total and normalized border length\n" +
+	"       'calc-blpm' prints border length per masking step\n" +
+	"       'calc-ci'   prints average conflict index\n" +
+	"       'no-calc'   does not print any quality measure\n" +
 	"       'print'     prints the resulting layout on standard output\n" +
 	"       'no-print'  does not print the resulting layout\n" +
-	"       <alg>*      zero or more layout algorithms\n");
-	
+	"       <alg>*      zero or more layout algorithms\n");	
 	}
-	
-	/*
-
-		// ******************************************************
-		// placement algorithm selection
-		// ******************************************************
-
-		// Greedy Embeddings Placer
-
-		// TODO delete this
-		else if (placement.equalsIgnoreCase("GREEDYEMB-BL-5-S"))
-			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.BORDER_LENGTH_MIN, 5, GreedyEmbeddingsPlacer.SORT_PROBES);
-
-		else if (placement.equalsIgnoreCase("GREEDYEMB-BL-50-S"))
-			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.BORDER_LENGTH_MIN, 50, GreedyEmbeddingsPlacer.SORT_PROBES);
-
-		else if (placement.equalsIgnoreCase("GREEDYEMB-BL-100-S"))
-			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.BORDER_LENGTH_MIN, 100, GreedyEmbeddingsPlacer.SORT_PROBES);
-
-		else if (placement.equalsIgnoreCase("GREEDYEMB-BL-200-S"))
-			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.BORDER_LENGTH_MIN, 200, GreedyEmbeddingsPlacer.SORT_PROBES);
-
-		else if (placement.equalsIgnoreCase("GREEDYEMB-BL-250-S"))
-			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.BORDER_LENGTH_MIN, 250, GreedyEmbeddingsPlacer.SORT_PROBES);
-
-		else if (placement.equalsIgnoreCase("GREEDYEMB-BL-350-S"))
-			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.BORDER_LENGTH_MIN, 350, GreedyEmbeddingsPlacer.SORT_PROBES);
-
-		else if (placement.equalsIgnoreCase("GREEDYEMB-BL-400-S"))
-			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.BORDER_LENGTH_MIN, 400, GreedyEmbeddingsPlacer.SORT_PROBES);
-
-		else if (placement.equalsIgnoreCase("GREEDYEMB-BL-500-S"))
-			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.BORDER_LENGTH_MIN, 500, GreedyEmbeddingsPlacer.SORT_PROBES);
-
-		else if (placement.equalsIgnoreCase("GREEDYEMB-BL-700-S"))
-			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.BORDER_LENGTH_MIN, 700, GreedyEmbeddingsPlacer.SORT_PROBES);
-
-		else if (placement.equalsIgnoreCase("GREEDYEMB-BL-800-S"))
-			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.BORDER_LENGTH_MIN, 800, GreedyEmbeddingsPlacer.SORT_PROBES);
-
-		else if (placement.equalsIgnoreCase("GREEDYEMB-BL-1K-S"))
-			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.BORDER_LENGTH_MIN, 1000, GreedyEmbeddingsPlacer.SORT_PROBES);
-		
-		else if (placement.equalsIgnoreCase("GREEDYEMB-BL-10K"))
-			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.BORDER_LENGTH_MIN, 10000);
-
-		else if (placement.equalsIgnoreCase("GREEDYEMB-BL-5K"))
-			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.BORDER_LENGTH_MIN, 5000);
-
-		else if (placement.equalsIgnoreCase("GREEDYEMB-BL-2K"))
-			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.BORDER_LENGTH_MIN, 2000);
-
-		else if (placement.equalsIgnoreCase("GREEDYEMB-BL-1K"))
-			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.BORDER_LENGTH_MIN, 1000);
-
-		else if (placement.equalsIgnoreCase("GREEDYEMB-CI-50-S"))
-			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.CONFLICT_INDEX_MIN, 50, GreedyEmbeddingsPlacer.SORT_PROBES);
-
-		else if (placement.equalsIgnoreCase("GREEDYEMB-CI-100-S"))
-			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.CONFLICT_INDEX_MIN, 100, GreedyEmbeddingsPlacer.SORT_PROBES);
-
-		else if (placement.equalsIgnoreCase("GREEDYEMB-CI-200-S"))
-			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.CONFLICT_INDEX_MIN, 200, GreedyEmbeddingsPlacer.SORT_PROBES);
-
-		else if (placement.equalsIgnoreCase("GREEDYEMB-CI-300-S"))
-			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.CONFLICT_INDEX_MIN, 300, GreedyEmbeddingsPlacer.SORT_PROBES);
-
-		else if (placement.equalsIgnoreCase("GREEDYEMB-CI-100"))
-			placer = new GreedyEmbeddingsPlacer(GreedyEmbeddingsPlacer.CONFLICT_INDEX_MIN, 100);
-
-
-		else if (placement.equalsIgnoreCase("2D1-LEFT-GREEDY"))
-			placer = new TwoDimensionalPartitioning(new GreedyPlacer(), 1);
-
-		else if (placement.equalsIgnoreCase("2D4-LEFT-GREEDY"))
-			placer = new TwoDimensionalPartitioning(new GreedyPlacer(), 4);
-
-		else if (placement.equalsIgnoreCase("2D8-LEFT-GREEDY"))
-			placer = new TwoDimensionalPartitioning(new GreedyPlacer(), 8);
-
-		else if (placement.equalsIgnoreCase("2D16-LEFT-GREEDY"))
-			placer = new TwoDimensionalPartitioning(new GreedyPlacer(), 16);
-
-		else if (placement.equalsIgnoreCase("2D32-LEFT-GREEDY"))
-			placer = new TwoDimensionalPartitioning(new GreedyPlacer(), 32);
-
-		else if (placement.equalsIgnoreCase("2D64-LEFT-GREEDY"))
-			placer = new TwoDimensionalPartitioning(new GreedyPlacer(), 64);
-
-		else if (placement.equalsIgnoreCase("2D1-CENTER-GREEDY"))
-			placer = new TwoDimensionalCenteredPartitioning(new GreedyPlacer(), 1);
-
-		else if (placement.equalsIgnoreCase("2D4-CENTER-GREEDY"))
-			placer = new TwoDimensionalCenteredPartitioning(new GreedyPlacer(), 4);
-
-		else if (placement.equalsIgnoreCase("2D8-CENTER-GREEDY"))
-			placer = new TwoDimensionalCenteredPartitioning(new GreedyPlacer(), 8);
-
-		else if (placement.equalsIgnoreCase("2D16-CENTER-GREEDY"))
-			placer = new TwoDimensionalCenteredPartitioning(new GreedyPlacer(), 16);
-
-		else if (placement.equalsIgnoreCase("2D32-CENTER-GREEDY"))
-			placer = new TwoDimensionalCenteredPartitioning(new GreedyPlacer(), 32);
-
-		else if (placement.equalsIgnoreCase("2D64-CENTER-GREEDY"))
-			placer = new TwoDimensionalCenteredPartitioning(new GreedyPlacer(), 64);
-
-		else if (placement.equalsIgnoreCase("2D8-GRASPD"))
-			placer = new TwoDimensionalPartitioning(
-						new QuadraticAssignmentPlacer(
-							new GraspDense(), QuadraticAssignmentPlacer.MODE_CONFLICT_INDEX),
-						8);
-
-
-		else if (placement.equalsIgnoreCase("PIVOTPART"))
-			placer = new PivotPartitioning(new SequentialPlacer());
-
-		else if (placement.equalsIgnoreCase("PIVOTPART1+REPTX20K-BL"))
-			placer = new PivotPartitioning(new RowEpitaxial(20000),
-							PivotPartitioning.MODE_BORDER_LENGTH,
-							1);
-
-		else if (placement.equalsIgnoreCase("PIVOTPART2+REPTX20K-BL"))
-			placer = new PivotPartitioning(new RowEpitaxial(20000),
-							PivotPartitioning.MODE_BORDER_LENGTH, 2);
-
-		else if (placement.equalsIgnoreCase("PIVOTPART3+REPTX20K-BL"))
-			placer = new PivotPartitioning(new RowEpitaxial(20000),
-							PivotPartitioning.MODE_BORDER_LENGTH, 3);
-
-		else if (placement.equalsIgnoreCase("PIVOTPART4+REPTX20K-BL"))
-			placer = new PivotPartitioning(new RowEpitaxial(20000),
-							PivotPartitioning.MODE_BORDER_LENGTH, 4);
-
-		else if (placement.equalsIgnoreCase("PIVOTPART5+REPTX20K-BL"))
-			placer = new PivotPartitioning(new RowEpitaxial(20000),
-							PivotPartitioning.MODE_BORDER_LENGTH, 5);
-
-		else if (placement.equalsIgnoreCase("PIVOTPART6+REPTX20K-BL"))
-			placer = new PivotPartitioning(new RowEpitaxial(20000),
-							PivotPartitioning.MODE_BORDER_LENGTH, 6);
-		
-		// *************************
-
-		else if (placement.equalsIgnoreCase("PIVOTPART2+GREEDY20K-BL"))
-			placer = new PivotPartitioning(new GreedyPlacer(
-							GreedyPlacer.MODE_BORDER_LENGTH, 20000),
-							PivotPartitioning.MODE_BORDER_LENGTH, 2);
-
-		else if (placement.equalsIgnoreCase("PIVOTPART4+GREEDY20K-BL"))
-			placer = new PivotPartitioning(new GreedyPlacer(
-							GreedyPlacer.MODE_BORDER_LENGTH, 20000),
-							PivotPartitioning.MODE_BORDER_LENGTH, 4);
-
-		else if (placement.equalsIgnoreCase("PIVOTPART6+GREEDY20K-BL"))
-			placer = new PivotPartitioning(new GreedyPlacer(
-							GreedyPlacer.MODE_BORDER_LENGTH, 20000),
-							PivotPartitioning.MODE_BORDER_LENGTH, 6);
-
-		// **************************
-		
-		else if (placement.equalsIgnoreCase("PIVOTPART2+GREEDY2K-BL"))
-			placer = new PivotPartitioning(new GreedyPlacer(
-							GreedyPlacer.MODE_BORDER_LENGTH, 2000),
-							PivotPartitioning.MODE_BORDER_LENGTH, 2);
-
-		else if (placement.equalsIgnoreCase("PIVOTPART4+GREEDY2K-BL"))
-			placer = new PivotPartitioning(new GreedyPlacer(
-							GreedyPlacer.MODE_BORDER_LENGTH, 2000),
-							PivotPartitioning.MODE_BORDER_LENGTH, 4);
-
-		else if (placement.equalsIgnoreCase("PIVOTPART6+GREEDY2K-BL"))
-			placer = new PivotPartitioning(new GreedyPlacer(
-							GreedyPlacer.MODE_BORDER_LENGTH, 2000),
-							PivotPartitioning.MODE_BORDER_LENGTH, 6);
-
-		else if (placement.equalsIgnoreCase("PIVOTPART8+GREEDY2K-BL"))
-			placer = new PivotPartitioning(new GreedyPlacer(
-							GreedyPlacer.MODE_BORDER_LENGTH, 2000),
-							PivotPartitioning.MODE_BORDER_LENGTH, 8);
-
-		else if (placement.equalsIgnoreCase("PIVOTPART2+GREEDY2K-CI"))
-			placer = new PivotPartitioning(new GreedyPlacer(
-							GreedyPlacer.MODE_CONFLICT_INDEX, 2000),
-							PivotPartitioning.MODE_CONFLICT_INDEX, 2);
-
-		else if (placement.equalsIgnoreCase("PIVOTPART4+GREEDY2K-CI"))
-			placer = new PivotPartitioning(new GreedyPlacer(
-							GreedyPlacer.MODE_CONFLICT_INDEX, 2000),
-							PivotPartitioning.MODE_CONFLICT_INDEX, 4);
-
-		else if (placement.equalsIgnoreCase("PIVOTPART6+GREEDY2K-CI"))
-			placer = new PivotPartitioning(new GreedyPlacer(
-							GreedyPlacer.MODE_CONFLICT_INDEX, 2000),
-							PivotPartitioning.MODE_CONFLICT_INDEX, 6);
-
-		else if (placement.equalsIgnoreCase("PIVOTPART8+GREEDY2K-CI"))
-			placer = new PivotPartitioning(new GreedyPlacer(
-							GreedyPlacer.MODE_CONFLICT_INDEX, 2000),
-							PivotPartitioning.MODE_CONFLICT_INDEX, 8);
-		
-		// **************************
-
-		else if (placement.equalsIgnoreCase("PIVOTPART2+GREEDY1K-BL"))
-			placer = new PivotPartitioning(new GreedyPlacer(
-							GreedyPlacer.MODE_BORDER_LENGTH, 1000),
-							PivotPartitioning.MODE_BORDER_LENGTH, 2);
-
-		else if (placement.equalsIgnoreCase("PIVOTPART4+GREEDY1K-BL"))
-			placer = new PivotPartitioning(new GreedyPlacer(
-							GreedyPlacer.MODE_BORDER_LENGTH, 1000),
-							PivotPartitioning.MODE_BORDER_LENGTH, 4);
-
-		else if (placement.equalsIgnoreCase("PIVOTPART6+GREEDY1K-BL"))
-			placer = new PivotPartitioning(new GreedyPlacer(
-							GreedyPlacer.MODE_BORDER_LENGTH, 1000),
-							PivotPartitioning.MODE_BORDER_LENGTH, 6);
-
-		else if (placement.equalsIgnoreCase("PIVOTPART8+GREEDY1K-BL"))
-			placer = new PivotPartitioning(new GreedyPlacer(
-							GreedyPlacer.MODE_BORDER_LENGTH, 1000),
-							PivotPartitioning.MODE_BORDER_LENGTH, 8);
-
-		else if (placement.equalsIgnoreCase("PIVOTPART2+GREEDY1K-CI"))
-			placer = new PivotPartitioning(new GreedyPlacer(
-							GreedyPlacer.MODE_CONFLICT_INDEX, 1000),
-							PivotPartitioning.MODE_CONFLICT_INDEX, 2);
-
-		else if (placement.equalsIgnoreCase("PIVOTPART4+GREEDY1K-CI"))
-			placer = new PivotPartitioning(new GreedyPlacer(
-							GreedyPlacer.MODE_CONFLICT_INDEX, 1000),
-							PivotPartitioning.MODE_CONFLICT_INDEX, 4);
-
-		else if (placement.equalsIgnoreCase("PIVOTPART6+GREEDY1K-CI"))
-			placer = new PivotPartitioning(new GreedyPlacer(
-							GreedyPlacer.MODE_CONFLICT_INDEX, 1000),
-							PivotPartitioning.MODE_CONFLICT_INDEX, 6);
-
-		else if (placement.equalsIgnoreCase("PIVOTPART8+GREEDY1K-CI"))
-			placer = new PivotPartitioning(new GreedyPlacer(
-							GreedyPlacer.MODE_CONFLICT_INDEX, 1000),
-							PivotPartitioning.MODE_CONFLICT_INDEX, 8);
-		
-		// **************************
-
-		else if (placement.equalsIgnoreCase("PIVOTPART2+GREEDY100-BL"))
-			placer = new PivotPartitioning(new GreedyPlacer(
-							GreedyPlacer.MODE_BORDER_LENGTH, 100),
-							PivotPartitioning.MODE_BORDER_LENGTH, 2);
-
-		else if (placement.equalsIgnoreCase("PIVOTPART4+GREEDY100-BL"))
-			placer = new PivotPartitioning(new GreedyPlacer(
-							GreedyPlacer.MODE_BORDER_LENGTH, 100),
-							PivotPartitioning.MODE_BORDER_LENGTH, 4);
-
-		else if (placement.equalsIgnoreCase("PIVOTPART6+GREEDY100-BL"))
-			placer = new PivotPartitioning(new GreedyPlacer(
-							GreedyPlacer.MODE_BORDER_LENGTH, 100),
-							PivotPartitioning.MODE_BORDER_LENGTH, 6);
-
-		else if (placement.equalsIgnoreCase("PIVOTPART8+GREEDY100-BL"))
-			placer = new PivotPartitioning(new GreedyPlacer(
-							GreedyPlacer.MODE_BORDER_LENGTH, 100),
-							PivotPartitioning.MODE_BORDER_LENGTH, 8);
-
-		else if (placement.equalsIgnoreCase("PIVOTPART2+GREEDY100-CI"))
-			placer = new PivotPartitioning(new GreedyPlacer(
-							GreedyPlacer.MODE_CONFLICT_INDEX, 100),
-							PivotPartitioning.MODE_CONFLICT_INDEX, 2);
-
-		else if (placement.equalsIgnoreCase("PIVOTPART4+GREEDY100-CI"))
-			placer = new PivotPartitioning(new GreedyPlacer(
-							GreedyPlacer.MODE_CONFLICT_INDEX, 100),
-							PivotPartitioning.MODE_CONFLICT_INDEX, 4);
-
-		else if (placement.equalsIgnoreCase("PIVOTPART6+GREEDY100-CI"))
-			placer = new PivotPartitioning(new GreedyPlacer(
-							GreedyPlacer.MODE_CONFLICT_INDEX, 100),
-							PivotPartitioning.MODE_CONFLICT_INDEX, 6);
-
-		else if (placement.equalsIgnoreCase("PIVOTPART8+GREEDY100-CI"))
-			placer = new PivotPartitioning(new GreedyPlacer(
-							GreedyPlacer.MODE_CONFLICT_INDEX, 100),
-							PivotPartitioning.MODE_CONFLICT_INDEX, 8);
-		
-		// **************************
-
-		else if (placement.equalsIgnoreCase("CLUSTER-SEQ-BL"))
-			placer = new ClusterPartitioning(new SequentialPlacer(),
-							PivotPartitioning.MODE_BORDER_LENGTH);
-
-		else if (placement.equalsIgnoreCase("CLUSTER-SEQ-CI"))
-			placer = new ClusterPartitioning(new SequentialPlacer(),
-							PivotPartitioning.MODE_CONFLICT_INDEX);
-
-		// **************************
-
-		else if (placement.equalsIgnoreCase("PIVOTPART8+GREEDY50-CI"))
-			placer = new PivotPartitioning(new GreedyPlacer(
-							GreedyPlacer.MODE_CONFLICT_INDEX, 50),
-							PivotPartitioning.MODE_CONFLICT_INDEX, 8);
-
-		
-		// ****************** GRASP Sparse ******************
-		
-		else if (placement.equalsIgnoreCase("GRASPS-BL"))
-			placer = new QuadraticAssignmentPlacer (
-							new GraspSparse(), QuadraticAssignmentPlacer.MODE_BORDER_LENGTH
-						);
-
-		else if (placement.equalsIgnoreCase("GRASPS-INV-BL"))
-		{
-			QAPSolverAlgorithm qapsolver = new GraspSparse();
-			qapsolver.setSwapMatrices(true);
-			placer = new QuadraticAssignmentPlacer (
-							qapsolver, QuadraticAssignmentPlacer.MODE_BORDER_LENGTH
-						);
-		}
-
-		else if (placement.equalsIgnoreCase("GRASPS-CI"))
-			placer = new QuadraticAssignmentPlacer (
-							new GraspSparse(), QuadraticAssignmentPlacer.MODE_CONFLICT_INDEX
-						);
-
-		else if (placement.equalsIgnoreCase("GRASPS-INV-CI"))
-		{
-			QAPSolverAlgorithm qapsolver = new GraspSparse();
-			qapsolver.setSwapMatrices(true);
-			placer = new QuadraticAssignmentPlacer (
-							qapsolver, QuadraticAssignmentPlacer.MODE_CONFLICT_INDEX
-						);
-		}
-
-		// ****************** GRASP Dense ******************
-		
-		else if (placement.equalsIgnoreCase("GRASPD-BL"))
-			placer = new QuadraticAssignmentPlacer (
-							new GraspDense(), QuadraticAssignmentPlacer.MODE_BORDER_LENGTH
-						);
-
-		else if (placement.equalsIgnoreCase("GRASPD-INV-BL"))
-		{
-			QAPSolverAlgorithm qapsolver = new GraspDense();
-			qapsolver.setSwapMatrices(true);
-			placer = new QuadraticAssignmentPlacer (
-							qapsolver, QuadraticAssignmentPlacer.MODE_BORDER_LENGTH
-						);
-		}
-
-		else if (placement.equalsIgnoreCase("GRASPD-CI"))
-			placer = new QuadraticAssignmentPlacer (
-							new GraspDense(), QuadraticAssignmentPlacer.MODE_CONFLICT_INDEX
-						);
-
-		else if (placement.equalsIgnoreCase("GRASPD-INV-CI"))
-		{
-			QAPSolverAlgorithm qapsolver = new GraspDense();
-			qapsolver.setSwapMatrices(true);
-			placer = new QuadraticAssignmentPlacer (
-							qapsolver, QuadraticAssignmentPlacer.MODE_CONFLICT_INDEX
-						);
-		}
-		
-		else
-			throw new IllegalArgumentException
-				("Unknown placement algorithm: '" + placement + "'");
-
-		// ******************************************************
-		// post-placement algorithm selection
-		// ******************************************************
-		
-		if (optimization.equalsIgnoreCase("NONE"))
-			optimizer = null;
-
-		// ****************** GRASP Path-relinking ******************
-
-		else if (optimization.equalsIgnoreCase("GRASPPR32-BL"))
-		{
-			optimizer = new QuadraticAssignmentPlacer (
-							new GraspPathRelinking(1,32), QuadraticAssignmentPlacer.MODE_BORDER_LENGTH
-						);
-		}
-
-		else if (optimization.equalsIgnoreCase("GRASPPR32-INV-BL"))
-		{
-			QAPSolverAlgorithm qapsolver = new GraspPathRelinking(1,32);
-			qapsolver.setSwapMatrices(true);
-			optimizer = new QuadraticAssignmentPlacer (
-							qapsolver, QuadraticAssignmentPlacer.MODE_BORDER_LENGTH
-						);
-		}
-
-		else if (optimization.equalsIgnoreCase("GRASPPR32-CI"))
-		{
-			optimizer = new QuadraticAssignmentPlacer (
-							new GraspPathRelinking(1,32), QuadraticAssignmentPlacer.MODE_CONFLICT_INDEX
-						);
-		}
-
-		else if (optimization.equalsIgnoreCase("GRASPPR32-INV-CI"))
-		{
-			QAPSolverAlgorithm qapsolver = new GraspPathRelinking(1,32);
-			qapsolver.setSwapMatrices(true);
-			optimizer = new QuadraticAssignmentPlacer (
-							qapsolver, QuadraticAssignmentPlacer.MODE_CONFLICT_INDEX
-						);
-		}
-
-		// ****************** GRASP 128 Path-relinking ******************
-
-		else if (optimization.equalsIgnoreCase("GRASPPR128-BL"))
-		{
-			optimizer = new QuadraticAssignmentPlacer (
-							new GraspPathRelinking(1, 128), QuadraticAssignmentPlacer.MODE_BORDER_LENGTH
-						);
-		}
-
-		else if (optimization.equalsIgnoreCase("GRASPPR128-INV-BL"))
-		{
-			QAPSolverAlgorithm qapsolver = new GraspPathRelinking(1, 128);
-			qapsolver.setSwapMatrices(true);
-			optimizer = new QuadraticAssignmentPlacer (
-							qapsolver, QuadraticAssignmentPlacer.MODE_BORDER_LENGTH
-						);
-		}
-
-		else if (optimization.equalsIgnoreCase("GRASPPR128-CI"))
-		{
-			optimizer = new QuadraticAssignmentPlacer (
-							new GraspPathRelinking(1, 128), QuadraticAssignmentPlacer.MODE_CONFLICT_INDEX
-						);
-		}
-
-		else if (optimization.equalsIgnoreCase("GRASPPR128-INV-CI"))
-		{
-			QAPSolverAlgorithm qapsolver = new GraspPathRelinking(1, 128);
-			qapsolver.setSwapMatrices(true);
-			optimizer = new QuadraticAssignmentPlacer (
-							qapsolver, QuadraticAssignmentPlacer.MODE_CONFLICT_INDEX
-						);
-		}
-
-		else
-			throw new IllegalArgumentException
-				("Unknown post-placement algorithm '" + optimization + "'");
-
-	 */
 }
