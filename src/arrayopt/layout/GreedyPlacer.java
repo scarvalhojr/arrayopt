@@ -60,8 +60,8 @@ package arrayopt.layout;
  * effectively improves the chances of finding probes similar to its neighbors
  * to fill a given spot.</P>
  * 
- * The doubly-linked list is used to maintain the desired order, which must be
- * specified at instantiation time with the following constants:
+ * <P>The doubly-linked list is used to maintain the desired order, which must
+ * be specified at instantiation time with the following constants:
  * {@link #KEEP_ORDER}, {@link #RANDOM_ORDER}, {@link #SORT_EMBEDDINGS},
  * {@link #SORT_SEQUENCES} and {@link #TSP_ORDER}.</P>
  * 
@@ -127,7 +127,9 @@ public class GreedyPlacer implements LayoutAlgorithm, FillingAlgorithm
 	private int mode;
 
 	/**
-	 * Indicate the ordering of the probes used for placement/filling.
+	 * Indicate the ordering of the probes used for placement/filling. Valid
+	 * options are: {@link #KEEP_ORDER}, {@link #RANDOM_ORDER},
+	 * {@link #SORT_EMBEDDINGS}, {@link #SORT_SEQUENCES}, {@link #TSP_ORDER}.     
 	 */
 	private int order;
 	
@@ -165,7 +167,7 @@ public class GreedyPlacer implements LayoutAlgorithm, FillingAlgorithm
 	
 	/**
 	 * Creates an instance of the Greedy placement algorithm with the desired
-	 * minimization mode, probe ordering and window size.
+	 * minimization mode, window size, k value and probe ordering.
 	 * 
 	 * @see #BORDER_LENGTH_MIN
 	 * @see #CONFLICT_INDEX_MIN
@@ -174,10 +176,10 @@ public class GreedyPlacer implements LayoutAlgorithm, FillingAlgorithm
 	 * @see #SORT_EMBEDDINGS
 	 * @see #SORT_SEQUENCES
 	 * @see #TSP_ORDER
-	 * @see #window_size
 	 * @param mode minimization mode, either border length or conflict index
-	 * @param order order of probes during placement/filling
 	 * @param window_size maximum number of candidades examined for each spot
+	 * @param kvalue amplitude of k-threading
+	 * @param order order of probes during placement/filling
 	 */
 	public GreedyPlacer (int mode, int window_size, int kvalue, int order)
 	{
@@ -260,7 +262,7 @@ public class GreedyPlacer implements LayoutAlgorithm, FillingAlgorithm
 
 	/**
 	 * Fills the spots of a region with the given list of probes delimited by
-	 * a starting and ending position.
+	 * a starting and ending positions.
 	 * 
 	 * @param chip instance of a microarray chip
 	 * @param region region to be filled
@@ -289,7 +291,6 @@ public class GreedyPlacer implements LayoutAlgorithm, FillingAlgorithm
 		// apply probe ordering
 		if (ordering != null)
 			ordering.orderProbes(chip, probe_id, start, end);
-
 		
 		// create a linked list with the probe IDs
 		head = prev = new MyLinkedList (probe_id[start], null);
@@ -301,7 +302,7 @@ public class GreedyPlacer implements LayoutAlgorithm, FillingAlgorithm
 		}
 
 		if (chip instanceof SimpleChip)
-		{			
+		{
 			return fillRegion ((SimpleChip) chip, r, head);
 		}
 		// else
@@ -326,7 +327,7 @@ public class GreedyPlacer implements LayoutAlgorithm, FillingAlgorithm
 				c = region.first_col;
 			else
 				// right to left
-				c = region.last_row;
+				c = region.last_col;
 			
 			// k-threading
 			move = DOWN; delta = -1;
@@ -733,7 +734,8 @@ public class GreedyPlacer implements LayoutAlgorithm, FillingAlgorithm
 				break;
 		}
 
-		return this.getClass().getSimpleName() + m + window_size + ord;
+		return this.getClass().getSimpleName() + m + window_size + "-" +
+					kvalue + ord;
 	}
 	
 	private class MyLinkedList
