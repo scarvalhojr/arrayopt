@@ -292,49 +292,48 @@ public class SimpleChip extends Chip
 	@Override
 	public void createRandomLayout ()
 	{
-		byte rnd_embed[], tmp;
-		char embed_str[], probe_str[];
-		int	i, pos, base, p;
-
-		// check if chip spec has already been input
+		int	p, len, w, pos, bitmask = 0;
+		char b;
+		
 		if (input_done)
 			throw new IllegalStateException
 				("Layout specification has already been loaded.");
+		
+		if (dep_seq_cycle <= 0)
+			throw new IllegalStateException
+				("Cannot generate a random chip with a non-cyclical " +
+						"deposition sequence.");
 
-		embed_str = new char[this.embed_len];
-		probe_str = new char[this.probe_len];
-
-		rnd_embed = new byte[this.embed_len];
-		for (i = 0;  i < probe_len; i++)
-			rnd_embed[i] = 1;
-		for (;  i < embed_len; i++)
-			rnd_embed[i] = 0;
-
-		// generate random embeddings
-		for (p = 0; p < num_probes; p++)
+		for (p = 0; p < num_probes;)
 		{
-			// randomize embedding
-			for (base = probe_len - 1, i = embed_len - 1; i >= 0; i--)
+			// turn all bits off
+			for (w = 0; w < embed[p].length; w++)
+				embed[p][w] = 0;
+			
+			for (w = -1, pos = 0, len = 0; len < probe_len && pos < embed_len;)
 			{
-				pos = (int) ((i + 1) * Math.random());
-				tmp = rnd_embed[i];
-				rnd_embed[i] = rnd_embed[pos];
-				rnd_embed[pos] = tmp;
+				b = dep_seq[(int) (dep_seq_cycle * Math.random())];
 				
-				// update probe and embedding strings
-				if (rnd_embed[i] == 1)
+				while (pos < embed_len)
 				{
-					embed_str[i] = this.dep_seq[i];
-					probe_str[base--] = this.dep_seq[i];
-				}
-				else
-				{
-					embed_str[i] = ' ';
+					if ((pos % Integer.SIZE) == 0)
+					{
+						bitmask = 0x01 << (Integer.SIZE - 1);
+						w++;
+					}
+					else
+						bitmask >>>= 1;
+					
+					if (dep_seq[pos++] == b)
+					{
+						embed[p][w] |= bitmask;
+						len++;
+						break;
+					}
 				}
 			}
 			
-			// enconde random embedding
-			encodeEmbedding(new String(probe_str), new String(embed_str), p);
+			if (len == probe_len) p++;
 		}
 		
 		// assign embeddings to spots in sequence
@@ -348,10 +347,10 @@ public class SimpleChip extends Chip
 
 		// TODO randomize allocation of empty spots
 		
-		// TODO take the number of fixed spots as an argument?
-		
 		// create an empty list of fixed spots
 		this.fixed_probe = new int [0];
+		
+		// TODO take the number of fixed spots as an argument?
 
 		input_done = true;
 	}
@@ -403,7 +402,6 @@ public class SimpleChip extends Chip
 	 * {@link #readLayout} method.
 	 *
 	 * @param out a PrintWriter stream
-	 * @throws IOException if an error occurs while writing on the stream
 	 */
 	@Override
 	public void writeLayout (PrintWriter out)
