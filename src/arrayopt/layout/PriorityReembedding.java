@@ -877,11 +877,11 @@ public class PriorityReembedding implements LayoutAlgorithm
 			p = "-?";
 
 		if (reset_first)
-			r = "-Reset";
+			r = "-Reset-";
 		else
-			r = "-NoReset";
+			r = "-NoReset-";
 		
-		return this.getClass().getSimpleName() + m + p +r;
+		return this.getClass().getSimpleName() + m + p + r + threshold;
 	}
 
 	/**

@@ -348,10 +348,10 @@ public class SequentialReembedding implements LayoutAlgorithm
 		}
 		
 		if (reset_first)
-			r = "-Reset";
+			r = "-Reset-";
 		else
-			r = "-NoReset";
+			r = "-NoReset-";
 		
-		return this.getClass().getSimpleName() + m + r;
+		return this.getClass().getSimpleName() + m + r + threshold;
 	}
 }
