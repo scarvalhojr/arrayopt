@@ -113,7 +113,7 @@ public class PriorityReembedding implements LayoutAlgorithm
 	
 	private double threshold ;
 	
-	private static double DEFAULT_THRESHOLD = 0.001d;
+	public static final double DEFAULT_THRESHOLD = 0.001d;
 	
 	private boolean reset_first;
 	
