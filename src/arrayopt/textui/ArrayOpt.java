@@ -694,15 +694,22 @@ public class ArrayOpt
 		{
 			int mode;
 			boolean reset;
+			double threshold;
 			
 			if (args.length != 3)
 				throw new IllegalArgumentException
 					("Missing arguments for Sequential re-embedding.");
 			
 			if (args[1].equalsIgnoreCase("BL"))
+			{
 				mode = OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN;
+				threshold = SequentialReembedding.DEFAULT_THRESHOLD;
+			}
 			else if (args[1].equalsIgnoreCase("CI"))
+			{
 				mode = OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN;
+				threshold = 5 * SequentialReembedding.DEFAULT_THRESHOLD;
+			}
 			else
 				throw new IllegalArgumentException ("Unknown '" + args[1] +
 						"' mode for Sequential re-embedding algorithm.");
@@ -715,7 +722,7 @@ public class ArrayOpt
 				throw new IllegalArgumentException ("Invalid argument '" +
 						args[2] + "' for Sequential re-embedding algorithm.");
 			
-			alg = new SequentialReembedding(mode, reset);
+			alg = new SequentialReembedding(mode, reset, threshold);
 		}
 		
 		// *********************
@@ -725,15 +732,22 @@ public class ArrayOpt
 		{
 			int mode, priority;
 			boolean reset;
+			double threshold;
 			
 			if (args.length != 4)
 				throw new IllegalArgumentException
 					("Missing arguments for Priority re-embedding.");
 			
 			if (args[1].equalsIgnoreCase("BL"))
+			{
 				mode = OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN;
+				threshold = PriorityReembedding.DEFAULT_THRESHOLD;
+			}
 			else if (args[1].equalsIgnoreCase("CI"))
+			{
 				mode = OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN;
+				threshold = 5 * PriorityReembedding.DEFAULT_THRESHOLD;
+			}
 			else
 				throw new IllegalArgumentException ("Unknown '" + args[1] +
 						"' mode for Priority re-embedding algorithm.");
@@ -756,7 +770,7 @@ public class ArrayOpt
 				throw new IllegalArgumentException ("Invalid argument '" +
 						args[3] + "' for Priority re-embedding algorithm.");
 			
-			alg = new PriorityReembedding(mode, priority, reset);
+			alg = new PriorityReembedding(mode, priority, reset, threshold);
 		}		
 
 		else
