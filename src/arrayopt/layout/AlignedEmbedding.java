@@ -67,25 +67,25 @@ public class AlignedEmbedding implements SingleProbeEmbeddingAlgorithm,
 	 * Re-embeds a set of probes of a given chip.
 	 * 
 	 * @param chip the chip containing the probes to be re-embedded
-	 * @param probe_id a list of probe IDs to be re-embedded
+	 * @param id a list of probe IDs to be re-embedded
 	 */
-	public void reembedProbeSet (Chip chip, int probe_id[])
+	public void reembedProbeSet (Chip chip, int id[])
 	{
-		reembedProbeSet (chip, probe_id, 0, probe_id.length - 1);
+		reembedProbeSet (chip, id, 0, id.length - 1);
 	}
 
 	/**
 	 * Re-embeds a selected sub-set of probes of a given chip. 
 	 * 
 	 * @param chip the chip containing the probes to be re-embedded
-	 * @param probe_id a list of probe IDs to be re-embedded
+	 * @param id a list of probe IDs to be re-embedded
 	 * @param first first element on the list to be re-embedded
 	 * @param last last element on the list to be re-embedded
 	 */
-	public void reembedProbeSet (Chip chip, int probe_id[], int first, int last)
+	public void reembedProbeSet (Chip chip, int id[], int first, int last)
 	{
 		SimpleChip schip;
-		int embed_len, cycle_len, min_step;
+		int embed_len, cycle, min_step, middle;
 		
 		if (chip instanceof SimpleChip)
 			schip = (SimpleChip) chip;
@@ -93,17 +93,20 @@ public class AlignedEmbedding implements SingleProbeEmbeddingAlgorithm,
 			throw new IllegalArgumentException ("Unsupported chip type.");
 		
 		embed_len = chip.getEmbeddingLength();
-		cycle_len = chip.depositionSequenceCycleLength();
+		cycle = chip.depositionSequenceCycleLength();
 		
-		if (cycle_len <= 0)
+		if (cycle <= 0)
 			throw new IllegalStateException
 				("Deposition sequence must be cyclical.");
 		
 		// first step of the central masks
-		min_step = (embed_len / 2) - (cycle_len / 2);
+		min_step = (embed_len / 2) - (cycle / 2);
+		
+		// middle base
+		middle = (int) Math.round(chip.getProbeLength() / (double) 2);
 		
 		for (int i = first; i <= last; i++)
-			reembedProbe (schip, probe_id[i], embed_len, cycle_len, min_step);
+			reembedProbe (schip, id[i], embed_len, cycle, middle, min_step);
 	}
 	
 	/**
@@ -128,26 +131,29 @@ public class AlignedEmbedding implements SingleProbeEmbeddingAlgorithm,
 	 */
 	public void reembedProbe (SimpleChip chip, int probe_id)
 	{
-		int embed_len, cycle_len, min_step;
+		int embed_len, cycle, middle, min_step;
 		
 		embed_len = chip.getEmbeddingLength();
-		cycle_len = chip.depositionSequenceCycleLength();
+		cycle = chip.depositionSequenceCycleLength();
 		
-		if (cycle_len <= 0)
+		if (cycle <= 0)
 			throw new IllegalStateException
 				("Deposition sequence must be cyclical.");
 		
 		// first step of the central masks
-		min_step = (embed_len / 2) - (cycle_len / 2);
+		min_step = (embed_len / 2) - (cycle / 2);
 		
-		reembedProbe (chip, probe_id, embed_len, cycle_len, min_step);
+		// middle base
+		middle = (int) Math.round(chip.getProbeLength() / (double) 2);
+		
+		reembedProbe (chip, probe_id, embed_len, cycle, middle, min_step);
 	}
 	
 	private void reembedProbe (SimpleChip chip, int id, int embed_len,
-			int cycle_len, int min_step)
+			int cycle_len, int middle_base, int min_step)
 	{
-		int free, max_shift, m, shift;
-		int pos, w, bitmask = 0;
+		int free, max_shift, shift;
+		int base, pos, w, bitmask = 0;
 		
 		// leftmost embedding with no shift
 		embedder.reembedProbe(chip, id, 0);
@@ -176,21 +182,35 @@ public class AlignedEmbedding implements SingleProbeEmbeddingAlgorithm,
 		max_shift = 4 * (int) Math.floor(free / (double) cycle_len);
 
 		// find the middle base's current position
-		m = 12;
+		pos = embed_len - 1;
+		bitmask = 0x01 << (Integer.SIZE - (embed_len % Integer.SIZE));
+		for (w = -1, pos = -1, base = 0; base < middle_base;)
+		{
+			if ((++pos % Integer.SIZE) == 0)
+			{
+				bitmask = 0x01 << (Integer.SIZE - 1);
+				w++;
+			}
+			else
+				bitmask >>>= 1;
+			
+			if ((chip.embed[id][w] & bitmask) != 0)
+				base++;
+		}
 		
-		if (m >= min_step)
+		if (pos >= min_step)
 			// with a leftmost embedding, the middle base is already past
-			// the central masks; thus it cannot be aligned
+			// the central masks => it is already aligned or cannot be aligned
 			return;
 		
 		// compute optimal shift
-		shift = 4 * (int) Math.ceil((min_step - m) / (double) cycle_len);
-		
+		shift = 4 * (int) Math.ceil((min_step - pos) / (double) cycle_len);
+
 		// make sure optimal shift is possible 
 		shift = shift > max_shift ? max_shift : shift;
-
+		
 		// re-embed with shift
-		embedder.reembedProbe(chip, id, shift);
+		if (shift > 0) embedder.reembedProbe(chip, id, shift);
 	}
 
 	/**
