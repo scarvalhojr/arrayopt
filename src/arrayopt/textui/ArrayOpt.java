@@ -63,7 +63,7 @@ public class ArrayOpt
 		Chip	chip, copy = null;
 		String	filename, dep_seq;
 		int		i, type, rows, cols, probes, probe_len, num_alg, a;
-		boolean	ignore_fixed, check, calc_bl, calc_blpm, calc_ci, print_chip;
+		boolean	ignore_fixed, check, calc_bl, calc_blm, calc_ci, print_chip;
 		long	bl, start, end, total = 0;
 		double	norm_bl;
 
@@ -93,12 +93,12 @@ public class ArrayOpt
 				throw new IllegalArgumentException ("'" + args[1] +
 					"' (expected 'fix' or 'nofix')");
 			
-			filename     = args[2];
-			rows         = Integer.parseInt(args[3]);
-			cols         = Integer.parseInt(args[4]);
-			probes       = Integer.parseInt(args[5]);
-			probe_len    = Integer.parseInt(args[6]);
-			dep_seq	     = args[7];
+			filename  = args[2];
+			rows      = Integer.parseInt(args[3]);
+			cols      = Integer.parseInt(args[4]);
+			probes    = Integer.parseInt(args[5]);
+			probe_len = Integer.parseInt(args[6]);
+			dep_seq	  = args[7];
 
 			// perform validation checks?
 			if (args[8].equalsIgnoreCase("check"))
@@ -113,31 +113,31 @@ public class ArrayOpt
 			// length or average conflict indices? 
 			if (args[9].equalsIgnoreCase("calc-bl"))
 			{
-				calc_bl   = true;
-				calc_blpm = false;
-				calc_ci   = false;
+				calc_bl  = true;
+				calc_blm = false;
+				calc_ci  = false;
 			}
-			else if (args[9].equalsIgnoreCase("calc-blpm"))
+			else if (args[9].equalsIgnoreCase("calc-blm"))
 			{
-				calc_bl   = false;
-				calc_blpm = true;
-				calc_ci   = false;
+				calc_bl  = false;
+				calc_blm = true;
+				calc_ci  = false;
 			}
 			else if (args[9].equalsIgnoreCase("calc-ci"))
 			{
-				calc_bl   = false;
-				calc_blpm = false;
-				calc_ci   = true;
+				calc_bl  = false;
+				calc_blm = false;
+				calc_ci  = true;
 			}
 			else if (args[9].equalsIgnoreCase("no-calc"))
 			{
-				calc_bl   = false;
-				calc_blpm = false;
-				calc_ci   = false;
+				calc_bl  = false;
+				calc_blm = false;
+				calc_ci  = false;
 			}
 			else
 				throw new IllegalArgumentException ("'" + args[9] +
-				"' (expected 'calc-bl', 'calc-blpm', 'calc-ci' or 'no-calc')");
+				"' (expected 'calc-bl', 'calc-blm', 'calc-ci' or 'no-calc')");
 			
 			// print produced layout?
 			if (args[10].equalsIgnoreCase("print"))
@@ -177,19 +177,28 @@ public class ArrayOpt
 		else if (dep_seq.equalsIgnoreCase("SYNC"))
 			dep_seq = SYNC_DEP_SEQ;		
 
-		// create chip
-		if (type == SIMPLE_CHIP)
+		try
 		{
-			chip = new SimpleChip (rows, cols, probes, probe_len, dep_seq);
+			// create chip
+			if (type == SIMPLE_CHIP)
+			{
+				chip = new SimpleChip (rows, cols, probes, probe_len, dep_seq);
+			}
+			else // if (type == AFFY_CHIP)
+			{
+				if (probe_len != AffymetrixChip.AFFY_PROBE_LENGTH)
+					throw new IllegalArgumentException
+						("Invalid probe length (Affymetrix probes must be " +
+						 AffymetrixChip.AFFY_PROBE_LENGTH + " base-long).");
+	
+				chip = new AffymetrixChip (rows, cols, probes, dep_seq);
+			}
 		}
-		else // if (type == AFFY_CHIP)
+		catch (IllegalArgumentException e)
 		{
-			if (probe_len != AffymetrixChip.AFFY_PROBE_LENGTH)
-				throw new IllegalArgumentException
-					("Invalid probe length (Affymetrix probes must be " +
-					 AffymetrixChip.AFFY_PROBE_LENGTH + " base-long).");
-
-			chip = new AffymetrixChip (rows, cols, probes, dep_seq);
+			System.err.println("Unable to instantiate chip: " + e.getMessage());
+			System.exit(1);
+			return;
 		}
 		
 		// create array of algorithms
@@ -235,9 +244,17 @@ public class ArrayOpt
 				file.close();
 	
 			}
-			catch (Exception e)
+			catch (FileNotFoundException e)
 			{
-				e.printStackTrace ();
+				System.err.println("Unable to open input file for reading: " +
+						e.getMessage());
+				System.exit(1);
+				return;
+			}
+			catch (IOException e)
+			{
+				System.err.println("Error while reading input file: " +
+						e.getMessage());
 				System.exit(1);
 				return;
 			}
@@ -327,7 +344,7 @@ public class ArrayOpt
 			chip.writeLayout(new PrintWriter(System.out));
 		}
 		
-		if (calc_blpm)
+		if (calc_blm)
 		{
 			// print border length per masking step
 			LayoutEvaluation.analyzeBorderLength(chip,
@@ -757,14 +774,14 @@ public class ArrayOpt
 	"--------------------------\n\n" +
 	"Usage: ArrayOpt (affy | simple) (fix | nofix) <input> <rows> <columns> " +
 	                                          "<probes> <length> <dep-seq>\n" +
-	"          (calc-bl | calc-blpm | calc-ci | no-calc) (print | no-print) " +
+	"          (calc-bl | calc-blm | calc-ci | no-calc) (print | no-print) " +
 	                                                             "<alg>*\n\n" +
 	"where: 'affy'      indicates an Affymetrix chip type\n" +
 	"       'simple'    indicates a simple chip type\n" +
 	"       'fix'       considers fixed spots\n" +
 	"       'no-fix'    ignores fixed spots in the input\n" +
-	"       <input>     is a file name or RANDOM for a randomly generated\n" +
-	"                      chip\n" +
+	"       <input>     is a file name or" +
+	"                      RANDOM for a randomly generated chip\n" +
 	"       <rows>      is the number of rows in the chip\n" +
 	"       <columns>   is the number of columns in the chip\n" +
 	"       <probes>    is the number of probe in the chip\n" +
@@ -775,7 +792,7 @@ public class ArrayOpt
 	"       'check'     performs validation checks\n" +
 	"       'no-check'  does not perform validation checks\n" +
 	"       'calc-bl'   prints total and normalized border length\n" +
-	"       'calc-blpm' prints border length per masking step\n" +
+	"       'calc-blm'  prints border length per masking step\n" +
 	"       'calc-ci'   prints average conflict index\n" +
 	"       'no-calc'   does not print any quality measure\n" +
 	"       'print'     prints the resulting layout on standard output\n" +
