@@ -280,14 +280,13 @@ public class SimpleChip extends Chip
 	 * ({@link #readLayout(Reader)}), and is specially useful for evaluating
 	 * algorithms.
 	 * 
-	 * <P>The current implementation generates random embeddings by shuffling a
-	 * binary permutation consisting of <CODE>p</CODE> ones and
-	 * <CODE>(d - p)</CODE> zeros, where <CODE>p</CODE> is the length of probes
-	 * ({@link Chip#probe_len}) and <CODE>d</CODE> is the length of the
-	 * deposition sequence ({@link Chip#dep_seq}). The random probes are placed
-	 * on spots sequentially, top to bottom, left to right. Thus, in case the
-	 * number of probes is less than the number of spots, empty spots will be
-	 * concentrated in the lower part of the chip.</P>  
+	 * <P>The current implementation generates random embeddings by generating
+	 * random sequences and checking whether it has an embedding into the
+	 * deposition sequence. If it has, it is left-most embedded and placed in
+	 * the next available spot (random probes are placed on spots sequentially,
+	 * from top to bottom, left to right). Thus, in case the number of probes is
+	 * less than the number of spots, empty spots will be  concentrated in the
+	 * lower part of the chip.</P>  
 	 */
 	@Override
 	public void createRandomLayout ()
