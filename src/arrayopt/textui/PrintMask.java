@@ -99,8 +99,8 @@ public class PrintMask
 			
 			if (args[7].equalsIgnoreCase("ALL"))
 			{
-				start = 0;
-				end = dep_seq.length() - 1;
+				start = 1;
+				end = dep_seq.length();
 			}
 			else if (args[7].matches("\\A\\d+\\z"))
 			{
@@ -116,9 +116,10 @@ public class PrintMask
 				throw new IllegalArgumentException ("invalid mask range '" +
 						args[7] + "'.");
 			
-			if (start > end || start < 0 || end >= dep_seq.length())
+			if (start > end || start <= 0 || end > dep_seq.length())
 				throw new IllegalArgumentException
-					("mask range out of bounds.");
+					("mask numbers should be between 1 and " + dep_seq.length()
+					+ ", inclusive.");
 		}
 		catch (NumberFormatException e)
 		{
@@ -186,7 +187,7 @@ public class PrintMask
 			{
 				out = new BufferedOutputStream (new FileOutputStream(outfile));
 				
-				chip.writeMaskBMP(m, out);
+				chip.writeMaskBMP(m - 1, out);
 			}
 			catch (IOException e)
 			{
