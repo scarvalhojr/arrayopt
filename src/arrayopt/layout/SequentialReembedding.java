@@ -61,7 +61,8 @@ package arrayopt.layout;
  * 
  * <P>Since the improvements always decrease with each iteration, the algorithm
  * can be configured to stop once the reduction of conflicts drops below a given
- * threshold. The threshold is set to 0.1% by default.</P>
+ * threshold or once a given number of passes have been executed. By default,
+ * a threshold is set to 0.1%.</P>
  * 
  * <P>When computing an optimal embedding of a probe, the algorithm considers
  * all of its neighbors. However, in the first pass, it is possible to configure
@@ -82,6 +83,8 @@ public class SequentialReembedding implements LayoutAlgorithm
 	private boolean reset_first;
 	
 	private double threshold;
+	
+	private int num_passes;
 	
 	private int spot_copy[][];
 	
@@ -131,28 +134,47 @@ public class SequentialReembedding implements LayoutAlgorithm
 	 * (@link OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN) or conflict index
 	 * (@link OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN) minimization. The
 	 * "reset first" feature allows the first pass to re-embed the probes
-	 * considering only those that have already been re-embedded. The threshold
-	 * sets a limit on the minimum reduction of conflicts that must be achieved
-	 * in one pass in order to continue. In other words, when the improvement
-	 * drops below the threshold, the algorithm stops.</P>
+	 * considering only those that have already been re-embedded. The last
+	 * argument can be the threshold, if the it is a number greater than zero
+	 * and less than 1, or the number of passes that must be executed,
+	 * otherwise. The threshold sets a limit on the minimum reduction of
+	 * conflicts that must be achieved in one pass in order to continue. In
+	 * other words, when the improvement drops below the threshold, the
+	 * algorithm stops.</P>
 	 * 
 	 * @param mode conflict minimization mode
 	 * @param reset_first whether to consider only re-embedded probes on the
 	 * first pass over the chip
-	 * @param threshold the minimum improvement that must be gained in on pass
-	 * in order to continue the algorithm
+	 * @param limit the minimum improvement that must be gained in on pass
+	 * in order to continue the algorithm (if 0 <CODE>0 < limit < 1</CODE>) or
+	 * the number of passes (if 0 <CODE>limit >= 1</CODE>)
 	 */
 	public SequentialReembedding (int mode, boolean reset_first,
-			double threshold)
+			double limit)
 	{
 		if (mode != OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN &&
 			mode != OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN)
 				throw new IllegalArgumentException
 					("Unknown distance mode: " + mode);
-			
+		
+		if (limit <= 0)
+		{
+			throw new IllegalArgumentException
+				("Invalid threshold: " + threshold);
+		}
+		else if (limit >= 1)
+		{
+			this.threshold = 0;
+			this.num_passes = (int) limit;
+		}
+		else
+		{
+			this.threshold = limit;
+			this.num_passes = 0;
+		}
+		
 		this.mode = mode;
 		this.reset_first = reset_first;
-		this.threshold = threshold;
 	}
 
 	/**
@@ -184,17 +206,21 @@ public class SequentialReembedding implements LayoutAlgorithm
 	
 	private void optimize (SimpleChip chip)
 	{
-		double	last_conf, curr_conf;
-		boolean	reset;
+		double last_conf = 0, curr_conf, impr;
+		boolean reset, cont = true;
+		int count = 0;
 		
-		if (mode == OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN)
-			curr_conf = LayoutEvaluation.borderLength(chip);
-		else // CONFLICT_INDEX_MIN
-			curr_conf = LayoutEvaluation.averageConflictIndex(chip);
+		if (threshold > 0)
+		{
+			if (mode == OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN)
+				last_conf = LayoutEvaluation.borderLength(chip);
+			else // CONFLICT_INDEX_MIN
+				last_conf = LayoutEvaluation.averageConflictIndex(chip);
+		}
 		
 		reset = this.reset_first;
 		
-		do
+		while (cont)
 		{
 			if (reset)
 			{
@@ -206,29 +232,47 @@ public class SequentialReembedding implements LayoutAlgorithm
 			else
 				totalOptimization (chip);
 			
-			last_conf = curr_conf;
-			
-			if (mode == OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN)
-				curr_conf = LayoutEvaluation.borderLength(chip);
-			else // CONFLICT_INDEX_MIN
-				curr_conf = LayoutEvaluation.averageConflictIndex(chip);
-			
-		} while ((last_conf - curr_conf) / last_conf > threshold);
+			count++;
+
+			if (threshold > 0)
+			{
+				if (mode == OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN)
+					curr_conf = LayoutEvaluation.borderLength(chip);
+				else // CONFLICT_INDEX_MIN
+					curr_conf = LayoutEvaluation.averageConflictIndex(chip);
+				
+				impr = (last_conf - curr_conf) / last_conf;
+				
+				if (impr < threshold) cont = false;
+				
+				last_conf = curr_conf;
+			}
+			else
+			{
+				if (count >= num_passes) cont = false;
+			}
+		}
+		
+		System.err.println("Number of passes: " + count);
 	}
 
 	private void optimize (AffymetrixChip chip)
 	{
-		double	last_conf, curr_conf;
-		boolean	reset;
+		double last_conf = 0, curr_conf, impr;
+		boolean reset, cont = true;
+		int count = 0;
 		
-		if (mode == OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN)
-			curr_conf = LayoutEvaluation.borderLength(chip);
-		else // CONFLICT_INDEX_MIN
-			curr_conf = LayoutEvaluation.averageConflictIndex(chip);
+		if (threshold > 0)
+		{
+			if (mode == OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN)
+				last_conf = LayoutEvaluation.borderLength(chip);
+			else // CONFLICT_INDEX_MIN
+				last_conf = LayoutEvaluation.averageConflictIndex(chip);
+		}
 		
 		reset = this.reset_first;
 		
-		do
+		while (cont)
 		{
 			if (reset)
 			{
@@ -240,14 +284,28 @@ public class SequentialReembedding implements LayoutAlgorithm
 			else
 				totalOptimization (chip);
 			
-			last_conf = curr_conf;
-			
-			if (mode == OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN)
-				curr_conf = LayoutEvaluation.borderLength(chip);
-			else // CONFLICT_INDEX_MIN
-				curr_conf = LayoutEvaluation.averageConflictIndex(chip);
-			
-		} while ((last_conf - curr_conf) / last_conf > threshold);
+			count++;
+
+			if (threshold > 0)
+			{
+				if (mode == OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN)
+					curr_conf = LayoutEvaluation.borderLength(chip);
+				else // CONFLICT_INDEX_MIN
+					curr_conf = LayoutEvaluation.averageConflictIndex(chip);
+				
+				impr = (last_conf - curr_conf) / last_conf;
+				
+				if (impr < threshold) cont = false;
+				
+				last_conf = curr_conf;
+			}
+			else
+			{
+				if (count >= num_passes) cont = false;
+			}
+		}
+		
+		System.err.println("Number of passes: " + count);
 	}
 
 	private void copyAndResetSpots (Chip chip)
@@ -331,7 +389,7 @@ public class SequentialReembedding implements LayoutAlgorithm
 	@Override
 	public String toString ()
 	{
-		String m, r;
+		String m, r, l;
 		
 		switch (this.mode)
 		{
@@ -352,6 +410,11 @@ public class SequentialReembedding implements LayoutAlgorithm
 		else
 			r = "-NoReset-";
 		
-		return this.getClass().getSimpleName() + m + r + threshold;
+		if (threshold > 0)
+			l = (new Double(threshold)).toString();
+		else
+			l = (new Integer(num_passes)).toString();
+		
+		return this.getClass().getSimpleName() + m + r + l;
 	}
 }
