@@ -696,20 +696,14 @@ public class ArrayOpt
 			boolean reset;
 			double threshold;
 			
-			if (args.length != 3)
+			if (args.length != 4)
 				throw new IllegalArgumentException
 					("Missing arguments for Sequential re-embedding.");
 			
 			if (args[1].equalsIgnoreCase("BL"))
-			{
 				mode = OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN;
-				threshold = SequentialReembedding.DEFAULT_THRESHOLD;
-			}
 			else if (args[1].equalsIgnoreCase("CI"))
-			{
 				mode = OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN;
-				threshold = 5 * SequentialReembedding.DEFAULT_THRESHOLD;
-			}
 			else
 				throw new IllegalArgumentException ("Unknown '" + args[1] +
 						"' mode for Sequential re-embedding algorithm.");
@@ -721,6 +715,12 @@ public class ArrayOpt
 			else
 				throw new IllegalArgumentException ("Invalid argument '" +
 						args[2] + "' for Sequential re-embedding algorithm.");
+
+			if (args[3].matches("([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+)"))
+				threshold = Double.parseDouble(args[3]);
+			else
+				throw new IllegalArgumentException ("Invalid threshold/passes '"
+						+ args[3] + "' for Sequential re-embedding algorithm.");
 			
 			alg = new SequentialReembedding(mode, reset, threshold);
 		}
@@ -734,20 +734,14 @@ public class ArrayOpt
 			boolean reset;
 			double threshold;
 			
-			if (args.length != 4)
+			if (args.length != 5)
 				throw new IllegalArgumentException
 					("Missing arguments for Priority re-embedding.");
 			
 			if (args[1].equalsIgnoreCase("BL"))
-			{
 				mode = OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN;
-				threshold = PriorityReembedding.DEFAULT_THRESHOLD;
-			}
 			else if (args[1].equalsIgnoreCase("CI"))
-			{
 				mode = OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN;
-				threshold = 5 * PriorityReembedding.DEFAULT_THRESHOLD;
-			}
 			else
 				throw new IllegalArgumentException ("Unknown '" + args[1] +
 						"' mode for Priority re-embedding algorithm.");
@@ -769,6 +763,12 @@ public class ArrayOpt
 			else
 				throw new IllegalArgumentException ("Invalid argument '" +
 						args[3] + "' for Priority re-embedding algorithm.");
+
+			if (args[4].matches("([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+)"))
+				threshold = Double.parseDouble(args[4]);
+			else
+				throw new IllegalArgumentException ("Invalid threshold/passes '"
+						+ args[4] + "' for Priority re-embedding algorithm.");
 			
 			alg = new PriorityReembedding(mode, priority, reset, threshold);
 		}		
@@ -788,13 +788,13 @@ public class ArrayOpt
 	"--------------------------\n\n" +
 	"Usage: ArrayOpt (affy | simple) (fix | nofix) <input> <rows> <columns> " +
 	                                          "<probes> <length> <dep-seq>\n" +
-	"          (calc-bl | calc-blm | calc-ci | no-calc) (print | no-print) " +
-	                                                             "<alg>*\n\n" +
+	"          (check | no-check) (calc-bl | calc-blm | calc-ci | no-calc) "  +
+	                                          "(print | no-print) <alg>*\n\n" +
 	"where: 'affy'      indicates an Affymetrix chip type\n" +
 	"       'simple'    indicates a simple chip type\n" +
 	"       'fix'       considers fixed spots\n" +
 	"       'no-fix'    ignores fixed spots in the input\n" +
-	"       <input>     is a file name or" +
+	"       <input>     is a file name or\n" +
 	"                      RANDOM for a randomly generated chip\n" +
 	"       <rows>      is the number of rows in the chip\n" +
 	"       <columns>   is the number of columns in the chip\n" +
