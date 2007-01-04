@@ -85,7 +85,8 @@ import java.util.*;
  * 
  * <P>Since the improvements always decrease with each iteration, the algorithm
  * can be configured to stop once the reduction of conflicts drops below a given
- * threshold. The threshold is set to 0.1% by default.</P>
+ * threshold or once a given number of passes have been executed. By default,
+ * a threshold is set to 0.1%.</P>
  * 
  * <P>When computing an optimal embedding of a probe, the algorithm considers
  * all of its neighbors. However, in the first pass, it is possible to configure
@@ -111,7 +112,11 @@ public class PriorityReembedding implements LayoutAlgorithm
 	
 	private int mode;
 	
-	private double threshold ;
+	private int priority;
+	
+	private double threshold;
+	
+	private int num_passes;
 	
 	public static final double DEFAULT_THRESHOLD = 0.001d;
 	
@@ -132,6 +137,12 @@ public class PriorityReembedding implements LayoutAlgorithm
 	private long num_embed[];
 	
 	private final int ADD_REGION_DIM = 1;
+	
+	private final int MAX_QUEUE_SIZE = 6000;
+	
+	private final int MAX_INITIAL_PIVOTS = 2000;
+	
+	private int num_pivot_candidates;
 
 	/**
 	 * Creates a new instance of the Priority Re-embedding algorithm with the
@@ -184,20 +195,24 @@ public class PriorityReembedding implements LayoutAlgorithm
 	 * priority can be either {@link #PRIORITY_NUM_OF_EMBEDDINGS},
 	 * {@link #PRIORITY_NUM_OF_NEIGHBORS} or {@link #PRIORITY_BALANCED}. The
 	 * "reset first" feature allows the first pass to re-embed the probes
-	 * considering only those that have already been re-embedded. The threshold
-	 * sets a limit on the minimum reduction of conflicts that must be achieved
-	 * in one pass in order to continue. In other words, when the improvement
-	 * drops below the threshold, the algorithm stops.</P>
+	 * considering only those that have already been re-embedded. The last
+	 * argument can be the threshold, if the it is a number greater than zero
+	 * and less than 1, or the number of passes that must be executed,
+	 * otherwise. The threshold sets a limit on the minimum reduction of
+	 * conflicts that must be achieved in one pass in order to continue. In
+	 * other words, when the improvement drops below the threshold, the
+	 * algorithm stops.</P>
 	 * 
 	 * @param mode conflict minimization mode
 	 * @param priority pre-defined spot priority
 	 * @param reset_first whether to consider only re-embedded probes on the
 	 * first pass over the chip
-	 * @param threshold the minimum improvement that must be gained in on pass
-	 * in order to continue the algorithm
+	 * @param limit the minimum improvement that must be gained in on pass
+	 * in order to continue the algorithm (if 0 <CODE>0 < limit < 1</CODE>) or
+	 * the number of passes (if 0 <CODE>limit >= 1</CODE>)
 	 */
 	public PriorityReembedding (int mode, int priority,
-			boolean reset_first, double threshold)
+			boolean reset_first, double limit)
 	{
 		if (mode != OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN &&
 			mode != OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN)
@@ -213,10 +228,26 @@ public class PriorityReembedding implements LayoutAlgorithm
 		else
 			throw new IllegalArgumentException
 				("Unknown priority mode: " + priority);
-
+		
+		if (limit <= 0)
+		{
+			throw new IllegalArgumentException
+				("Invalid threshold: " + threshold);
+		}
+		else if (limit >= 1)
+		{
+			this.threshold = 0;
+			this.num_passes = (int) limit;
+		}
+		else
+		{
+			this.threshold = limit;
+			this.num_passes = 0;
+		}
+		
 		this.mode = mode;
+		this.priority = priority;
 		this.reset_first = reset_first;
-		this.threshold = threshold;
 	}
 
 	/**
@@ -265,17 +296,23 @@ public class PriorityReembedding implements LayoutAlgorithm
 	private void optimize (SimpleChip chip)
 	{
 		long pivot_threshold;
-		double last_conf, curr_conf, impr = 1;
-		boolean reset = this.reset_first;
+		double last_conf = 0, curr_conf, impr;
+		boolean reset, cont = true;
+		int count = 0;
 		
-		if (mode == OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN)
-			last_conf = LayoutEvaluation.borderLength(chip);
-		else // CONFLICT_INDEX_MIN
-			last_conf = LayoutEvaluation.averageConflictIndex(chip);
+		if (threshold > 0)
+		{
+			if (mode == OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN)
+				last_conf = LayoutEvaluation.borderLength(chip);
+			else // CONFLICT_INDEX_MIN
+				last_conf = LayoutEvaluation.averageConflictIndex(chip);
+		}
 		
 		pivot_threshold = analyzeProbes();
 		
-		while (impr > threshold)
+		reset = this.reset_first;
+		
+		while (cont)
 		{
 			spot_added.clear();
 			spot_ready.clear();
@@ -285,34 +322,53 @@ public class PriorityReembedding implements LayoutAlgorithm
 			scanRemainingSpots (chip);
 			processQueue (chip, reset);
 			
+			count++;
+			
 			// reset the first iteration only
 			reset = false;
 
-			if (mode == OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN)
-				curr_conf = LayoutEvaluation.borderLength(chip);
-			else // CONFLICT_INDEX_MIN
-				curr_conf = LayoutEvaluation.averageConflictIndex(chip);
-			
-			impr = (last_conf - curr_conf) / last_conf;
-			
-			last_conf = curr_conf;
+			if (threshold > 0)
+			{
+				if (mode == OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN)
+					curr_conf = LayoutEvaluation.borderLength(chip);
+				else // CONFLICT_INDEX_MIN
+					curr_conf = LayoutEvaluation.averageConflictIndex(chip);
+				
+				impr = (last_conf - curr_conf) / last_conf;
+				
+				if (impr < threshold) cont = false;
+				
+				last_conf = curr_conf;
+			}
+			else
+			{
+				if (count >= num_passes) cont = false;
+			}
 		}
+		
+		System.err.println("Number of passes: " + count);
 	}
 
 	private void optimize (AffymetrixChip chip)
 	{
 		long pivot_threshold;
-		double last_conf, curr_conf, impr = 1;
-		boolean reset = this.reset_first;
+		double last_conf = 0, curr_conf, impr;
+		boolean reset, cont = true;
+		int count = 0;
 		
-		if (mode == OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN)
-			last_conf = LayoutEvaluation.borderLength(chip);
-		else // CONFLICT_INDEX_MIN
-			last_conf = LayoutEvaluation.averageConflictIndex(chip);
+		if (threshold > 0)
+		{
+			if (mode == OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN)
+				last_conf = LayoutEvaluation.borderLength(chip);
+			else // CONFLICT_INDEX_MIN
+				last_conf = LayoutEvaluation.averageConflictIndex(chip);
+		}
 		
 		pivot_threshold = analyzeProbes(chip);
-				
-		while (impr > threshold)
+		
+		reset = this.reset_first;
+		
+		while (cont)
 		{
 			spot_added.clear();
 			spot_ready.clear();
@@ -322,23 +378,36 @@ public class PriorityReembedding implements LayoutAlgorithm
 			scanRemainingSpots (chip);
 			processQueue (chip, reset);
 			
+			count++;
+			
 			// reset the first iteration only
 			reset = false;
 
-			if (mode == OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN)
-				curr_conf = LayoutEvaluation.borderLength(chip);
-			else // CONFLICT_INDEX_MIN
-				curr_conf = LayoutEvaluation.averageConflictIndex(chip);
-			
-			impr = (last_conf - curr_conf) / last_conf;
-			
-			last_conf = curr_conf;
+			if (threshold > 0)
+			{
+				if (mode == OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN)
+					curr_conf = LayoutEvaluation.borderLength(chip);
+				else // CONFLICT_INDEX_MIN
+					curr_conf = LayoutEvaluation.averageConflictIndex(chip);
+				
+				impr = (last_conf - curr_conf) / last_conf;
+				
+				if (impr < threshold) cont = false;
+				
+				last_conf = curr_conf;
+			}
+			else
+			{
+				if (count >= num_passes) cont = false;
+			}
 		}
+		
+		System.err.println("Number of passes: " + count);
 	}
 
 	private void fixPivots (SimpleChip chip, long limit, boolean reset)
 	{
-		int id, r, c;
+		int id, r, c, needed, cand;
 		
 		// first find pivots and mark their spots as ready
 		for (r = 0; r < num_rows; r++)
@@ -365,15 +434,24 @@ public class PriorityReembedding implements LayoutAlgorithm
 			}
 		
 		// now add immediate neighbors of pivots to the queue
-		for (r = 0; r < num_rows; r++)
-			for (c = 0; c < num_cols; c++)
+		needed = MAX_INITIAL_PIVOTS;
+		cand = num_pivot_candidates;
+		for (r = 0; r < num_rows && needed > 0; r++)
+			for (c = 0; c < num_cols && needed > 0; c++)
 				if (isReadySpot(r, c) && chip.spot[r][c] != Chip.EMPTY_SPOT)
-					addNeighbors (chip, r, c);
+				{
+					if (cand * Math.random() < needed)
+					{
+						addNeighbors (chip, r, c);
+						needed--;
+					}
+					cand--;
+				}
 	}
 
 	private void fixPivots (AffymetrixChip chip, long limit, boolean reset)
 	{
-		int id, r, c;
+		int id, r, c, needed, cand;
 		
 		// first find pivots and mark their spots as ready
 		for (r = 0; r < num_rows; r++)
@@ -405,11 +483,20 @@ public class PriorityReembedding implements LayoutAlgorithm
 			}
 		
 		// now add immediate neighbors of pivots to the queue
-		for (r = 0; r < num_rows; r++)
-			for (c = 0; c < num_cols; c++)
+		needed = MAX_INITIAL_PIVOTS;
+		cand = num_pivot_candidates;
+		for (r = 0; r < num_rows && needed > 0; r++)
+			for (c = 0; c < num_cols && needed > 0; c++)
 				if ((id = chip.spot[r][c]) != Chip.EMPTY_SPOT)
 					if (isReadySpot(r,c) && chip.isPMProbe(id))
-						addNeighbors (chip, r, c);
+					{
+						if (cand * Math.random() < needed)
+						{
+							addNeighbors (chip, r, c);
+							needed--;
+						}
+						cand--;
+					}
 	}
 
 	private long analyzeProbes ()
@@ -418,7 +505,14 @@ public class PriorityReembedding implements LayoutAlgorithm
 		
 		for (int p = 0; p < num_probes; p++)
 			if ((num_embed[p] = embedder.numberOfEmbeddings(p)) < min)
+			{
 				min = num_embed[p];
+				num_pivot_candidates = 1;
+			}
+			else if (num_embed[p] == min)
+			{
+				num_pivot_candidates++;
+			}
 		
 		return min;
 	}
@@ -430,7 +524,14 @@ public class PriorityReembedding implements LayoutAlgorithm
 		for (int p = 0; p < num_probes; p++)
 			if (chip.isPMProbe(p))
 				if ((num_embed[p] = embedder.numberOfEmbeddings(p)) < min)
+				{
 					min = num_embed[p];
+					num_pivot_candidates = 1;
+				}
+				else if (num_embed[p] == min)
+				{
+					num_pivot_candidates++;
+				}
 
 		return min;
 	}
@@ -455,30 +556,36 @@ public class PriorityReembedding implements LayoutAlgorithm
 				restoreSpot ((SimpleChip) chip, row, col, reset);
 			else
 				restoreSpot ((AffymetrixChip) chip, row, col, reset);
-						
-			// check spots that need to be updated due to
-			// the restoration of the last spot
-			for (iter = queue.iterator(); iter.hasNext(); )
+			
+			if (priority != PRIORITY_NUM_OF_EMBEDDINGS)
 			{
-				s = iter.next();
+				// check spots that need to be updated due to
+				// the restoration of the last spot
+				for (iter = queue.iterator(); iter.hasNext(); )
+				{
+					s = iter.next();
+					
+					if (s.addNeighbor(row, col))
+			        {
+						// remove spots that were updated (they need to be
+						// re-inserted in order to restore the queue's ordering)
+			        	iter.remove();
+			        	updated.add(s);
+			        }
+				}
 				
-				if (s.addNeighbor(row, col))
-		        {
-					// remove spots that were updated (they need to be
-					// re-inserted in order to restore the queue's ordering)
-		        	iter.remove();
-		        	updated.add(s);
-		        }
+				// re-insert updated spots
+				queue.addAll(updated);
+				updated.clear();
 			}
 			
-			// re-insert updated spots
-			queue.addAll(updated);
-			updated.clear();
-
-			if (chip instanceof SimpleChip)
-				addNeighbors ((SimpleChip) chip, row, col);
-			else
-				addNeighbors ((AffymetrixChip) chip, row, col);
+			if (queue.size() < MAX_QUEUE_SIZE)
+			{
+				if (chip instanceof SimpleChip)
+					addNeighbors ((SimpleChip) chip, row, col);
+				else
+					addNeighbors ((AffymetrixChip) chip, row, col);
+			}
 		}
 	}
 
@@ -643,12 +750,24 @@ public class PriorityReembedding implements LayoutAlgorithm
 		
 		if (mode == OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN)
 		{
-			int neighbors = countImmediateNeighbors (chip, row, col); 
+			int neighbors;
+			
+			if (priority != PRIORITY_NUM_OF_EMBEDDINGS)
+				neighbors = countImmediateNeighbors (chip, row, col);
+			else
+				neighbors = 0;
+			
 			s = new SimpleBL (row, col, num_embed[id], neighbors);
 		}
 		else // CONFLICT_INDEX_MIN
 		{
-			double neighbors = countRegionNeighbors (chip, row, col);
+			double neighbors;
+			
+			if (priority != PRIORITY_NUM_OF_EMBEDDINGS)
+				neighbors = countRegionNeighbors (chip, row, col);
+			else
+				neighbors = 0;
+			
 			s = new SimpleCI (row, col, num_embed[id], neighbors);
 		}
 		
@@ -676,12 +795,24 @@ public class PriorityReembedding implements LayoutAlgorithm
 
 		if (mode == OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN)
 		{
-			int neighbors = countImmediateNeighbors (chip, row, col);
+			int neighbors;
+			
+			if (priority != PRIORITY_NUM_OF_EMBEDDINGS)
+				neighbors = countImmediateNeighbors (chip, row, col);
+			else
+				neighbors = 0;
+			
 			s = new AffyBL (row, col, num_embed[id], neighbors);
 		}
 		else // CONFLICT_INDEX_MIN
 		{
-			double neighbors = countRegionNeighbors (chip, row, col);
+			double neighbors;
+			
+			if (priority != PRIORITY_NUM_OF_EMBEDDINGS)
+				neighbors = countRegionNeighbors (chip, row, col);
+			else
+				neighbors = 0;
+			
 			s = new AffyCI (row, col, num_embed[id], neighbors);
 		}
 		
@@ -851,7 +982,7 @@ public class PriorityReembedding implements LayoutAlgorithm
 	@Override
 	public String toString ()
 	{
-		String m, p, r;
+		String m, p, r, l;
 		
 		switch (this.mode)
 		{
@@ -867,11 +998,11 @@ public class PriorityReembedding implements LayoutAlgorithm
 				m = "-?";
 		}
 		
-		if (comparator instanceof EmbeddingsPriority)
+		if (priority == PRIORITY_NUM_OF_EMBEDDINGS)
 			p = "-NumOfEmbed";
-		else if (comparator instanceof NeighborsPriority)
+		else if (priority == PRIORITY_NUM_OF_NEIGHBORS)
 			p = "-NumOfNeighbors";
-		else if (comparator instanceof BalancedPriority)
+		else if (priority == PRIORITY_BALANCED)
 			p = "-Balanced";
 		else
 			p = "-?";
@@ -881,7 +1012,12 @@ public class PriorityReembedding implements LayoutAlgorithm
 		else
 			r = "-NoReset-";
 		
-		return this.getClass().getSimpleName() + m + p + r + threshold;
+		if (threshold > 0)
+			l = (new Double(threshold)).toString();
+		else
+			l = (new Integer(num_passes)).toString();
+		
+		return this.getClass().getSimpleName() + m + p + r + l;
 	}
 
 	/**
@@ -1124,15 +1260,6 @@ public class PriorityReembedding implements LayoutAlgorithm
 			if (s1.embeds > s2.embeds)
 				return +1;
 			
-			// in case of ties, we look at the number of neighbors:
-			// a spot with greater number of ready neighbors
-			// has less flexibility and should come first
-			if (s1.neighbors > s2.neighbors)
-				return -1;
-			
-			if (s1.neighbors < s2.neighbors)
-				return +1;
-
 			// ideally, ties would not need to be broken since the priority
 			// queue should be able to handle objects of equal order; however,
 			// the PriorityQueue.remove(Object) is currently removing an object
