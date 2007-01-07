@@ -413,34 +413,27 @@ public class GreedyPlacer implements LayoutAlgorithm, FillingAlgorithm
 
 		return n;
 	}
-
+	
 	private MyLinkedList minBorderLength (SimpleChip chip, int row, int col,
-			MyLinkedList node)
+			MyLinkedList list)
 	{
-		MyLinkedList best;
+		MyLinkedList node, best;
 		long	cost, min;
 		int		count;
 		boolean	empty;
 		
-		// find node so that the search will examine 
-		// window_size elements around the last placed probe 
-		node = findStartingNode (node);
-
 		// prepare for border length computation
 		empty = examineNeighbors_bl (chip, row, col);
 		
 		// return if region around the spot is empty
 		// (any probe can be placed)
-		if (empty) return node;
+		if (empty) return list;
+
+		// find head of the list 
+		best = node = findFirstNode (list);
+		min = Long.MAX_VALUE;
 		
-		// compute cost of first element
-		min = borderLength (chip, node.info);
-		if (min == 0) return node;
-		
-		best = node;
-		node = node.next;
-		
-		for (count = 1; node != null && count < window_size; count++)
+		for (count = 0; node != null && count < window_size; count++)
 		{
 			cost = borderLength (chip, node.info);
 			if (cost < min)
@@ -448,54 +441,123 @@ public class GreedyPlacer implements LayoutAlgorithm, FillingAlgorithm
 				min = cost;
 				best = node;
 			}
-
 			node = node.next;
 		}
 		
 		return best;
 	}
 
-	private MyLinkedList minConflictIndex (SimpleChip chip, int row, int col,
-			MyLinkedList node)
+	// TODO remove old implementation
+	// this is the old implementation of the algorithm for border length min;
+	// it searches for probe candidates in the doubly-linked list around the
+	// position where the last placed probe was (similarly to how it is
+	// currently done for conflict index minimization; this version is not
+	// giving the best results, so it has been temporarily discontinued
+	/*
+	private MyLinkedList minBorderLength (SimpleChip chip, int row, int col,
+			MyLinkedList middle)
 	{
-		MyLinkedList best;
-		double	cost, min;
+		MyLinkedList node, best;
+		long	cost, min;
 		int		count;
 		boolean	empty;
 		
+		// prepare for border length computation
+		empty = examineNeighbors_bl (chip, row, col);
+		
+		// return if region around the spot is empty
+		// (any probe can be placed)
+		if (empty) return middle;
+
 		// find node so that the search will examine 
 		// window_size elements around the last placed probe 
-		node = findStartingNode (node);
+		best = node = findStartingNode (middle);
+		min = Long.MAX_VALUE;
+		
+		// examine elements to the left of last placed probe
+		// in case of ties, select the last examined probe
+		// (which is "closer" to the last placed probe) 
+		for (count = 0; node != null && count < window_size; node = node.next)
+		{
+			cost = borderLength (chip, node.info);
+			if (cost <= min)
+			{
+				min = cost;
+				best = node;
+			}
+			count++;
+			
+			if (node.info == middle.info)
+			{
+				node = node.next;
+				break;
+			}
+		}
+		
+		// examine elements to the right of last placed probe
+		// in case of ties, keep the probe found earlier
+		// (which is "closer" to the last placed probe) 
+		for (; node != null && count < window_size; count++, node = node.next)
+		{
+			cost = borderLength (chip, node.info);
+			if (cost < min)
+			{
+				min = cost;
+				best = node;
+			}
+		}
+		
+		return best;
+	}
+	//*/
+	
+	// TODO this method should be avoided
+	// this is only being used for border length minimization as it is giving
+	// better results if probe candidates are always searched from the beginning
+	// of th doubly-linked list; however, the fillRegion method should be
+	// changed to keep the head of the list so that this method is not needed
+	private MyLinkedList findFirstNode (MyLinkedList node)
+	{
+		while (node.prev != null)
+			node = node.prev;
+
+		return node;
+	}
+
+	private MyLinkedList minConflictIndex (SimpleChip chip, int row, int col,
+			MyLinkedList middle)
+	{
+		MyLinkedList node, best;
+		double	cost, min;
+		int		count;
+		boolean	empty;
 		
 		// prepare for conflict index computation
 		empty = examineNeighbors_ci (chip, row, col);
 		
 		// return if region around the spot is empty
 		// (any probe can be placed)
-		if (empty) return node;
+		if (empty) return middle;
 
-		// compute cost of first element
-		min = conflictIndex (chip, node.info, Double.POSITIVE_INFINITY);
-		if (min == 0) return node;
+		// find node so that the search will examine 
+		// window_size elements around the last placed probe 
+		best = node = findStartingNode (middle);
+		min = Double.POSITIVE_INFINITY;
 		
-		best = node;
-		node = node.next;
-		
-		for (count = 1; node != null && count < window_size; count++)
+		for (count = 0; node != null && count < window_size; count++)
 		{
 			cost = conflictIndex(chip, node.info, min);
-			if (cost < min)
+			if (cost <= min)
 			{
 				min = cost;
 				best = node;
 			}
-
 			node = node.next;
 		}
 		
 		return best;
 	}
-	
+
 	private void conflictIndexSetup (SimpleChip chip)
 	{
 		// prepare for faster conflict index calculations
