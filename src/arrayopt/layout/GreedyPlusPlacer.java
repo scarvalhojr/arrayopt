@@ -212,7 +212,8 @@ public class GreedyPlusPlacer implements LayoutAlgorithm, FillingAlgorithm
 		int row, r, c, dir = -1;
 		int delta, move, UP = 0, DOWN = 1;
 		
-		// TODO place first a pivot (probe with min number of embeddings)
+		// start placement with a pivot (a probe with min number of embeddings)
+		list = placePivot (chip, region.first_row, region.first_col, list);
 		
 		for (row = region.first_row; row <= region.last_row; row += kvalue + 1)
 		{
@@ -299,6 +300,9 @@ public class GreedyPlusPlacer implements LayoutAlgorithm, FillingAlgorithm
 		min = ospe.minDistanceSpot(row, col, node.info);
 		best = node;
 		
+		// TODO in case of ties, choose probe "closer" to last placed probe
+		// (see code of GreedyPlacer.minConflictIndex) 
+		
 		if (min > 0)
 		{
 			node = node.next;
@@ -320,6 +324,51 @@ public class GreedyPlusPlacer implements LayoutAlgorithm, FillingAlgorithm
 		}
 		
 		// place best probe on the spot
+		chip.spot[row][col] = best.info;
+		
+		node = null;
+		
+		// and delete it from the list
+		if (best.next != null)
+		{
+			best.next.prev = best.prev;
+			node = best.next;
+		}
+		if (best.prev != null)
+		{
+			best.prev.next = best.next;
+			node = best.prev;
+		}
+		
+		return node;
+	}
+
+	private MyLinkedList placePivot (SimpleChip chip, int row, int col,
+			MyLinkedList node)
+	{
+		MyLinkedList best;
+		long num_embed, min;
+		
+		best = node;
+		
+		for (min = Long.MAX_VALUE; node != null; node = node.next)
+		{
+			num_embed = ospe.numberOfEmbeddings(node.info);
+			
+			if (num_embed == 1)
+			{
+				best = node;
+				break;
+			}
+			
+			if (num_embed < min)
+			{
+				best = node;
+				min = num_embed;
+			}
+		}
+		
+		// place pivot on the spot
 		chip.spot[row][col] = best.info;
 		
 		node = null;
