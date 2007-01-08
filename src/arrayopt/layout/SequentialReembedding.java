@@ -37,6 +37,8 @@
 
 package arrayopt.layout;
 
+import java.util.BitSet;
+
 /**
  * This class implements the Sequential re-embedding post-placement
  * optimization. The alorithm is described in:
@@ -91,6 +93,10 @@ public class SequentialReembedding implements LayoutAlgorithm
 	private int num_rows;
 	
 	private int num_cols;
+	
+	private int num_probes;
+	
+	private BitSet pivot;
 	
 	/**
 	 * Creates a new instance of the Sequential Re-embedding algorithm with the
@@ -189,6 +195,10 @@ public class SequentialReembedding implements LayoutAlgorithm
 		this.embedder = OptimumSingleProbeEmbedding.createEmbedder(chip, mode);
 		this.num_rows = chip.getNumberOfRows();
 		this.num_cols = chip.getNumberOfColumns();
+		this.num_probes = chip.getNumberOfProbes();
+		
+		this.pivot = new BitSet (num_probes);
+		this.pivot.clear();
 		
 		if (chip instanceof SimpleChip)
 		{
@@ -220,6 +230,10 @@ public class SequentialReembedding implements LayoutAlgorithm
 		
 		reset = this.reset_first;
 		
+		// find and mark pivots (probes with a single embedding)
+		// so that time is not spent trying to re-embed it
+		fixPivots();
+		
 		while (cont)
 		{
 			if (reset)
@@ -233,7 +247,7 @@ public class SequentialReembedding implements LayoutAlgorithm
 				totalOptimization (chip);
 			
 			count++;
-
+			
 			if (threshold > 0)
 			{
 				if (mode == OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN)
@@ -272,6 +286,10 @@ public class SequentialReembedding implements LayoutAlgorithm
 		
 		reset = this.reset_first;
 		
+		// find and mark pivots (probes with a single embedding)
+		// so that time is not spent trying to re-embed it
+		fixPivots(chip);
+		
 		while (cont)
 		{
 			if (reset)
@@ -307,6 +325,22 @@ public class SequentialReembedding implements LayoutAlgorithm
 		
 		System.err.println("Number of passes: " + count);
 	}
+	
+	private void fixPivots ()
+	{
+		for (int p = 0; p < num_probes; p++)
+			if (embedder.numberOfEmbeddings(p) == 1)
+				this.pivot.set(p);
+	}
+
+	private void fixPivots (AffymetrixChip chip)
+	{
+		for (int p = 0; p < num_probes; p++)
+			if (chip.isPMProbe(p))
+				if (embedder.numberOfEmbeddings(p) == 1)
+					this.pivot.set(p);
+	}
+	
 
 	private void copyAndResetSpots (Chip chip)
 	{
@@ -332,6 +366,9 @@ public class SequentialReembedding implements LayoutAlgorithm
 				
 				chip.spot[r][c] = id;
 				
+				if (pivot.get(id))
+					continue;
+				
 				embedder.reembedSpot(r, c, id);
 			}
 	}
@@ -348,9 +385,12 @@ public class SequentialReembedding implements LayoutAlgorithm
 				
 				if (!chip.isPMProbe(id))
 					continue;
-				
+
 				chip.spot[r][c] = id;
 				chip.spot[r + 1][c] = spot_copy[r + 1][c];
+				
+				if (pivot.get(id))
+					continue;
 				
 				embedder.reembedSpot(r, c, id);
 			}
@@ -363,8 +403,13 @@ public class SequentialReembedding implements LayoutAlgorithm
 		for (int r = 0; r < num_rows; r++)
 			for (int c = 0; c < num_cols; c++)
 			{
-				if ((id = chip.spot[r][c]) != Chip.EMPTY_SPOT)
-					embedder.reembedSpot(r, c, id);
+				if ((id = chip.spot[r][c]) == Chip.EMPTY_SPOT)
+					continue;
+				
+				if (pivot.get(id))
+					continue;
+				
+				embedder.reembedSpot(r, c, id);
 			}
 	}
 
@@ -378,8 +423,13 @@ public class SequentialReembedding implements LayoutAlgorithm
 				if ((id = chip.spot[r][c]) == Chip.EMPTY_SPOT)
 					continue;
 				
-				if (chip.isPMProbe(id))
-					embedder.reembedSpot(r, c, id);
+				if (!chip.isPMProbe(id))
+					continue;
+				
+				if (pivot.get(id))
+					continue;
+				
+				embedder.reembedSpot(r, c, id);
 			}
 	}
 	
