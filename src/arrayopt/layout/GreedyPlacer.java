@@ -415,46 +415,6 @@ public class GreedyPlacer implements LayoutAlgorithm, FillingAlgorithm
 	}
 	
 	private MyLinkedList minBorderLength (SimpleChip chip, int row, int col,
-			MyLinkedList list)
-	{
-		MyLinkedList node, best;
-		long	cost, min;
-		int		count;
-		boolean	empty;
-		
-		// prepare for border length computation
-		empty = examineNeighbors_bl (chip, row, col);
-		
-		// return if region around the spot is empty
-		// (any probe can be placed)
-		if (empty) return list;
-
-		// find head of the list 
-		best = node = findFirstNode (list);
-		min = Long.MAX_VALUE;
-		
-		for (count = 0; node != null && count < window_size; count++)
-		{
-			cost = borderLength (chip, node.info);
-			if (cost < min)
-			{
-				min = cost;
-				best = node;
-			}
-			node = node.next;
-		}
-		
-		return best;
-	}
-
-	// TODO remove old implementation
-	// this is the old implementation of the algorithm for border length min;
-	// it searches for probe candidates in the doubly-linked list around the
-	// position where the last placed probe was (similarly to how it is
-	// currently done for conflict index minimization; this version is not
-	// giving the best results, so it has been temporarily discontinued
-	/*
-	private MyLinkedList minBorderLength (SimpleChip chip, int row, int col,
 			MyLinkedList middle)
 	{
 		MyLinkedList node, best;
@@ -511,19 +471,6 @@ public class GreedyPlacer implements LayoutAlgorithm, FillingAlgorithm
 	}
 	//*/
 	
-	// TODO this method should be avoided
-	// this is only being used for border length minimization as it is giving
-	// better results if probe candidates are always searched from the beginning
-	// of th doubly-linked list; however, the fillRegion method should be
-	// changed to keep the head of the list so that this method is not needed
-	private MyLinkedList findFirstNode (MyLinkedList node)
-	{
-		while (node.prev != null)
-			node = node.prev;
-
-		return node;
-	}
-
 	private MyLinkedList minConflictIndex (SimpleChip chip, int row, int col,
 			MyLinkedList middle)
 	{
