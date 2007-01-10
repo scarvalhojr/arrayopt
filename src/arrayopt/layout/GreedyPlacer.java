@@ -434,30 +434,7 @@ public class GreedyPlacer implements LayoutAlgorithm, FillingAlgorithm
 		best = node = findStartingNode (middle);
 		min = Long.MAX_VALUE;
 		
-		// examine elements to the left of last placed probe
-		// in case of ties, select the last examined probe
-		// (which is "closer" to the last placed probe) 
-		for (count = 0; node != null && count < window_size; node = node.next)
-		{
-			cost = borderLength (chip, node.info);
-			if (cost <= min)
-			{
-				min = cost;
-				best = node;
-			}
-			count++;
-			
-			if (node.info == middle.info)
-			{
-				node = node.next;
-				break;
-			}
-		}
-		
-		// examine elements to the right of last placed probe
-		// in case of ties, keep the probe found earlier
-		// (which is "closer" to the last placed probe) 
-		for (; node != null && count < window_size; count++, node = node.next)
+		for (count = 0; node != null && count < window_size; count++)
 		{
 			cost = borderLength (chip, node.info);
 			if (cost < min)
@@ -465,11 +442,11 @@ public class GreedyPlacer implements LayoutAlgorithm, FillingAlgorithm
 				min = cost;
 				best = node;
 			}
+			node = node.next;
 		}
 		
 		return best;
 	}
-	//*/
 	
 	private MyLinkedList minConflictIndex (SimpleChip chip, int row, int col,
 			MyLinkedList middle)
