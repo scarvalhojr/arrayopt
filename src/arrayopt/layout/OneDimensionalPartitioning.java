@@ -299,6 +299,6 @@ public class OneDimensionalPartitioning implements LayoutAlgorithm
 	@Override
 	public String toString ()
 	{		
-		return "2DPartitioning-" + stop_dim + "-" + filler;
+		return "1DPartitioning-" + stop_dim + "-" + filler;
 	}
 }
