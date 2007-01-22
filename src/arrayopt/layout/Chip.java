@@ -670,7 +670,7 @@ public abstract class Chip implements Cloneable
 	public void writeMaskBMP (int step, OutputStream out) throws IOException
 	{
 		BMPFile bmp;
-		byte[]	black, red, white;
+		byte[]	empty, masked, unmasked;
 		int		w, mask, id;
 		
 		// which 4-byte word will be interrogated?
@@ -684,9 +684,9 @@ public abstract class Chip implements Cloneable
 		bmp.writeHeader();
 		
 		// get colors
-		black = BMPFile.getRGBColor (0x000000);
-		red   = BMPFile.getRGBColor (0xFF0000);
-		white = BMPFile.getRGBColor (0xFFFFFF);
+		masked   = BMPFile.getRGBColor (0x606060);
+		unmasked = BMPFile.getRGBColor (0xC0C0C0);
+		empty    = BMPFile.getRGBColor (0xFFFFFF);
 		
 		// print a colored pixel for each spot
 		// note that lines are printer from last to first
@@ -696,13 +696,13 @@ public abstract class Chip implements Cloneable
 			{
 				if ((id = spot[r][c]) == EMPTY_SPOT)
 					// empty spot
-					out.write(white);
+					out.write(empty);
 				else if ((embed[id][w] & mask) == 0)
 					// masked spot
-					out.write(black);
+					out.write(masked);
 				else
 					// unmasked spot
-					out.write(red);
+					out.write(unmasked);
 			}
 			
 			bmp.finishRow();
