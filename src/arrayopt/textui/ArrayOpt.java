@@ -672,6 +672,57 @@ public class ArrayOpt
 			alg = new TwoDimensionalCentralPartitioning (filler, stop_dim);
 		}
 		
+		// ******************
+		// Pivot Partitioning
+		// ******************
+		else if (args[0].equalsIgnoreCase("PIVOTPART"))
+		{
+			FillingAlgorithm filler;
+			String filler_name;
+			
+			int mode, max_depth, idx;
+			
+			if (args.length < 4)
+				throw new IllegalArgumentException
+					("Missing arguments for Pivot Partitioning.");
+			
+			if (args[1].equalsIgnoreCase("BL"))
+				mode = OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN;
+			else if (args[1].equalsIgnoreCase("CI"))
+				mode = OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN;
+			else
+				throw new IllegalArgumentException ("Unknown '" + args[1] +
+						"' mode for Pivot Partitioning algorithm.");
+			
+			if (args[2].matches("[0-9]+"))
+				max_depth = Integer.parseInt(args[2]);
+			else
+				throw new IllegalArgumentException ("Invalid partitioning " +
+						"depth " + args[2] + " for Pivot Partitioning.");
+			
+			// get filling algorithm's name
+			idx = args[0].length() + args[1].length() + args[2].length() + 3;
+			filler_name = name.substring(idx);
+			
+			try
+			{
+				filler = (FillingAlgorithm) parseAlgorithmName(filler_name);
+			}
+			catch (ClassCastException e)
+			{
+				throw new IllegalArgumentException ("Cannot use '" + filler_name
+						+ "' as a filling algorithm for Pivot Partitioning.");
+			}
+			catch (Exception e)
+			{
+				throw new IllegalArgumentException ("Unable to instantiate " +
+						"filling algorithm for Pivot Partitioning: " +
+						e.getMessage());				
+			}
+			
+			alg = new PivotPartitioning (filler, mode, max_depth);
+		}
+		
 		// ******************************
 		// Simple re-embedding algorithms
 		// ******************************
