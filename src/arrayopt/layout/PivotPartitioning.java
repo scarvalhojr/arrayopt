@@ -79,6 +79,8 @@ public class PivotPartitioning implements LayoutAlgorithm
 	public static final int MODE_BORDER_LENGTH = 0;
 	
 	public static final int MODE_CONFLICT_INDEX = 1;
+	
+	private static final int MAX_NUM_SEEDS = 100;
 
 	/**
 	 * TODO document this
@@ -573,14 +575,16 @@ public class PivotPartitioning implements LayoutAlgorithm
 	
 	private int choosePivotPair (int first, int last)
 	{
-		int i, j, p1, p2, d, maxdist, tmp;
+		int i, j, last_seed, p1, p2, d, maxdist, tmp;
 		
 		p1 = first;
 		p2 = last;
 		maxdist = -1;
 		
 		// find pair of pivots p1 and p2 with maximum Hamming distance
-		for (i = first; i < last; i++)
+		last_seed = first + MAX_NUM_SEEDS - 1;
+		if (last_seed > last) last_seed = last;
+		for (i = first; i < last_seed; i++)
 			for (j = i + 1; j <= last; j++)
 			{
 				d = LayoutEvaluation.hammingDistance(chip, pid[i], pid[j]);
@@ -634,10 +638,6 @@ public class PivotPartitioning implements LayoutAlgorithm
 			}
 		}
 		
-		// move p2 to the beginning of its own list
-		pid[last] = pid[i];
-		pid[i] = p2;
-
 		return i;
 	}
 
@@ -923,5 +923,33 @@ public class PivotPartitioning implements LayoutAlgorithm
 					(dist_j <= dist_k ? j : (dist_i <= dist_k ? k : i)) :
 					(dist_j >= dist_k ? j : (dist_i >= dist_k ? k : i));
 		}
+	}
+	
+	/**
+	 * Returns the algorithm's name together with current options.
+	 * 
+	 * @return algorithm's name and configurable options
+	 */
+	@Override
+	public String toString ()
+	{
+		String m;
+		
+		switch (this.mode)
+		{
+			case OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN:
+				m = "-BL-";
+				break;
+				
+			case OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN:
+				m = "-CI-";
+				break;
+			
+			default:
+				m = "-?";
+				break;
+		}
+		
+		return this.getClass().getSimpleName() + m + max_depth + "-" + filler;
 	}
 }
