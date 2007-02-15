@@ -212,8 +212,9 @@ public class GreedyPlusPlacer implements LayoutAlgorithm, FillingAlgorithm
 		int row, r, c, dir = -1;
 		int delta, move, UP = 0, DOWN = 1;
 		
+		// TODO correct this: must check if spot is fixed before placing pivot
 		// start placement with a pivot (a probe with min number of embeddings)
-		list = placePivot (chip, region.first_row, region.first_col, list);
+		// list = placePivot (chip, region.first_row, region.first_col, list);
 		
 		for (row = region.first_row; row <= region.last_row; row += kvalue + 1)
 		{
@@ -300,8 +301,7 @@ public class GreedyPlusPlacer implements LayoutAlgorithm, FillingAlgorithm
 		min = ospe.minDistanceSpot(row, col, node.info);
 		best = node;
 		
-		// TODO in case of ties, choose probe "closer" to last placed probe
-		// (see code of GreedyPlacer.minConflictIndex) 
+		// TODO if min == 0, place a pivot (probe with min number of embeddings)
 		
 		if (min > 0)
 		{
@@ -315,6 +315,10 @@ public class GreedyPlusPlacer implements LayoutAlgorithm, FillingAlgorithm
 					min = cost;
 					best = node;
 				}
+				
+				// TODO in case of ties, choose probe with less embeddings
+				
+				// TODO in case of ties, choose probe closer to last placed
 
 				node = node.next;
 			}
