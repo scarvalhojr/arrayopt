@@ -415,17 +415,10 @@ public class LayoutEvaluation
 		if ((id = chip.spot[row][col]) == Chip.EMPTY_SPOT)
 			return 0;
 		
-		if (chip instanceof SimpleChip)
-			return borderLength ((SimpleChip) chip, row, col, id);
-
-		if (chip instanceof AffymetrixChip)
-			return borderLength ((AffymetrixChip) chip, row, col, id);
-
-		throw new IllegalArgumentException ("Unsupported chip type.");
+		return borderLength (chip, row, col, id);
 	}
 
-	public static long borderLength (SimpleChip chip, int row, int col,
-			int id)
+	public static long borderLength (Chip chip, int row, int col, int id)
 	{
 		RectangularRegion region;
 		int id2, border = 0;
@@ -449,14 +442,6 @@ public class LayoutEvaluation
 				border += hammingDistance(chip, id, id2);
 
 		return border;
-	}
-
-	public static long borderLength (AffymetrixChip chip, int row, int col,
-			int id)
-	{
-		// TODO implement this
-		
-		throw new IllegalStateException ("Unimplemented method!");
 	}
 
 	public static double analyzeConflictIndex (Chip chip)
@@ -556,27 +541,7 @@ public class LayoutEvaluation
 		if ((id = chip.spot[row][col]) == Chip.EMPTY_SPOT)
 			return 0;
 		
-		if (chip instanceof SimpleChip)
-			return conflictIndex ((SimpleChip) chip, row, col, id);
-
-		if (chip instanceof AffymetrixChip)
-			return conflictIndex ((AffymetrixChip) chip, row, col, id);
-
-		throw new IllegalArgumentException ("Unsupported chip type.");
-	}
-
-	/**
-	 * 
-	 */
-	public static double conflictIndex (Chip chip, int row, int col, int id)
-	{
-		if (chip instanceof SimpleChip)
-			return conflictIndex ((SimpleChip) chip, row, col, id);
-
-		if (chip instanceof AffymetrixChip)
-			return conflictIndex ((AffymetrixChip) chip, row, col, id);
-
-		throw new IllegalArgumentException ("Unsupported chip type.");
+		return conflictIndex (chip, row, col, id);
 	}
 
 	/**
@@ -590,8 +555,7 @@ public class LayoutEvaluation
 	 * @param pid probe ID 
 	 * @return conflict index of the spot
 	 */
-	public static double conflictIndex (SimpleChip chip, int row, int col,
-			int pid)
+	public static double conflictIndex (Chip chip, int row, int col, int pid)
 	{
 		RectangularRegion	region;
 		double	conf, posw;
@@ -658,24 +622,5 @@ public class LayoutEvaluation
 		}
 
 		return conf;
-	}
-
-	/**
-	 * Computes the conflict index of probe when it is placed on a given spot.
-	 * This method analyzes the probes in the region around the spot and uses
-	 * the current definition of conflict index (see {@link ConflictIndex}).
-	 * 
-	 * @param chip chip containing the spot
-	 * @param row row coordinate of the spot
-	 * @param col column coordinate of the spot
-	 * @param pid probe ID 
-	 * @return conflict index of the spot
-	 */
-	public static double conflictIndex (AffymetrixChip chip, int row, int col,
-			int pid)
-	{
-		// TODO implement this
-		
-		throw new IllegalStateException ("Unimplemented method!");
 	}
 }
