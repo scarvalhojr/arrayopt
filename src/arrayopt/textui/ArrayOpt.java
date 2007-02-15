@@ -1,9 +1,9 @@
 /*
  * ArrayOpt.java
  *
- * $Revision$
+ * $Revision: 1.24 $
  *
- * $Date$
+ * $Date: 2007/02/06 20:41:47 $
  *
  * Copyright 2005 Sergio Anibal de Carvalho Junior
  *
@@ -37,8 +37,9 @@
 
 package arrayopt.textui;
 
+import java.lang.management.*;
 import arrayopt.layout.*;
-import arrayopt.qap.*;
+// import arrayopt.qap.*;
 import java.io.*;
 
 /**
@@ -57,15 +58,19 @@ public class ArrayOpt
 	
 	private static int AFFY_CHIP = 1;
 	
+	private static final double NANO = 1000000000D;
+	
 	public static void main (String args[])
 	{
+		ThreadMXBean threadmx;
 		LayoutAlgorithm alg[];
 		Chip	chip, copy = null;
 		String	filename, dep_seq;
 		int		i, type, rows, cols, probes, probe_len, num_alg, a;
 		boolean	ignore_fixed, check, calc_bl, calc_blm, calc_ci, print_chip;
-		long	bl, start, end, total = 0;
-		double	norm_bl;
+		long	bl, begintime, endtime, begincpu, endcpu, beginuser, enduser;
+		long	totaltime, totalcpu, totaluser;
+		double	cpuload, userload, norm_bl;
 
 		try
 		{
@@ -171,6 +176,10 @@ public class ArrayOpt
 			return;
 		}
 		
+		// TODO remove this
+		// System.err.println("Loading Affymetrix definition of conflict index...");
+		// ConflictIndex.loadDefinition(ConflictIndex.AFFYMETRIX_DEFINITION);
+		
 		// check use of standard deposition sequences
 		if (dep_seq.equalsIgnoreCase("AFFY"))
 			dep_seq = AFFY_DEP_SEQ;
@@ -275,6 +284,16 @@ public class ArrayOpt
 			}
 		}
 		
+		threadmx = ManagementFactory.getThreadMXBean();
+		if (!threadmx.isCurrentThreadCpuTimeSupported())
+			System.err.println("WARNING: CPU monitoring is not avaliable.");
+		else
+			threadmx.setThreadCpuTimeEnabled(true);
+		
+		begintime = endtime = totaltime = 0;
+		begincpu = endcpu = totalcpu = 0;
+		beginuser = enduser = totaluser = 0;
+		
 		for (a = 0; a < num_alg; a++)
 		{
 			if (calc_bl)
@@ -292,17 +311,41 @@ public class ArrayOpt
 			
 			System.err.println("Running " + alg[a] + "...");
 			
-			start = System.nanoTime();
+			begintime = System.nanoTime();
+			if (threadmx.isThreadCpuTimeEnabled())
+			{
+				begincpu = threadmx.getCurrentThreadCpuTime();
+				beginuser = threadmx.getCurrentThreadUserTime();
+			}
 
 			// re-place probes on the chip
 			alg[a].changeLayout(chip);
 			
-			end = System.nanoTime();
+			if (threadmx.isThreadCpuTimeEnabled())
+			{
+				enduser = threadmx.getCurrentThreadUserTime();
+				endcpu = threadmx.getCurrentThreadCpuTime();
+			}
+			endtime = System.nanoTime();
 			
-			total += end - start;
+			totaltime += endtime - begintime;
+			System.err.println("Elapsed time: " + (endtime - begintime)/NANO +
+				" sec");
 			
-			System.err.println("Elapsed time: " +
-					(end - start)/Math.pow(10,9) + " sec");
+			if (threadmx.isThreadCpuTimeEnabled())
+			{
+				totalcpu += endcpu - begincpu;
+				totaluser += enduser - beginuser;
+			
+				cpuload = (endcpu - begincpu) / (double) (endtime - begintime);
+				userload = (enduser - beginuser) / (double) (endtime - begintime);
+			
+				System.err.println("CPU time: " + (endcpu - begincpu)/NANO +
+					" sec (load: " + cpuload + ")");
+				System.err.println("CPU time (user mode): " +
+					(enduser - beginuser)/NANO + " sec (load: " + userload +
+					")");
+			}
 		}
 
 		if (calc_bl)
@@ -318,8 +361,23 @@ public class ArrayOpt
 					LayoutEvaluation.averageConflictIndex(chip));
 		}
 
-		if (total > 0)
-			System.err.println("Total time: " + total/Math.pow(10,9) + " sec");
+		// TODO uncomment this
+		// System.err.println("Total elapsed time: " + totaltime/NANO + " sec");
+		System.err.println("Total time: " + totaltime/NANO + " sec");
+		if (threadmx.isThreadCpuTimeEnabled())
+		{
+			cpuload = totalcpu / (double) totaltime;
+			userload = totaluser / (double) totaltime;
+		
+			// TODO uncomment this
+			// System.err.println("Total CPU time: " + totalcpu/NANO +
+			System.err.println("CPU time: " + totalcpu/NANO +
+				" sec (load: " + cpuload + ")");
+			// TODO uncomment this
+			// System.err.println("Total CPU time (user mode): " + totaluser/NANO +
+			System.err.println("CPU time (user mode): " + totaluser/NANO +
+				" sec (load: " + userload + ")");
+		}
 
 		if (copy != null)
 		{
@@ -351,6 +409,50 @@ public class ArrayOpt
 					new PrintWriter(System.out));
 		}
 		
+		// TODO remove this
+		/*
+		int cn = chip.countComplementaryNeighbors();
+		double perc = 100.0 * cn / chip.getNumberOfProbes();
+		System.err.println("Complementary neighbors: " + cn + " (" + perc + "%)");
+		/*
+		try
+		{
+			BufferedOutputStream out;
+			
+			out = new BufferedOutputStream (new FileOutputStream("compmap.bmp"));
+			
+			chip.writeComplementarityMap(out);
+		}
+		catch (IOException e)
+		{
+			e.printStackTrace();
+			System.exit(1);
+			return;
+		}
+		//*/
+
+		// TODO remove this
+		/*
+		int snp = chip.countSNPNeighbors();
+		double perc = 100.0 * snp / chip.getNumberOfProbes();
+		System.err.println("Complementary neighbors: " + snp + " (" + perc + "%)");
+		//*
+		try
+		{
+			BufferedOutputStream out;
+			
+			out = new BufferedOutputStream (new FileOutputStream("snpmap.bmp"));
+			
+			chip.writeSNPPairMap(out);
+		}
+		catch (IOException e)
+		{
+			e.printStackTrace();
+			System.exit(1);
+			return;
+		}
+		//*/
+
 		System.exit(0);
 	}
 	
@@ -512,6 +614,44 @@ public class ArrayOpt
 						args[3] + "' for Greedy PLus placement algorithm.");
 			
 			alg = new GreedyPlusPlacer(mode, window, kvalue);
+		}		
+		
+		// ****************************
+		// Greedy Plus Center placement
+		// ****************************
+		else if (args[0].equalsIgnoreCase("GREEDYPLUSCENTER"))
+		{
+			int mode, window, kvalue;
+			
+			if (args.length != 4)
+				throw new IllegalArgumentException
+					("Missing arguments for Greedy Plus Center algorithm.");
+			
+			if (args[1].equalsIgnoreCase("BL"))
+				mode = OptimumSingleProbeEmbedding.BORDER_LENGTH_MIN;
+			else if (args[1].equalsIgnoreCase("CI"))
+				mode = OptimumSingleProbeEmbedding.CONFLICT_INDEX_MIN;
+			else
+				throw new IllegalArgumentException ("Unknown '" + args[1] +
+						"' mode for Greedy Plus Center placement algorithm.");
+			
+			if (args[2].matches("\\A\\d+\\z"))
+				window = Integer.parseInt(args[2]);
+			else if (args[2].matches("[0-9]+[Kk]"))
+				window = 1000 * Integer.parseInt(
+									args[2].substring(0,args[2].length()-1));
+			else
+				throw new IllegalArgumentException
+					("Invalid window-size value '" + args[2] +
+						"' for Greedy Plus Center placement algorithm.");
+			
+			if (args[3].matches("[0-9]+"))
+				kvalue = Integer.parseInt(args[3]);
+			else
+				throw new IllegalArgumentException ("Invalid k-value '" +
+						args[3] + "' for Greedy PLus placement algorithm.");
+			
+			alg = new GreedyPlusCenterPlacer(mode, window, kvalue);
 		}		
 		
 		// *************
@@ -737,7 +877,13 @@ public class ArrayOpt
 		
 		else if (name.equalsIgnoreCase("ALIGNED"))
 			alg = new AlignedEmbedding();
-		
+
+		else if (name.equalsIgnoreCase("SNPLEFT"))
+			alg = new SNPLeftmostEmbedding();
+
+		else if (name.equalsIgnoreCase("SNPRIGHT"))
+			alg = new SNPRightmostEmbedding();
+
 		// ***********************
 		// Sequential re-embedding
 		// ***********************

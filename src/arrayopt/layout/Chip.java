@@ -592,6 +592,10 @@ public abstract class Chip implements Cloneable
 	 * Computes a rank for each probe based on the probe's sequence, which can
 	 * be used to sort the probes lexicographically.
 	 * 
+	 * TODO this only works for probes of length <= 32.
+	 * This is because the 'long' datatype has 64 bits and each base in the
+	 * probe sequence takes 2 bits.  
+	 * 
 	 * @param pid array of probe IDs
 	 * @param start starting position in the array 
 	 * @param end last position in the array
@@ -646,6 +650,155 @@ public abstract class Chip implements Cloneable
 					rank[i - start] <<= 2;
 					rank[i - start] |= base_mask;
 				}
+		}
+		
+		return rank;
+	}
+
+	/**
+	 * Computes a rank for each probe based on the probe's sequence from the
+	 * middle base towards the ends, which can be used to sort the probes
+	 * lexicographically with an emphasis on the middle bases.
+	 *
+	 * TODO this only works for probes of length <= 32.
+	 * This is because the 'long' datatype has 64 bits and each base in the
+	 * probe sequence takes 2 bits.
+	 * 
+	 * @param pid array of probe IDs
+	 * @param start starting position in the array 
+	 * @param end last position in the array
+	 * @return an array of numbers corresponding to each input probe
+	 */
+	public long[] computeCenteredProbeRanks (int pid[], int start, int end)
+	{
+		int midbase = (int) Math.ceil(probe_len / 2.0); 
+		long rank[] = new long[end - start + 1];
+		
+		for (int i = start; i <= end; i++)
+			rank[i - start] = computeCenteredProbeRank(pid[i], midbase);
+		
+		return rank;
+	}
+	
+	protected long computeCenteredProbeRank (int pid, int midbase)
+	{
+		int  	base = 0, lword, rword, lpos, rpos, lbitmask = 0, rbitmask = 0;
+		int		direction = +1;
+		long	base_mask, rank = 0;
+		boolean	found;
+		char 	nucl;
+		
+		// find middle base, which is the starting position for the right scan
+		for (rword = -1, rpos = -1; base < midbase;)
+		{
+			if (++rpos % Integer.SIZE == 0)
+			{
+				rbitmask = 0x01 << (Integer.SIZE - 1);
+				rword++;
+			}
+			else
+				rbitmask >>>= 1;
+			
+			if ((embed[pid][rword] & rbitmask) != 0)
+				base++;
+		}
+		
+		// find the position were the left scan starts
+		lpos = rpos;
+		lword = rword;
+		lbitmask = rbitmask;
+		while (true)
+		{
+			if (lpos-- % Integer.SIZE == 0)
+			{
+				lbitmask = 0x01;
+				lword--;
+			}
+			else
+				lbitmask <<= 1;
+
+			if ((embed[pid][lword] & lbitmask) != 0)
+				break;
+		}
+
+		while (lpos >= 0 || rpos < embed_len)
+		{
+			// nucleotide initially unknown
+			nucl = '?';
+			
+			if (direction == +1 && rpos < embed_len)
+			{
+				nucl = dep_seq[rpos];
+
+				// find next base to the right
+				for (found = false; rpos < embed_len - 1 && !found;)
+				{
+					if (++rpos % Integer.SIZE == 0)
+					{
+						rbitmask = 0x01 << (Integer.SIZE - 1);
+						rword++;
+					}
+					else
+						rbitmask >>>= 1;
+					
+					if ((embed[pid][rword] & rbitmask) != 0)
+						found = true;
+				}
+				
+				if (!found) rpos = embed_len;
+			}
+			else if (direction == -1 && lpos >= 0) 
+			{
+				nucl = dep_seq[lpos];
+				
+				// find next base to the left
+				for (found = false; lpos > 0 && !found;)
+				{
+					if (lpos-- % Integer.SIZE == 0)
+					{
+						lbitmask = 0x01;
+						lword--;
+					}
+					else
+						lbitmask <<= 1;
+					
+					if ((embed[pid][lword] & lbitmask) != 0)
+						found = true;
+				}
+				
+				if (!found) lpos = -1;
+			}
+			
+			direction = - direction;
+			
+			switch (nucl)
+			{
+				case 'A':
+					base_mask = 0x00;
+					break;
+					
+				case 'C':
+					base_mask = 0x01;
+					break;
+
+				case 'G':
+					base_mask = 0x02;
+					break;
+					
+				case 'T':
+					base_mask = 0x03;
+					break;
+				
+				case '?':
+					continue;
+				
+				default:
+					throw new IllegalArgumentException
+						("Illegal deposition sequence.");
+			}
+
+			rank <<= 2;
+			rank |= base_mask;
 		}
 		
 		return rank;
@@ -1129,4 +1282,360 @@ public abstract class Chip implements Cloneable
 	 * otherwise
 	 */
 	public abstract boolean validateLayout ();
+	
+	// TODO remove this
+	private boolean complementaryProbes (int id1, int id2)
+	{
+		int base, pos1, pos2, w1 = -1, w2 = -1, bitmask1 = 0, bitmask2 = 0;
+		int mid_base = (int) Math.ceil(probe_len / 2.0);
+		
+		for (base = 0, pos1 = -1, pos2 = -1; ++pos1 < embed_len;)
+		{
+			if ((pos1 % Integer.SIZE) == 0)
+			{
+				w1++;
+				bitmask1 = 0x01 << (Integer.SIZE - 1);
+			}
+			else
+				bitmask1 >>>= 1; 
+			
+			if ((embed[id1][w1] & bitmask1) != 0)
+			{
+				base++;
+				
+				while (++pos2 < embed_len)
+				{
+					if ((pos2 % Integer.SIZE) == 0)
+					{
+						w2++;
+						bitmask2 = 0x01 << (Integer.SIZE - 1);
+					}
+					else
+						bitmask2 >>>= 1;
+					
+					if ((embed[id2][w2] & bitmask2) != 0)
+					{
+						if (base == mid_base)
+						{
+							if (dep_seq[pos1] != AffymetrixChip.getBaseComplement(dep_seq[pos2]))
+								return false;
+							// else
+								break;
+						}
+						
+						if (dep_seq[pos1] != dep_seq[pos2])
+							return false;
+						// else
+							break;
+					}
+				}
+			}
+		}
+			
+		return true;
+	}
+	
+	// TODO remove this
+	public int countComplementaryNeighbors ()
+	{
+		BitSet neighbors = new BitSet(num_probes);
+		int id1, id2; 
+		
+		for (int r = 0; r < num_rows; r++)
+			for (int c = 0; c < num_cols; c++)
+			{
+				if ((id1 = spot[r][c]) == EMPTY_SPOT)
+					continue;
+				
+				if (neighbors.get(id1))
+					continue;
+				
+				if (c < num_cols - 1)
+					if ((id2 = spot[r][c + 1]) != EMPTY_SPOT)
+						if (complementaryProbes(id1, id2))
+						{
+							neighbors.set(id1);
+							neighbors.set(id2);
+							continue;
+						}
+				
+				if (r < num_rows - 1)
+					if ((id2 = spot[r + 1][c]) != EMPTY_SPOT)
+						if (complementaryProbes(id1, id2))
+						{
+							neighbors.set(id1);
+							neighbors.set(id2);
+						}
+			}
+		
+		return neighbors.cardinality();
+	}
+
+	// TODO remove this
+	public int countSNPNeighbors ()
+	{
+		BitSet neighbors = new BitSet(num_probes);
+		int id1, id2; 
+		
+		// TODO remove this
+		//int ver = 0, hor = 0;
+		//boolean print = true;
+		
+		for (int r = 0; r < num_rows; r++)
+			for (int c = 0; c < num_cols; c++)
+			{
+				if ((id1 = spot[r][c]) == EMPTY_SPOT)
+					continue;
+				
+				if (neighbors.get(id1))
+					continue;
+				
+				if (c < num_cols - 1)
+					if ((id2 = spot[r][c + 1]) != EMPTY_SPOT)
+						if (isSNPProbePair(id1, id2))
+						{
+							neighbors.set(id1);
+							neighbors.set(id2);
+							
+							// TODO remove this
+							/*
+							hor += 2;
+							if (print)
+							{
+								System.err.print(r + ", " + c + ": ");
+								printProbe(id1);
+								System.err.println();
+								printEmbedding(id1);
+								System.err.print("\n" + r + ", " + c + ": ");
+								printProbe(id2);
+								System.err.println();
+								printEmbedding(id2);
+								System.err.println();
+								print = false;
+							}
+							//*/
+							
+							continue;
+						}
+				
+				if (r < num_rows - 1)
+					if ((id2 = spot[r + 1][c]) != EMPTY_SPOT)
+						if (isSNPProbePair(id1, id2))
+						{
+							neighbors.set(id1);
+							neighbors.set(id2);
+							
+							// TODO remove this
+							//ver += 2;
+						}
+			}
+		
+		// TODO remove this
+		//System.err.println("Hor: " + hor);
+		//System.err.println("Ver: " + ver);
+		
+		return neighbors.cardinality();
+	}
+
+	// TODO remove this
+	public boolean isSNPProbePair (int id1, int id2)
+	{
+		int base, pos1, pos2, w1 = -1, w2 = -1, bitmask1 = 0, bitmask2 = 0;
+		boolean mismatch = false;
+		
+		for (base = 0, pos1 = -1, pos2 = -1; ++pos1 < embed_len;)
+		{
+			if ((pos1 % Integer.SIZE) == 0)
+			{
+				w1++;
+				bitmask1 = 0x01 << (Integer.SIZE - 1);
+			}
+			else
+				bitmask1 >>>= 1; 
+			
+			if ((embed[id1][w1] & bitmask1) != 0)
+			{
+				base++;
+				
+				while (++pos2 < embed_len)
+				{
+					if ((pos2 % Integer.SIZE) == 0)
+					{
+						w2++;
+						bitmask2 = 0x01 << (Integer.SIZE - 1);
+					}
+					else
+						bitmask2 >>>= 1;
+					
+					if ((embed[id2][w2] & bitmask2) != 0)
+					{	
+						if (dep_seq[pos1] != dep_seq[pos2])
+						{
+							if (mismatch)
+								// SNP pairs have at most 1 mismatch
+								return false;
+							
+							mismatch = true;
+						}
+						
+						break;
+					}
+				}
+			}
+		}
+
+		if (mismatch)
+			// a single mismatch was found
+			return true;
+		// else
+			return false;
+	}
+
+	private BitSet getComplementarityMap()
+	{
+		BitSet neighbors = new BitSet(num_rows * num_cols);
+		int id1, id2; 
+		
+		for (int r = 0; r < num_rows; r++)
+			for (int c = 0; c < num_cols; c++)
+			{
+				if ((id1 = spot[r][c]) == EMPTY_SPOT)
+					continue;
+				
+				if (neighbors.get(r * num_cols + c))
+					continue;
+				
+				if (c < num_cols - 1)
+					if ((id2 = spot[r][c + 1]) != EMPTY_SPOT)
+						if (complementaryProbes(id1, id2))
+						{
+							neighbors.set(r * num_cols + c);
+							neighbors.set(r * num_cols + (c + 1));
+							continue;
+						}
+				
+				if (r < num_rows - 1)
+					if ((id2 = spot[r + 1][c]) != EMPTY_SPOT)
+						if (complementaryProbes(id1, id2))
+						{
+							neighbors.set(r * num_cols + c);
+							neighbors.set((r + 1) * num_cols + c);
+						}
+			}
+		
+		return neighbors;		
+	}
+	
+	public void writeComplementarityMap (OutputStream out) throws IOException
+	{
+		BMPFile bmp;
+		byte[]	empty, comp, nonc;
+		BitSet	compmap;
+		
+		compmap = getComplementarityMap();
+		
+		// start BMP file
+		bmp = new BMPFile (num_rows, num_cols, out);
+		bmp.writeHeader();
+		
+		// get colors
+		comp  = BMPFile.getRGBColor (0xFF0000);
+		nonc  = BMPFile.getRGBColor (0x800000);
+		empty = BMPFile.getRGBColor (0xFFFFFF);
+		
+		// print a colored pixel for each spot
+		// note that lines are printed from last to first
+		for (int r = num_rows - 1; r >= 0; r--)
+		{
+			for (int c = 0; c < num_cols; c++)
+			{
+				if (spot[r][c] == EMPTY_SPOT)
+					// empty spot
+					out.write(empty);
+				else if (compmap.get(r * num_cols + c))
+					out.write(comp);
+				else
+					out.write(nonc);
+			}
+			
+			bmp.finishRow();
+		}
+		
+		out.flush();
+		out.close();
+	}
+
+	private BitSet getSNPPairMap()
+	{
+		BitSet neighbors = new BitSet(num_rows * num_cols);
+		int id1, id2; 
+		
+		for (int r = 0; r < num_rows; r++)
+			for (int c = 0; c < num_cols; c++)			
+			{
+				if ((id1 = spot[r][c]) == EMPTY_SPOT)
+					continue;
+				
+				if (neighbors.get(r * num_cols + c))
+					continue;
+
+				if (c < num_cols - 1)
+					if ((id2 = spot[r][c + 1]) != EMPTY_SPOT)
+						if (isSNPProbePair(id1, id2))
+						{
+							neighbors.set(r * num_cols + c);
+							neighbors.set(r * num_cols + (c + 1));
+							continue;
+						}
+				
+				if (r < num_rows - 1)
+					if ((id2 = spot[r + 1][c]) != EMPTY_SPOT)
+						if (isSNPProbePair(id1, id2))
+						{
+							neighbors.set(r * num_cols + c);
+							neighbors.set((r + 1) * num_cols + c);
+						}
+			}
+		
+		return neighbors;		
+	}
+
+	public void writeSNPPairMap (OutputStream out) throws IOException
+	{
+		BMPFile bmp;
+		byte[]	empty, pair, nonp;
+		BitSet	compmap;
+		
+		compmap = getSNPPairMap();
+		
+		// start BMP file
+		bmp = new BMPFile (num_rows, num_cols, out);
+		bmp.writeHeader();
+		
+		// get colors
+		pair  = BMPFile.getRGBColor (0xFF0000);
+		nonp  = BMPFile.getRGBColor (0x800000);
+		empty = BMPFile.getRGBColor (0xFFFFFF);
+		
+		// print a colored pixel for each spot
+		// note that lines are printed from last to first
+		for (int r = num_rows - 1; r >= 0; r--)
+		{
+			for (int c = 0; c < num_cols; c++)
+			{
+				if (spot[r][c] == EMPTY_SPOT)
+					// empty spot
+					out.write(empty);
+				else if (compmap.get(r * num_cols + c))
+					out.write(pair);
+				else
+					out.write(nonp);
+			}
+			
+			bmp.finishRow();
+		}
+		
+		out.flush();
+		out.close();
+	}
 }

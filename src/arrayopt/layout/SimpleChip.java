@@ -124,6 +124,8 @@ public class SimpleChip extends Chip
 		String				line, field[];
 		int					ln = 0, r, c, probe_id = -1, i = 0;
 		boolean				empty, fixed;
+		
+		// TODO check if largest coordinates corespond to chip dimension
 
 		// check if chip spec has already been input
 		if (input_done)

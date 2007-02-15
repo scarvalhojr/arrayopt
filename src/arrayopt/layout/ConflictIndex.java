@@ -97,7 +97,14 @@ public abstract class ConflictIndex
 	 * beginning of the probe. This definition is mainly used for debugging.
 	 */
 	public static final int UNBALANCED_DEFINITION = 3;
-	
+
+	/**
+	 * This constants represents the definition of conflict index as
+	 * in the default definition using Affymetrix's suggested position-dependent
+	 * weights.
+	 */
+	public static final int AFFYMETRIX_DEFINITION = 4;
+
 	/**
 	 * The currently loaded definition of conflict index.
 	 */
@@ -127,6 +134,10 @@ public abstract class ConflictIndex
 
 			case UNBALANCED_DEFINITION:
 				loaded_def = new Unbalanced ();
+				break;
+
+			case AFFYMETRIX_DEFINITION:
+				loaded_def = new Affymetrix ();
 				break;
 
 			default:
@@ -258,6 +269,64 @@ public abstract class ConflictIndex
 						(base + 1) : (probe_len - base + 1);
 			
 			return c * Math.exp(theta * lambda);
+		}
+		
+		@Override
+		double distanceWeight_internal (int r1, int c1, int r2, int c2)
+		{
+			return weight_dist[DIM + r2 - r1][DIM + c2 - c1];
+		}
+	}
+
+	/**
+	 * Affymetrix conflict index defintion.
+	 */
+	private static class Affymetrix extends ConflictIndex
+	{
+		private final int DIM = 3;
+		
+		private double weight_dist[][];
+		
+		Affymetrix ()
+		{
+			int size, h, v;
+			double d2;
+			
+			size = 2 * DIM + 1;
+			
+			weight_dist = new double[size][size];
+			
+			for (int r = 0; r < size; r++)
+			{
+				v = DIM - r;
+				
+				for (int c = 0; c < size; c++)
+				{
+					h = DIM - c;
+					
+					d2 = v * v + h * h;
+					
+					weight_dist[r][c] = d2 > 0 ? 1 / d2 : 0;
+				}
+			}
+		}
+		
+		@Override
+		int dimConflictRegion_internal ()
+		{
+			return DIM;
+		}
+		
+		@Override
+		double positionWeight_internal (int base, int probe_len)
+		{
+			double delta;
+			
+			delta = (base <= probe_len - base) ? base : (probe_len - base);
+			
+			delta = delta / (int) Math.floor(probe_len / 2.0);
+			
+			return 1 - Math.pow(1 - delta, 4.0);
 		}
 		
 		@Override

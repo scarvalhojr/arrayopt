@@ -45,6 +45,24 @@ import arrayopt.util.QuickSort;
  */
 public class SortedSequencesOrdering implements ProbeOrderingAlgorithm	
 {
+	public static final int LEFTMOST = 0;
+	
+	public static final int CENTERED = 1;
+
+	// TODO public static final int RIGHTMOST = 2;
+
+	private int emphasis;
+	
+	public SortedSequencesOrdering ()
+	{
+		this(LEFTMOST);
+	}
+	
+	public SortedSequencesOrdering (int emphasis)
+	{
+		this.emphasis = emphasis;
+	}
+	
 	/**
 	 *
 	 */
@@ -58,7 +76,13 @@ public class SortedSequencesOrdering implements ProbeOrderingAlgorithm
 	 */
 	public void orderProbes (Chip chip, int[] id, int start, int end)
 	{
-		long probe_rank[] = chip.computeProbeRanks(id, 0, id.length - 1);
+		long probe_rank[];
+		
+		if (emphasis == LEFTMOST)
+			probe_rank = chip.computeProbeRanks(id, 0, id.length - 1);
+		else // if (emphasis == CENTERED)
+			probe_rank = chip.computeCenteredProbeRanks(id, 0, id.length - 1);
+		
 		QuickSort.sort(new SequenceSorting(id, probe_rank), start,
 				end - start + 1);
 	}
